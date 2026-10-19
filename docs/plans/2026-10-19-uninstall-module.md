@@ -263,7 +263,7 @@ joten mikään ei voi kääntyä rinnakkain Coren kanssa. Aallot 2–6 ovat per�
 projektiin, jonka seuraava lukee. Aitoa rinnakkaisuutta on vasta Wave 7:ssä (CLI, UI, dokumentit).
 
 ### T2: Core: Quarantine ja BackupSessions
-- Status: pending
+- Status: done f531d20
 - Model: opus
 - Requirements: REQ-7
 - Constraints/edge: CON-6, EDGE-5, EDGE-6
@@ -329,7 +329,7 @@ projektiin, jonka seuraava lukee. Aitoa rinnakkaisuutta on vasta Wave 7:ssä (CL
 Yksi tehtävä: T3 luo moduuliprojektin, johon T4, T5 ja T6 kirjoittavat myöhemmin.
 
 ### T3: Uninstall-projekti: InstalledProgramReader ja NameMatcher
-- Status: pending
+- Status: done c525e57
 - Model: opus
 - Requirements: REQ-1
 - Constraints/edge: CON-1, CON-4, EDGE-3, EDGE-4
