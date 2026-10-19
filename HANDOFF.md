@@ -139,8 +139,10 @@ ohjelmien HKCU-ProgId:t, `.gitignore`→`txtfile`, jota Windows 11 ei enää rek
 Downloads-kansioihin, 3 MRU-listaa (OpenSavePidlMRU 301, LastVisitedPidlMRU 17, TypedPaths 26). 0 Uninstall-orpoa.
 Ensimmäinen versio antoi 47 tiedostotyyppiorpoa, joista 26 oli vääriä (`perfmon` ilman päätettä, `.eml`/`.pdb` joilla
 PersistentHandler-aliavain, selkonimet oletusarvossa); säännöt tiukennettiin (päätös 20). Kuiva `clean --item "registry:mru:"`
-toimi eikä luonut varmuuskopiokansiota. **Oikeaa `--apply`-ajoa ei ole tehty** oikeaan rekisteriin; testit kattavat
-export → poisto → import -kierroksen testiavaimessa. UI:n rekisterisivu ja "Palauta varmuuskopio..." (tyhjä lista) testattu.
+toimi eikä luonut varmuuskopiokansiota. Testit kattavat export → poisto → import -kierroksen testiavaimessa.
+**Käyttäjä ajoi oikean rekisteripuhdistuksen ja palautuksen UI:sta 19.10.2026 klo 17:38** (MUICache-kategoria, 322 arvoa):
+varmuuskopio `registry-backups\20261019-173834\001-HKCU_..._MuiCache.reg` + manifest syntyi, palautus toimi.
+Käyttäjän arvio: "vaikutti toimivan".
 
 Tunnisteet: `registry:uninstall:<avain>`, `registry:ext:<avain>`, `registry:progid:<avain>`, `registry:muicache:<avain>|<arvo>`,
 `registry:mru:<avain>`. Avainpolut muodossa `HKCU\...` / `HKLM\...` (ei HKCR). HKLM-kohteet ohitetaan ilman adminia.
@@ -181,8 +183,8 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
 5. ~~WinUI 3 (luku 7)~~ ensimmäinen versio tehty 19.10.2026. Jäljellä UI:ssa: treemap, DiskUsage-polun valinta, kuvake, oikean poiston kokeilu.
 6. ~~Käyttäjä kokeilee UI:ta~~ kokeiltu 19.10.2026, "toimii tähän asti". ~~Registry (6.3)~~ tehty 19.10.2026.
    **Kaikki ARCHITECTURE.md:n suunnitellut moduulit ja UI:n ensimmäinen versio ovat valmiit.** Seuraavaksi ehdolla:
-   a) ~~git init + ensimmäinen commit~~ tehty (`cba91ea`), etärepo puuttuu, b) ensimmäinen oikea rekisteripoisto pienellä
-   valinnalla (MRU tai muutama MUICache-arvo) ja palautuksen kokeilu, c) ~~treemap, DiskUsage-polun valinta, dotnet publish~~
+   a) ~~git init + ensimmäinen commit~~ tehty (`cba91ea`), etärepo puuttuu, b) ~~ensimmäinen oikea rekisteripoisto
+   ja palautuksen kokeilu~~ käyttäjä teki 19.10.2026 (MUICache), c) ~~treemap, DiskUsage-polun valinta, dotnet publish~~
    tehty; ~~sovelluskuvake~~ tehty 19.10.2026 (`tools\make-icon.ps1` generoi `src\Cleaner.UI\Assets\PcCleaner.ico`
    9 koossa + `.png`; `<ApplicationIcon>` UI- ja CLI-exeen, ikkunaan `AppWindow.SetIcon` tiedostosta, koska pakkaamaton
    WinUI 3 ei käytä exe-resurssia otsikkopalkissa). Jäljellä mahdollinen MSIX/asennusohjelma,
