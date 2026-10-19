@@ -4,6 +4,7 @@ using Cleaner.Core.Logging;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
 using Cleaner.Modules.DiskUsage;
+using Cleaner.Modules.Uninstall;
 using Cleaner.UI.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -40,6 +41,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsIdle), nameof(CanScanAll))]
     [NotifyCanExecuteChangedFor(nameof(ScanCommand), nameof(CleanCommand), nameof(ScanAllCommand), nameof(CancelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshProgramsCommand), nameof(UninstallProgramCommand), nameof(ScanLeftoversCommand))]
     public partial bool IsBusy { get; set; }
 
     [ObservableProperty]
@@ -53,7 +55,31 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Rekisterimoduulin sivulla näytetään palautusnappi.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowRestoreButton))]
     public partial bool IsRegistrySelected { get; set; }
+
+    /// <summary>Ohjelman poisto -sivulla näytetään ohjelmalista, haku ja poistonapit (CON-7: moduuli ajetaan vain omalta sivultaan).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowRestoreButton))]
+    public partial bool IsUninstallSelected { get; set; }
+
+    /// <summary>Palauta varmuuskopio... -nappi: rekisteri ja ohjelman poisto käyttävät samoja varmuuskopiosessioita.</summary>
+    public bool ShowRestoreButton => IsRegistrySelected || IsUninstallSelected;
+
+    /// <summary>Ohjelman poisto -sivun lista, suodatettuna ProgramFilter-tekstillä.</summary>
+    public ObservableCollection<InstalledProgramViewModel> Programs { get; } = new();
+
+    /// <summary>Kaikki luetut ohjelmat. Programs rakennetaan tästä suodattimen muuttuessa.</summary>
+    private List<InstalledProgram> _allPrograms = new();
+    private bool _loadingPrograms;
+
+    /// <summary>Hakuteksti: osamerkkijono nimestä tai julkaisijasta.</summary>
+    [ObservableProperty]
+    public partial string ProgramFilter { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(UninstallProgramCommand), nameof(ScanLeftoversCommand))]
+    public partial InstalledProgramViewModel? SelectedProgram { get; set; }
 
     /// <summary>Levytilan analyysin sivulla näytetään polku- ja top-N-valinta sekä treemap.</summary>
     [ObservableProperty]
@@ -84,6 +110,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         BusyTitle = "";
         DiskUsagePath = "";
         DiskUsageTop = 20;
+        ProgramFilter = "";
         IsElevated = ElevationHelper.IsElevated();
 
         _fileLog = new FileLogger(minLevel: LogLevel.Debug);
@@ -167,6 +194,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 BusyTitle = $"Skannataan: {target.DisplayName}";
                 target.ClearScan();
 
+                // Ohjelman poisto: kohde asetetaan Etsi jäänteet- tai Poista ohjelma -napilla ennen skannausta.
+                if (target.Module is UninstallModule { Target: null })
+                {
+                    target.StatusText = "Valitse ohjelma listasta ja paina Etsi jäänteet tai Poista ohjelma.";
+                    continue;
+                }
+
                 if (target.Module is DiskUsageModule diskUsage)
                 {
                     var top = Math.Clamp((int)DiskUsageTop, 1, 500);
@@ -221,7 +255,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         var isStartup = module.Id == "startup";
-        var verb = isStartup ? "poistetaan käytöstä" : "poistetaan";
+        var isUninstall = module.Id == "uninstall";
+        var verb = isUninstall ? "siirretään karanteeniin" : isStartup ? "poistetaan käytöstä" : "poistetaan";
 
         // 1) Kuiva ajo
         IReadOnlyList<CleanResult> dry;
@@ -269,12 +304,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
 
         // 3) Toinen vahvistus
-        var confirmText = isStartup
+        var confirmText = isUninstall
+            ? $"Siirretäänkö {dryRemoved} kohdetta karanteeniin?\n\nKansiot ja tiedostot siirretään kansioon %LOCALAPPDATA%\\PcCleaner\\quarantine, rekisteriavaimet viedään .reg-varmuuskopioon. Palautus: Palauta varmuuskopio... tai pccleaner restore <aikaleima>."
+            : isStartup
             ? $"Poistetaanko {dryRemoved} käynnistyskohdetta käytöstä?\n\nMitään ei poisteta. Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä."
             : $"Poistetaanko {dryRemoved} kohdetta pysyvästi" + (dryBytes > 0 ? $" ({ByteFormatter.Format(dryBytes)})" : "") +
               "?\n\nTiedostot eivät mene roskakoriin. Kaikki poistot kirjataan lokiin.";
+        var confirmButton = isUninstall ? "Siirrä karanteeniin" : isStartup ? "Poista käytöstä" : "Poista pysyvästi";
 
-        if (!await _dialogs.ConfirmAsync("Vahvista", confirmText, isStartup ? "Poista käytöstä" : "Poista pysyvästi"))
+        if (!await _dialogs.ConfirmAsync("Vahvista", confirmText, confirmButton))
             return;
 
         // 4) Oikea ajo
@@ -302,6 +340,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var resultText = $"{char.ToUpper(verb[0])}{verb[1..]} {removed} kohdetta" +
                          (freed > 0 ? $", vapautettu {ByteFormatter.Format(freed)}" : "") +
                          (skipped > 0 ? $". Ohitettu {skipped} (katso loki)." : ".");
+        if (module.Module is UninstallModule uninstall)
+        {
+            if (uninstall.LastQuarantineDirectory is not null)
+                resultText += $"\n\nKaranteeni: {uninstall.LastQuarantineDirectory}";
+            if (uninstall.LastBackupTimestamp is not null)
+                resultText += $"\nPalautus: pccleaner restore {uninstall.LastBackupTimestamp}";
+        }
         await _dialogs.InfoAsync("Valmis", resultText);
 
         // Tulos vanheni: skannataan moduuli uudelleen.
@@ -332,40 +377,159 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void ClearLog() => LogLines.Clear();
 
     [RelayCommand]
-    private async Task RestoreRegistryBackupAsync()
+    private async Task RestoreBackupAsync()
     {
-        var backups = RegistryBackup.List();
-        if (backups.Count == 0)
+        var sessions = BackupSessions.List();
+        if (sessions.Count == 0)
         {
-            await _dialogs.InfoAsync("Ei varmuuskopioita", $"Rekisterivarmuuskopioita ei ole kansiossa\n{RegistryBackup.DefaultRoot}");
+            await _dialogs.InfoAsync("Ei varmuuskopioita",
+                $"Varmuuskopioita ei ole kansioissa\n{RegistryBackup.DefaultRoot}\n{Quarantine.DefaultRoot}");
             return;
         }
 
-        var options = backups.Select(b => $"{b.Timestamp}  ({b.FileCount} tiedostoa, {b.Summary})").ToList();
+        var options = sessions.Select(s => $"{s.Timestamp}  ({s.Summary})").ToList();
         var chosen = await _dialogs.PickAsync(
-            "Palauta rekisterivarmuuskopio",
-            "Valitun ajon kaikki .reg-tiedostot tuodaan takaisin rekisteriin (reg import). HKLM-avaimet vaativat järjestelmänvalvojan.",
+            "Palauta varmuuskopio",
+            "Valitun ajon .reg-tiedostot tuodaan takaisin rekisteriin ja karanteenin kansiot siirretään alkuperäisiin paikkoihinsa. HKLM-avaimet ja Program Files vaativat järjestelmänvalvojan.",
             options, "Palauta");
         if (chosen is null) return;
 
-        var backup = backups[options.IndexOf(chosen)];
-        var cts = BeginBusy($"Palautetaan: {backup.Timestamp}");
-        RegistryBackup.RestoreResult result;
+        var session = sessions[options.IndexOf(chosen)];
+        var cts = BeginBusy($"Palautetaan: {session.Timestamp}");
+        BackupSessions.RestoreResult result;
         try
         {
-            result = await Task.Run(() => RegistryBackup.Restore(backup.Timestamp, _log), cts.Token);
+            result = await Task.Run(() => BackupSessions.Restore(session.Timestamp, _log), cts.Token);
         }
         finally
         {
             EndBusy();
         }
 
-        var text = $"Palautettu {result.Imported} tiedostoa, epäonnistui {result.Failed}.";
+        var text = $"Rekisteri: palautettu {result.RegistryImported}, epäonnistui {result.RegistryFailed}. " +
+                   $"Karanteeni: palautettu {result.QuarantineRestored}, ohitettu {result.QuarantineSkipped}.";
         if (result.Messages.Count > 0) text += "\n\n" + string.Join("\n", result.Messages.Take(5));
         await _dialogs.InfoAsync("Palautus valmis", text);
 
         if (SelectedModule is { Id: "registry" } module)
             await ScanModulesAsync(new[] { module });
+        else if (SelectedModule is { Module: UninstallModule { Target: not null } } uninstallVm)
+            await ScanModulesAsync(new[] { uninstallVm });
+    }
+
+    // ---------- Ohjelman poisto ----------
+
+    private bool CanRefreshPrograms() => !IsBusy;
+
+    /// <summary>Lukee asennetut ohjelmat rekisteristä taustasäikeessä ja säilyttää valinnan, jos ohjelma on yhä listalla.</summary>
+    [RelayCommand(CanExecute = nameof(CanRefreshPrograms))]
+    private async Task RefreshProgramsAsync()
+    {
+        if (_loadingPrograms) return;
+        if (Modules.FirstOrDefault(m => m.Module is UninstallModule)?.Module is not UninstallModule module) return;
+
+        _loadingPrograms = true;
+        try
+        {
+            var programs = await Task.Run(() => module.ListPrograms());
+            _allPrograms = programs.ToList();
+            ApplyProgramFilter();
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"Ohjelmalistan luku epäonnistui: {ex}");
+            await _dialogs.InfoAsync("Ohjelmalistaa ei voitu lukea", ex.Message);
+        }
+        finally
+        {
+            _loadingPrograms = false;
+        }
+    }
+
+    partial void OnProgramFilterChanged(string value) => ApplyProgramFilter();
+
+    private void ApplyProgramFilter()
+    {
+        var selectedKey = SelectedProgram?.Program.KeyPath;
+        var filter = ProgramFilter.Trim();
+
+        Programs.Clear();
+        foreach (var program in _allPrograms)
+        {
+            if (filter.Length == 0 ||
+                program.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                (program.Publisher?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false))
+                Programs.Add(new InstalledProgramViewModel(program));
+        }
+
+        SelectedProgram = selectedKey is null
+            ? null
+            : Programs.FirstOrDefault(p => string.Equals(p.Program.KeyPath, selectedKey, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool CanActOnProgram() => !IsBusy && SelectedProgram is not null;
+
+    [RelayCommand(CanExecute = nameof(CanActOnProgram))]
+    private async Task ScanLeftoversAsync()
+    {
+        if (SelectedProgram is not { } selected) return;
+        if (SelectedModule is not { Module: UninstallModule module } vm) return;
+
+        module.Target = selected.Program;
+        module.TargetKeyRemoved = !RegistryPaths.KeyExists(selected.Program.KeyPath);
+        await ScanModulesAsync(new[] { vm });
+    }
+
+    [RelayCommand(CanExecute = nameof(CanActOnProgram))]
+    private async Task UninstallProgramAsync()
+    {
+        if (SelectedProgram is not { } selected) return;
+        if (SelectedModule is not { Module: UninstallModule module } vm) return;
+
+        var program = selected.Program;
+        var name = program.Name;
+        if (!await _dialogs.ConfirmAsync("Poista ohjelma",
+                $"Käynnistetäänkö ohjelman '{name}' oma poisto-ohjelma? Sen jälkeen jäänteet etsitään automaattisesti.",
+                "Käynnistä"))
+            return;
+
+        UninstallRunResult result;
+        var cts = BeginBusy($"Odotetaan poisto-ohjelmaa: {name}");
+        ProgressMessage = "Poisto-ohjelma on käynnissä. Peruuta lopettaa vain odotuksen.";
+        try
+        {
+            result = await module.RunUninstallerAsync(program, quiet: false, CreateContext(dryRun: true, cts), cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            EndBusy();
+            _log.Warning($"Poisto-ohjelman odotus lopetettu: {name}");
+            await _dialogs.InfoAsync("Odotus lopetettu",
+                "Poisto-ohjelmaa ei keskeytetty. Voit etsiä jäänteet myöhemmin painikkeella Etsi jäänteet.");
+            return;
+        }
+        catch (Exception ex)
+        {
+            EndBusy();
+            _log.Error($"Poisto-ohjelman ajo epäonnistui: {ex}");
+            await _dialogs.InfoAsync("Poisto-ohjelma ei käynnistynyt", ex.Message + "\n\nVoit silti etsiä jäänteet.");
+            return;
+        }
+        finally
+        {
+            EndBusy();
+        }
+
+        if (result.Error is not null)
+        {
+            await _dialogs.InfoAsync("Poisto-ohjelma ei käynnistynyt", result.Error + "\n\nVoit silti etsiä jäänteet.");
+            return;
+        }
+
+        module.Target = program;
+        module.TargetKeyRemoved = result.KeyRemoved;
+        await ScanModulesAsync(new[] { vm });
+        await RefreshProgramsAsync();
     }
 
     /// <summary>Kutsutaan, kun valitun moduulin valinta muuttuu, jotta Puhdista-napin tila päivittyy.</summary>
@@ -377,6 +541,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (newValue is not null) newValue.PropertyChanged += OnModulePropertyChanged;
         IsRegistrySelected = newValue?.Id == "registry";
         IsDiskUsageSelected = newValue?.Id == "diskusage";
+        IsUninstallSelected = newValue?.Id == "uninstall";
+
+        // Ohjelmalista luetaan vasta, kun sivu avataan ensimmäisen kerran.
+        if (IsUninstallSelected && _allPrograms.Count == 0)
+            _ = RefreshProgramsAsync();
     }
 
     private void OnModulePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

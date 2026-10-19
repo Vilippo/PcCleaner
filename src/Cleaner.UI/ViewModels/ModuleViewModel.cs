@@ -33,6 +33,7 @@ public sealed partial class ModuleViewModel : ObservableObject
         "startup" => "",
         "diskusage" => "",
         "registry" => "",
+        "uninstall" => "",
         _ => ""
     };
 

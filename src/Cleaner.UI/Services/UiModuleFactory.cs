@@ -4,6 +4,7 @@ using Cleaner.Modules.DiskUsage;
 using Cleaner.Modules.Files;
 using Cleaner.Modules.RegistryCleaner;
 using Cleaner.Modules.Startup;
+using Cleaner.Modules.Uninstall;
 
 namespace Cleaner.UI.Services;
 
@@ -35,6 +36,7 @@ public static class UiModuleFactory
         modules.Add(new StartupModule());
         modules.Add(new DiskUsageModule());
         modules.Add(new RegistryModule());
+        modules.Add(new UninstallModule());
 
         return modules;
     }

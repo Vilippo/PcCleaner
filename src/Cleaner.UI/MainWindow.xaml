@@ -116,6 +116,55 @@
                             </Border>
                         </Grid>
                     </StackPanel>
+                    <!-- Ohjelman poisto: haku, ohjelmalista ja poistonapit -->
+                    <StackPanel Visibility="{x:Bind ViewModel.IsUninstallSelected, Mode=OneWay}" Spacing="8" Margin="0,8,0,0">
+                        <TextBox PlaceholderText="Hae ohjelmaa nimellä tai julkaisijalla"
+                                 Text="{x:Bind ViewModel.ProgramFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <ListView ItemsSource="{x:Bind ViewModel.Programs, Mode=OneWay}"
+                                  SelectedItem="{x:Bind ViewModel.SelectedProgram, Mode=TwoWay}"
+                                  MaxHeight="260"
+                                  SelectionMode="Single"
+                                  BorderThickness="1"
+                                  CornerRadius="4"
+                                  BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:InstalledProgramViewModel">
+                                    <Grid ColumnSpacing="12" Padding="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="200" />
+                                            <ColumnDefinition Width="90" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"
+                                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Version}" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"
+                                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind Publisher}" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Grid.Column="3" Text="{x:Bind SizeText}" HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"
+                                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Päivitä lista" Command="{x:Bind ViewModel.RefreshProgramsCommand}" />
+                            <Button Content="Poista ohjelma"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Command="{x:Bind ViewModel.UninstallProgramCommand}" />
+                            <Button Content="Etsi jäänteet" Command="{x:Bind ViewModel.ScanLeftoversCommand}" />
+                        </StackPanel>
+                        <TextBlock Text="Poista ohjelma ajaa ohjelman oman poisto-ohjelman ja etsii sen jälkeen jäänteet. Jäänteet siirretään karanteeniin, josta Palauta varmuuskopio... tuo ne takaisin."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
 
                     <TextBlock Text="{x:Bind ViewModel.SelectedModule.StatusText, Mode=OneWay}"
                                Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -315,9 +364,9 @@
                            VerticalAlignment="Center"
                            Style="{StaticResource BodyTextBlockStyle}" />
                 <Button Grid.Column="1" Content="Palauta varmuuskopio..."
-                        Visibility="{x:Bind ViewModel.IsRegistrySelected, Mode=OneWay}"
-                        Command="{x:Bind ViewModel.RestoreRegistryBackupCommand}"
-                        ToolTipService.ToolTip="Tuo aiemman rekisteripuhdistuksen .reg-varmuuskopiot takaisin" />
+                        Visibility="{x:Bind ViewModel.ShowRestoreButton, Mode=OneWay}"
+                        Command="{x:Bind ViewModel.RestoreBackupCommand}"
+                        ToolTipService.ToolTip="Tuo aiemman ajon rekisterivarmuuskopiot ja karanteeniin siirretyt kohteet takaisin" />
                 <Button Grid.Column="2" Content="Peruuta"
                         Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                         Command="{x:Bind ViewModel.CancelCommand}" />
