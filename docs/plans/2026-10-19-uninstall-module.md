@@ -223,7 +223,7 @@ Rekisteriarvojen skannaus kunnioittaa `ct`-peruutusta jokaisella avaimella (EDGE
 Yksi tehtävä: T1 koskee jaettuja sopimuksia (Core, Registry-moduuli, CLI, UI, testit) ja kaiken muun on kääntyvä sitä vasten.
 
 ### T1: Jaetut sopimukset: rekisteripalvelut Coreen ja CleanItem.Preselected
-- Status: pending
+- Status: done 8ec4f71
 - Model: opus
 - Requirements: REQ-5
 - Constraints/edge: CON-2, CON-3, CON-4
