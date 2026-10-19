@@ -41,7 +41,8 @@ Korjattu samalla:
 
 Ei ajettu adminina (UAC-kehotetta ei voi hyväksyä Claude-sessiosta). `%WINDIR%\Temp`, Prefetch ja
 SoftwareDistribution-poisto ovat testaamatta. `--apply` ei ole ajettu kertaakaan oikealla datalla.
-Kansio ei ole git-repositorio: `.gitignore` on, `.git` puuttuu.
+Git alustettu 19.10.2026: haara `main`, ensimmäinen commit `cba91ea` (75 tiedostoa, ei bin/obj). Ei etärepoa.
+Juuren `ARCHITECTURE.md` on vanha kopio; ajantasainen on `docs/ARCHITECTURE.md`. Poisto käyttäjän päätettävissä.
 
 ### Startup-moduuli 19.10.2026
 
@@ -153,7 +154,7 @@ Tunnisteet: `registry:uninstall:<avain>`, `registry:ext:<avain>`, `registry:prog
 5. ~~WinUI 3 (luku 7)~~ ensimmäinen versio tehty 19.10.2026. Jäljellä UI:ssa: treemap, DiskUsage-polun valinta, kuvake, oikean poiston kokeilu.
 6. ~~Käyttäjä kokeilee UI:ta~~ kokeiltu 19.10.2026, "toimii tähän asti". ~~Registry (6.3)~~ tehty 19.10.2026.
    **Kaikki ARCHITECTURE.md:n suunnitellut moduulit ja UI:n ensimmäinen versio ovat valmiit.** Seuraavaksi ehdolla:
-   a) git init + ensimmäinen commit (repo on yhä ilman versionhallintaa), b) ensimmäinen oikea rekisteripoisto pienellä
+   a) ~~git init + ensimmäinen commit~~ tehty (`cba91ea`), etärepo puuttuu, b) ensimmäinen oikea rekisteripoisto pienellä
    valinnalla (MRU tai muutama MUICache-arvo) ja palautuksen kokeilu, c) UI:n jatko: treemap, DiskUsage-polun valinta,
    kuvake, Release-build ja julkaisukansio (`dotnet publish`), d) vanhojen lokien siivous `%LOCALAPPDATA%\PcCleaner\logs`.
 7. WinUI 3 alkuperäinen kuvaus: projekti `src/Cleaner.UI`, `net8.0-windows10.0.19041.0`, MVVM (CommunityToolkit.Mvvm), NavigationView moduuleille, löydökset kategorioittain valintaruuduin, Skannaa/Puhdista-napit, kaksoisvahvistus, High-riski oletuksena kiinni, `Progress<T>` → ProgressBar, `CancellationToken` → Peruuta. Tarkempi kuvaus ARCHITECTURE.md luku 7.
