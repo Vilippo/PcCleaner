@@ -489,7 +489,7 @@ keskeneräisten tiedostojen kanssa, joten aallot ovat peräkkäisiä.
 Yksi tehtävä: T5 muokkaa samaa projektia kuin T4 ja T6.
 
 ### T5: UninstallRunner ja RunningProcessCheck
-- Status: pending
+- Status: done 430c28c
 - Model: opus
 - Requirements: REQ-2, REQ-10
 - Constraints/edge: CON-4, EDGE-1, EDGE-10
