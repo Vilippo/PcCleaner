@@ -408,7 +408,7 @@ Yksi tehtävä: T4 kirjoittaa Uninstall-projektiin, jonka T5 ja T6 myös muokkaa
 keskeneräisten tiedostojen kanssa, joten aallot ovat peräkkäisiä.
 
 ### T4: LeftoverScanner
-- Status: pending
+- Status: done 909c6d0
 - Model: fable
 - Requirements: REQ-3, REQ-4
 - Constraints/edge: CON-4, CON-8, EDGE-2, EDGE-7, EDGE-9
@@ -531,7 +531,7 @@ Yksi tehtävä: T5 muokkaa samaa projektia kuin T4 ja T6.
 Yksi tehtävä: T6 kokoaa moduulin samaan projektiin.
 
 ### T6: UninstallModule (ICleanerModule-liima, karanteeni, rekisterivarmuuskopio)
-- Status: pending
+- Status: done 4c78cf1
 - Model: opus
 - Requirements: REQ-6, REQ-8, REQ-9
 - Constraints/edge: CON-3, CON-6, CON-7, CON-8, EDGE-8
@@ -603,7 +603,7 @@ Uninstall-dll:t Wave 6:n portista, eikä kumpikaan kirjoita niitä. Foreman ajaa
 lause); T9 tulee myöhemmin ja muokkaa muita lukuja, joten tämä on sallittu eri aaltojen jako.
 
 ### T7: CLI: uninstall-komento ja restore BackupSessions-luokalla
-- Status: pending
+- Status: done dec1393
 - Model: opus
 - Requirements: REQ-11
 - Constraints/edge: CON-5, CON-7
@@ -642,7 +642,7 @@ lause); T9 tulee myöhemmin ja muokkaa muita lukuja, joten tämä on sallittu er
   tulos kertoo molemmat määrät. Päivitä `PrintHelp`-teksti (`uninstall`-rivit ja `restore`-kuvaus "rekisteri + karanteeni").
 
 ### T8: UI: Ohjelman poisto -sivu
-- Status: pending
+- Status: done 01bcb53
 - Model: opus
 - Requirements: REQ-12
 - Constraints/edge: CON-5, CON-7
@@ -674,7 +674,7 @@ lause); T9 tulee myöhemmin ja muokkaa muita lukuja, joten tämä on sallittu er
   kun moduuli on `uninstall` (`LastQuarantineDirectory`, `LastBackupTimestamp`).
 
 ### T9: Dokumentit
-- Status: pending
+- Status: done b2d042c
 - Model: opus
 - Requirements: REQ-13
 - Files: docs/ARCHITECTURE.md, README.md, HANDOFF.md
