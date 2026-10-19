@@ -3,6 +3,7 @@ using Cleaner.Core.Engine;
 using Cleaner.Core.Logging;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
+using Cleaner.Modules.DiskUsage;
 using Cleaner.Modules.RegistryCleaner;
 using Cleaner.UI.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -55,6 +56,25 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial bool IsRegistrySelected { get; set; }
 
+    /// <summary>Levytilan analyysin sivulla näytetään polku- ja top-N-valinta sekä treemap.</summary>
+    [ObservableProperty]
+    public partial bool IsDiskUsageSelected { get; set; }
+
+    /// <summary>Skannattava kansio. Tyhjä = kaikki kiinteät asemat.</summary>
+    [ObservableProperty]
+    public partial string DiskUsagePath { get; set; }
+
+    /// <summary>Montako suurinta kansiota ja tiedostoa listataan (NumberBox sitoo doublen).</summary>
+    [ObservableProperty]
+    public partial double DiskUsageTop { get; set; }
+
+    /// <summary>Viimeisimmän levytila-analyysin puu treemapia varten (useampi asema yhdistetään).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTreemap))]
+    public partial DirectoryNode? TreemapRoot { get; set; }
+
+    public bool HasTreemap => TreemapRoot is not null;
+
     public bool IsIdle => !IsBusy;
     public bool CanScanAll => !IsBusy;
 
@@ -63,6 +83,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _dialogs = dialogs;
         ProgressMessage = "";
         BusyTitle = "";
+        DiskUsagePath = "";
+        DiskUsageTop = 20;
         IsElevated = ElevationHelper.IsElevated();
 
         _fileLog = new FileLogger(minLevel: LogLevel.Debug);
@@ -146,9 +168,25 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 BusyTitle = $"Skannataan: {target.DisplayName}";
                 target.ClearScan();
 
+                if (target.Module is DiskUsageModule diskUsage)
+                {
+                    var top = Math.Clamp((int)DiskUsageTop, 1, 500);
+                    var path = DiskUsagePath.Trim().Trim('"');
+                    diskUsage.Options = new DiskUsageOptions
+                    {
+                        Roots = path.Length == 0 ? DiskUsageOptions.DefaultRoots() : new[] { path },
+                        TopFolders = top,
+                        TopFiles = top
+                    };
+                    TreemapRoot = null;
+                }
+
                 var ctx = CreateContext(dryRun: true, cts);
                 var results = await _engine.ScanAsync(ctx, new[] { target.Id }, cts.Token);
                 target.LoadScan(results[0]);
+
+                if (target.Module is DiskUsageModule scanned && scanned.LastTrees.Count > 0)
+                    TreemapRoot = DirectoryNode.Combine(scanned.LastTrees, "Kaikki asemat");
             }
         }
         catch (OperationCanceledException)
@@ -339,6 +377,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (oldValue is not null) oldValue.PropertyChanged -= OnModulePropertyChanged;
         if (newValue is not null) newValue.PropertyChanged += OnModulePropertyChanged;
         IsRegistrySelected = newValue?.Id == "registry";
+        IsDiskUsageSelected = newValue?.Id == "diskusage";
     }
 
     private void OnModulePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

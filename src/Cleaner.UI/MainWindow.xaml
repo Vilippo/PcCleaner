@@ -80,6 +80,43 @@
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextWrapping="Wrap" />
+                    <!-- Levytilan analyysi: polku, top-N ja treemap -->
+                    <StackPanel Visibility="{x:Bind ViewModel.IsDiskUsageSelected, Mode=OneWay}" Spacing="8" Margin="0,8,0,0">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Header="Kansio"
+                                     PlaceholderText="Tyhjä = kaikki kiinteät asemat"
+                                     Text="{x:Bind ViewModel.DiskUsagePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Grid.Column="1" Content="Selaa..." VerticalAlignment="Bottom" Click="PickFolder_Click" />
+                            <NumberBox Grid.Column="2" Header="Top-N" Minimum="1" Maximum="500" SmallChange="5"
+                                       SpinButtonPlacementMode="Compact" MinWidth="120"
+                                       Value="{x:Bind ViewModel.DiskUsageTop, Mode=TwoWay}" />
+                        </Grid>
+                        <Grid Visibility="{x:Bind ViewModel.HasTreemap, Mode=OneWay}" RowSpacing="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" x:Name="TreemapUpButton" Content="Ylös" Click="TreemapUp_Click" IsEnabled="False" />
+                                <TextBlock Grid.Column="1" x:Name="TreemapPathText" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            </Grid>
+                            <Border Grid.Row="1" Height="300" BorderThickness="1" CornerRadius="4"
+                                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                                <Canvas x:Name="TreemapCanvas" SizeChanged="TreemapCanvas_SizeChanged" />
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+
                     <TextBlock Text="{x:Bind ViewModel.SelectedModule.StatusText, Mode=OneWay}"
                                Style="{StaticResource BodyStrongTextBlockStyle}"
                                Margin="0,8,0,0" />

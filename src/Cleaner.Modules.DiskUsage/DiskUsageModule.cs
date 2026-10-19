@@ -38,7 +38,8 @@ public sealed class DiskUsageModule : ICleanerModule
         ReturnSpecialDirectories = false
     };
 
-    private readonly DiskUsageOptions _options;
+    /// <summary>Asetukset. Voi vaihtaa skannausten välissä (UI:n polku- ja top-N-valinta).</summary>
+    public DiskUsageOptions Options { get; set; }
 
     /// <summary>Viimeisimmän skannauksen puut juurta kohden. Tyhjä ennen ensimmäistä skannausta.</summary>
     public IReadOnlyList<DirectoryNode> LastTrees { get; private set; } = Array.Empty<DirectoryNode>();
@@ -47,7 +48,7 @@ public sealed class DiskUsageModule : ICleanerModule
 
     public DiskUsageModule(DiskUsageOptions options)
     {
-        _options = options;
+        Options = options;
     }
 
     private sealed record FileEntry(string Path, long Bytes, DateTime LastWriteUtc);
@@ -64,8 +65,8 @@ public sealed class DiskUsageModule : ICleanerModule
         var fileSinks = new List<List<FileEntry>>();
         var sinkLock = new object();
 
-        var roots = _options.Roots.Where(Directory.Exists).ToList();
-        foreach (var missing in _options.Roots.Except(roots, StringComparer.OrdinalIgnoreCase))
+        var roots = Options.Roots.Where(Directory.Exists).ToList();
+        foreach (var missing in Options.Roots.Except(roots, StringComparer.OrdinalIgnoreCase))
         {
             var msg = $"Kansiota ei ole: {missing}";
             context.Logger.Warning(msg);
@@ -93,7 +94,7 @@ public sealed class DiskUsageModule : ICleanerModule
         var parallel = new ParallelOptions
         {
             CancellationToken = ct,
-            MaxDegreeOfParallelism = Math.Max(1, _options.MaxDegreeOfParallelism)
+            MaxDegreeOfParallelism = Math.Max(1, Options.MaxDegreeOfParallelism)
         };
 
         try
@@ -130,7 +131,7 @@ public sealed class DiskUsageModule : ICleanerModule
             .SelectMany(root => root.Descendants().Skip(1).Select(n => (Root: root, Node: n)))
             .Where(x => x.Node.TotalBytes > 0)
             .OrderByDescending(x => x.Node.TotalBytes)
-            .Take(_options.TopFolders);
+            .Take(Options.TopFolders);
 
         foreach (var (root, node) in folders)
         {
@@ -141,7 +142,7 @@ public sealed class DiskUsageModule : ICleanerModule
 
         var files = fileSinks.SelectMany(s => s)
             .OrderByDescending(f => f.Bytes)
-            .Take(_options.TopFiles);
+            .Take(Options.TopFiles);
 
         foreach (var file in files)
             result.Items.Add(new CleanItem(FilePrefix + file.Path, Id, FileCategory, file.Path, file.Bytes,
@@ -191,10 +192,10 @@ public sealed class DiskUsageModule : ICleanerModule
 
         // Pidetään vain top-N ehdokkaat, jotta muisti ei kasva tiedostomäärän mukana.
         files.Add(new FileEntry(fi.FullName, length, fi.LastWriteTimeUtc));
-        if (files.Count > _options.TopFiles * 4)
+        if (files.Count > Options.TopFiles * 4)
         {
             files.Sort((a, b) => b.Bytes.CompareTo(a.Bytes));
-            files.RemoveRange(_options.TopFiles, files.Count - _options.TopFiles);
+            files.RemoveRange(Options.TopFiles, files.Count - Options.TopFiles);
         }
     }
 

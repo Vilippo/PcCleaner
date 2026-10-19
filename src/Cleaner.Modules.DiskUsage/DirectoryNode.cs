@@ -23,6 +23,23 @@ public sealed class DirectoryNode
 
     public List<DirectoryNode> Children { get; } = new();
 
+    /// <summary>Yhdistää useamman juuren (asemat) yhdeksi keinotekoiseksi solmuksi treemapia varten.</summary>
+    public static DirectoryNode Combine(IEnumerable<DirectoryNode> roots, string label)
+    {
+        var list = roots.ToList();
+        if (list.Count == 1) return list[0];
+
+        var node = new DirectoryNode { Path = label };
+        foreach (var root in list)
+        {
+            node.Children.Add(root);
+            node.TotalBytes += root.TotalBytes;
+            node.FileCount += root.FileCount;
+            node.HadErrors |= root.HadErrors;
+        }
+        return node;
+    }
+
     /// <summary>Kaikki solmut syvyysjärjestyksessä, tämä mukaan lukien.</summary>
     public IEnumerable<DirectoryNode> Descendants()
     {

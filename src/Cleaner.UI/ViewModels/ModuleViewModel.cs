@@ -101,16 +101,17 @@ public sealed partial class ModuleViewModel : ObservableObject
         {
             var risk = group.Max(i => i.Risk);
             var selectByDefault = SelectedByDefault && risk != RiskLevel.High;
-            var category = new CategoryViewModel(group.Key, risk, group.Select(i => new ItemViewModel(i, selectByDefault)));
+            var category = new CategoryViewModel(group.Key, risk, group.Select(i => new ItemViewModel(i, selectByDefault)), showTotal: SelectedByDefault);
             category.SelectionChanged += OnCategorySelectionChanged;
             (risk == RiskLevel.High ? HighRiskCategories : Categories).Add(category);
         }
 
         ErrorText = string.Join("\n", result.Errors);
         HasScanned = true;
+        // Vain pyydettäessä ajettavien moduulien (levytila) kohteet voivat olla sisäkkäisiä: ei summaa.
         StatusText = result.Count == 0
             ? "Ei löydöksiä."
-            : result.TotalBytes > 0
+            : SelectedByDefault && result.TotalBytes > 0
                 ? $"Löytyi {result.Count} kohdetta, {ByteFormatter.Format(result.TotalBytes)}."
                 : $"Löytyi {result.Count} kohdetta.";
 

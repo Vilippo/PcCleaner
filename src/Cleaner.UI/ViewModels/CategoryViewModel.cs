@@ -29,14 +29,18 @@ public sealed partial class CategoryViewModel : ObservableObject
 
     private bool _suppress;
 
-    public CategoryViewModel(string name, RiskLevel risk, IEnumerable<ItemViewModel> items)
+    /// <param name="showTotal">
+    /// Näytetäänkö kategorian yhteiskoko. Epätosi levytilan analyysille, jonka kansiot ovat sisäkkäisiä
+    /// ja summa olisi harhaanjohtava.
+    /// </param>
+    public CategoryViewModel(string name, RiskLevel risk, IEnumerable<ItemViewModel> items, bool showTotal = true)
     {
         Name = name;
         Risk = risk;
         Items = items.ToList();
         VisibleItems = Items.Take(MaxVisibleItems).ToList();
         TotalBytes = Items.Sum(i => i.SizeBytes);
-        SummaryText = TotalBytes > 0 ? $"{Items.Count} kpl, {ByteFormatter.Format(TotalBytes)}" : $"{Items.Count} kpl";
+        SummaryText = showTotal && TotalBytes > 0 ? $"{Items.Count} kpl, {ByteFormatter.Format(TotalBytes)}" : $"{Items.Count} kpl";
 
         foreach (var item in Items)
             item.PropertyChanged += OnItemChanged;
