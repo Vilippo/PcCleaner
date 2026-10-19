@@ -33,6 +33,8 @@ dotnet run --project src\Cleaner.UI
 
 Exe on kansiossa `src\Cleaner.UI\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\PcCleaner.exe`.
 Windows App SDK -ajonaika kopioituu ohjelman viereen, erillistä asennusta ei tarvita.
+Graafinen sovellus pyytää aina järjestelmänvalvojan oikeudet (UAC), jotta järjestelmäkansiot ja HKLM-avaimet
+ovat käsiteltävissä. Komentorivi toimii tavallisena käyttäjänä.
 
 Julkaisukansio (Release, siirrettävissä toiselle koneelle, vaatii .NET 8 -ajonajan):
 
@@ -75,7 +77,7 @@ minuutteja; rajaa `--path`-valinnalla.
 Käynnistysohjelmia ei poisteta, vaan ne poistetaan käytöstä samalla tavalla kuin Tehtävienhallinnassa
 (`StartupApproved`-avain). Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä.
 
-Järjestelmäkansiot (`Windows\Temp`, `SoftwareDistribution`) vaativat, että PowerShell on
+Komentorivillä järjestelmäkansiot (`Windows\Temp`, `SoftwareDistribution`) vaativat, että PowerShell on
 käynnistetty järjestelmänvalvojana. Ilman sitä ne vain ohitetaan.
 
 ## Turvallisuusperiaatteet

@@ -59,7 +59,7 @@ StartupApproved-kirjoituksen omassa testiavaimessa.
 4. **Ei ulkoisia NuGet-paketteja Core/Files/Cli-projekteissa.** Vain testiprojekti käyttää xunitia. WinUI tuo omansa (Windows App SDK, CommunityToolkit.Mvvm).
 5. **Rekisterin puhdistus tehdään viimeisenä ja rajattuna** (vain Uninstall-orvot, tiedostotyyppikytkökset, MUICache, MRU-listat). Pakollinen `.reg`-varmuuskopio + palautus ennen `--apply`-tukea. Käyttäjä halusi ominaisuuden; Claude suositteli varovaisuutta ja sovittiin rajatusta versiosta.
 6. **Käynnistysohjelmat poistetaan käytöstä, ei poisteta** (`StartupApproved`-avain kuten Tehtävienhallinta).
-7. **Admin-oikeuksia ei pakoteta** – ohjelma toimii tavallisena käyttäjänä ja ohittaa järjestelmäkansiot; UI tarjoaa "käynnistä uudelleen adminina".
+7. ~~Admin-oikeuksia ei pakoteta~~ **Muutettu 19.10.2026 käyttäjän pyynnöstä: UI-exe käynnistyy aina järjestelmänvalvojana** (`app.manifest`: `requestedExecutionLevel requireAdministrator`, UAC-kehote joka käynnistyksellä). CLI (`pccleaner.exe`) toimii edelleen tavallisena käyttäjänä. InfoBar ja "Käynnistä uudelleen järjestelmänvalvojana" jäivät koodiin, mutta eivät näy, koska prosessi on jo korotettu. Seuraukset: Windowsin kansiovalitsin ("Selaa...") ei toimi korotetussa prosessissa, polku kirjoitetaan käsin (virhe näytetään dialogissa); UI Automation -savutestit eivät toimi korottamattomasta PowerShellistä (UIPI), testaus vaatii korotetun PowerShellin tai Debug-buildin ajamisen `dotnet run` -komennolla (sekin pyytää UAC:n).
 8. Käyttäjälle näkyvät tekstit suomeksi, koodin nimet englanniksi. C# 12, nullable päällä, `sealed` oletuksena.
 9. **`ICleanerModule.SelectedByDefault`** (oletusjäsen, oletus `true`). Startup palauttaa `false`: ilman `--module startup` CLI ei koske käynnistysohjelmiin, koska ne ovat käyttäjän omia valintoja eikä `clean --apply` saa poistaa niitä kaikkia käytöstä. UI:n "skannaa kaikki" noudattaa samaa.
 10. **Task Scheduler vain juurikansiosta (`\`)**, ei piilotettuja. Windowsin omat tehtävät ovat `\Microsoft\`-alikansiossa eikä niitä poisteta käytöstä siivouksen nimissä. COM käytetään `dynamic`-tyypillä (`Schedule.Service`, `WScript.Shell`), ei interop-kokoonpanoja eikä NuGetia.
@@ -164,6 +164,13 @@ Tunnisteet: `registry:uninstall:<avain>`, `registry:ext:<avain>`, `registry:prog
   Julkaistu exe käynnistetty ja skannattu. `publish/` on .gitignoressa.
 - Illan skannaus löysi Tiedostosiivouksesta enää 34 kohdetta (aamulla 14 487): käyttäjä ajoi puhdistuksen itse
   UI:sta päivän aikana. Uusi kategoria "Muistivedokset" (2 kpl) tuli julkaistun exen kaatumisista (`%LOCALAPPDATA%\CrashDumps`).
+
+## Asennus käyttäjän koneelle 19.10.2026
+
+Julkaistu exe: `C:\Users\ville\PcCleaner\publish\PcCleaner\PcCleaner.exe` (ei versionhallinnassa, `publish/` on
+.gitignoressa; generoi uudelleen `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner`). Työpöydällä
+pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty pikakuvakkeesta, otsikko
+"PC Cleaner (järjestelmänvalvoja)". Ennen uutta publishia ohjelma pitää sulkea, muuten exe on lukittu.
 
 ## Seuraavat vaiheet (järjestys sovittu)
 

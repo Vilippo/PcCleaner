@@ -213,6 +213,8 @@ Turvamekanismit (toteutettu):
 - Projekti `src/Cleaner.UI`: Windows App SDK 1.8 (self-contained, `WindowsPackageType=None`, x64),
   `net8.0-windows10.0.19041.0`, `CommunityToolkit.Mvvm` 8.4 (partial-ominaisuudet, `[RelayCommand]`).
   Moduulit `UiModuleFactory`-luokan kautta; se lataa kaikki säännöt, myös `enabledByDefault: false`.
+- `app.manifest`: `requireAdministrator` (käyttäjän päätös 19.10.2026), UI käynnistyy aina korotettuna. InfoBar ja
+  "Käynnistä uudelleen järjestelmänvalvojana" ovat yhä koodissa tavallisen käyttäjän varalle.
 - `MainWindow.xaml`: InfoBar (tavallinen käyttäjä + nappi "Käynnistä uudelleen järjestelmänvalvojana",
   ShellExecute `runas`), NavigationView moduuleille, oikealla moduulin otsikko, huomautukset, kategoriat
   Expandereina (valintaruutu kategorialle ja riveille), erillinen oletuksena suljettu "Korkean riskin kohteet"

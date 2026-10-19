@@ -48,14 +48,23 @@ public sealed partial class MainWindow : Window, IDialogService
 
     private async void PickFolder_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new Windows.Storage.Pickers.FolderPicker();
-        picker.FileTypeFilter.Add("*");
-        // Pakkaamaton WinUI 3 -sovellus: valitsin pitää sitoa ikkunaan käsin.
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            picker.FileTypeFilter.Add("*");
+            // Pakkaamaton WinUI 3 -sovellus: valitsin pitää sitoa ikkunaan käsin.
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
 
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder is not null) ViewModel.DiskUsagePath = folder.Path;
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is not null) ViewModel.DiskUsagePath = folder.Path;
+        }
+        catch (Exception ex)
+        {
+            // Windowsin valitsimet eivät toimi järjestelmänvalvojana ajettavassa prosessissa.
+            await InfoAsync("Kansiovalitsin ei ole käytettävissä",
+                $"Kirjoita polku kenttään käsin.\n\nSyy: {ex.Message}");
+        }
     }
 
     // ---------- Treemap ----------

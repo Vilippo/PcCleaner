@@ -2,8 +2,17 @@
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
   <assemblyIdentity version="1.0.0.0" name="PcCleaner.app"/>
 
-  <!-- Ei requestedExecutionLevel=requireAdministrator: ohjelma toimii tavallisena käyttäjänä
-       ja tarjoaa uudelleenkäynnistyksen järjestelmänvalvojana (suunnittelupäätös 7). -->
+  <!-- Käyttäjän päätös 19.10.2026: ohjelma käynnistyy aina järjestelmänvalvojana (UAC-kehote joka kerta).
+       Näin Windows\Temp, SoftwareDistribution, HKLM-käynnistyskohteet ja HKLM-rekisteriavaimet ovat
+       käsiteltävissä ilman uudelleenkäynnistystä. Korvaa alkuperäisen suunnittelupäätöksen 7.
+       Huom: Windowsin kansio- ja tiedostovalitsimet eivät toimi korotetussa prosessissa. -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
 
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
     <application>
