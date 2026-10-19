@@ -5,6 +5,7 @@ using Cleaner.Core.Models;
 using Cleaner.Core.Services;
 using Cleaner.Modules.DiskUsage;
 using Cleaner.Modules.RegistryCleaner;
+using Cleaner.Modules.Uninstall;
 
 // ---------- Argumenttien käsittely ----------
 // Pidetään tarkoituksella yksinkertaisena: ei ulkoisia kirjastoja.
@@ -25,6 +26,10 @@ var moduleIds = Values("--module");
 var itemFilters = Values("--item");
 var scanPaths = Values("--path");
 var topValue = Values("--top").LastOrDefault();
+var programValue = Values("--program").LastOrDefault();
+bool leftoversOnly = Flag("--leftovers-only");
+bool quiet = Flag("--quiet");
+bool all = Flag("--all");
 var rulesDir = Values("--rules").FirstOrDefault()
                ?? Path.Combine(AppContext.BaseDirectory, "rules");
 
@@ -82,6 +87,22 @@ try
                 return 2;
             }
             return RestoreCommand.Run(args_.Skip(1).FirstOrDefault(a => !a.StartsWith("--")), yes, log);
+
+        case "uninstall":
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("Ohjelman poisto toimii vain Windowsissa.");
+                return 2;
+            }
+            if (engine.GetModule("uninstall") is not UninstallModule uninstallModule)
+            {
+                Console.Error.WriteLine("Uninstall-moduulia ei ole käytettävissä.");
+                return 2;
+            }
+            var uninstallOptions = new UninstallCommandOptions(programValue, leftoversOnly, quiet, apply, all, yes, itemFilters);
+            return await UninstallCommand.RunAsync(uninstallOptions, context, log, uninstallModule);
+        }
 
         default:
             Console.Error.WriteLine($"Tuntematon komento: {command}");
@@ -241,7 +262,10 @@ static void PrintHelp()
           pccleaner scan   [valinnat]            Etsi poistettavat (ei muuta mitään)
           pccleaner clean  [valinnat]            Kuiva ajo: näytä mitä poistettaisiin
           pccleaner clean  --apply [valinnat]    Poista oikeasti (kysyy vahvistuksen)
-          pccleaner restore [aikaleima]          Listaa rekisterivarmuuskopiot tai palauta yksi
+          pccleaner restore [aikaleima]          Listaa varmuuskopiot (rekisteri + karanteeni) tai palauta yksi
+          pccleaner uninstall                    Listaa asennetut ohjelmat
+          pccleaner uninstall --program <nimi> [--leftovers-only] [--quiet] [--apply] [--all]
+                                                 Aja poisto-ohjelma ja siirrä jäänteet karanteeniin
 
         Valinnat:
           --module <id>     Rajaa moduuliin, voi toistaa (esim. --module files --module browsers)
@@ -251,14 +275,21 @@ static void PrintHelp()
           --include-disabled  Ota mukaan myös oletuksena pois päältä olevat säännöt (Prefetch, Windows.old)
           --path <kansio>   Levytilan analyysin juuri, voi toistaa (oletus: kaikki kiinteät asemat)
           --top <n>         Levytilan analyysi: montako suurinta kansiota ja tiedostoa (oletus 20)
+          --program <nimi>  uninstall: ohjelman nimi tai sen yksikäsitteinen osa
+          --leftovers-only  uninstall: älä aja poisto-ohjelmaa, etsi vain jäänteet
+          --quiet           uninstall: käytä hiljaista poistokomentoa, jos ohjelmalla on sellainen
+          --all             uninstall --apply: siirrä kaikki jäänteet, ei vain esivalittuja (*)
           --yes, -y         Älä kysy vahvistusta (ajastettuun ajoon)
           --verbose, -v     Näytä edistyminen ja yksityiskohtainen loki
 
-        Moduulit 'startup', 'diskusage' ja 'registry' ajetaan vain, kun ne annetaan --module-valinnalla.
+        Moduulit 'startup', 'diskusage', 'registry' ja 'uninstall' ajetaan vain, kun ne annetaan --module-valinnalla.
         'startup' ei poista mitään, vaan poistaa kohteen käytöstä kuten Tehtävienhallinta; palautus sieltä.
         'diskusage' listaa suurimmat kansiot ja tiedostot; --apply poistaa vain --item-valitut tiedostot, ei kansioita.
         'registry' vie jokaisen muutettavan avaimen .reg-tiedostoon ennen muutosta
         (%LOCALAPPDATA%\PcCleaner\registry-backups\<aikaleima>\); palautus: pccleaner restore <aikaleima>.
+        'uninstall' ajaa ohjelman oman poisto-ohjelman ja siirtää jäänteet karanteeniin
+        (%LOCALAPPDATA%\PcCleaner\quarantine\<aikaleima>\), rekisteri .reg-varmuuskopioon samalla aikaleimalla;
+        palautus: pccleaner restore <aikaleima>.
 
         Kaikki poistot kirjataan tiedostoon %LOCALAPPDATA%\PcCleaner\logs\.
         Järjestelmäkansiot (Windows\Temp, SoftwareDistribution) vaativat järjestelmänvalvojan oikeudet.

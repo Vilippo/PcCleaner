@@ -18,6 +18,7 @@
     <ProjectReference Include="..\Cleaner.Modules.Startup\Cleaner.Modules.Startup.csproj" />
     <ProjectReference Include="..\Cleaner.Modules.DiskUsage\Cleaner.Modules.DiskUsage.csproj" />
     <ProjectReference Include="..\Cleaner.Modules.Registry\Cleaner.Modules.Registry.csproj" />
+    <ProjectReference Include="..\Cleaner.Modules.Uninstall\Cleaner.Modules.Uninstall.csproj" />
   </ItemGroup>
 
 </Project>

@@ -6,6 +6,7 @@ using Cleaner.Modules.DiskUsage;
 using Cleaner.Modules.Files;
 using Cleaner.Modules.RegistryCleaner;
 using Cleaner.Modules.Startup;
+using Cleaner.Modules.Uninstall;
 
 namespace Cleaner.Cli;
 
@@ -42,6 +43,7 @@ public static class ModuleFactory
             modules.Add(new RecycleBinModule());
             modules.Add(new StartupModule());
             modules.Add(new RegistryModule());
+            modules.Add(new UninstallModule());
         }
 
         modules.Add(new DiskUsageModule(diskUsage ?? new DiskUsageOptions()));

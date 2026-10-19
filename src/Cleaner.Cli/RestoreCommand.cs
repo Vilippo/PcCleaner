@@ -4,30 +4,30 @@ using Cleaner.Core.Services;
 
 namespace Cleaner.Cli;
 
-/// <summary>pccleaner restore [aikaleima]: listaa rekisterivarmuuskopiot tai tuo yhden takaisin.</summary>
+/// <summary>pccleaner restore [aikaleima]: listaa varmuuskopiot (rekisteri + karanteeni) tai palauttaa yhden.</summary>
 [SupportedOSPlatform("windows")]
 public static class RestoreCommand
 {
     public static int Run(string? timestamp, bool yes, ICleanerLogger log)
     {
-        var backups = RegistryBackup.List();
+        var sessions = BackupSessions.List();
 
         if (timestamp is null)
         {
-            if (backups.Count == 0)
+            if (sessions.Count == 0)
             {
-                Console.WriteLine($"Ei rekisterivarmuuskopioita kansiossa {RegistryBackup.DefaultRoot}");
+                Console.WriteLine("Ei varmuuskopioita (rekisteri tai karanteeni).");
                 return 0;
             }
-            Console.WriteLine("Rekisterivarmuuskopiot (uusin ensin):");
-            foreach (var b in backups)
-                Console.WriteLine($"  {b.Timestamp}   {b.FileCount} .reg-tiedostoa   {b.Summary}");
+            Console.WriteLine("Varmuuskopiot (uusin ensin):");
+            foreach (var s in sessions)
+                Console.WriteLine($"  {s.Timestamp}   {s.Summary}");
             Console.WriteLine();
             Console.WriteLine("Palauta: pccleaner restore <aikaleima>");
             return 0;
         }
 
-        var chosen = backups.FirstOrDefault(b => b.Timestamp == timestamp);
+        var chosen = sessions.FirstOrDefault(s => s.Timestamp == timestamp);
         if (chosen is null)
         {
             Console.Error.WriteLine($"Varmuuskopiota '{timestamp}' ei löydy. Listaa: pccleaner restore");
@@ -36,7 +36,7 @@ public static class RestoreCommand
 
         if (!yes)
         {
-            Console.Write($"Tuodaanko {chosen.FileCount} .reg-tiedostoa takaisin rekisteriin ({chosen.Timestamp})? [k/E] ");
+            Console.Write($"Palautetaanko varmuuskopio {chosen.Timestamp} ({chosen.Summary})? [k/E] ");
             var answer = Console.ReadLine()?.Trim().ToLowerInvariant();
             if (answer is not ("k" or "kyllä" or "y" or "yes"))
             {
@@ -45,10 +45,13 @@ public static class RestoreCommand
             }
         }
 
-        var result = RegistryBackup.Restore(timestamp, log);
-        foreach (var msg in result.Messages) Console.WriteLine($"  ! {msg}");
-        Console.WriteLine($"Palautettu {result.Imported} tiedostoa, epäonnistui {result.Failed}." +
-                          (result.Failed > 0 ? " HKLM-avaimet vaativat järjestelmänvalvojan." : ""));
-        return result.Failed == 0 ? 0 : 1;
+        var result = BackupSessions.Restore(timestamp, log);
+        foreach (var msg in result.Messages.Take(10)) Console.WriteLine($"  ! {msg}");
+        if (result.Messages.Count > 10)
+            Console.WriteLine($"  ... ja {result.Messages.Count - 10} muuta viestiä (katso loki)");
+        Console.WriteLine($"Rekisteri: palautettu {result.RegistryImported}, epäonnistui {result.RegistryFailed}. " +
+                          $"Karanteeni: palautettu {result.QuarantineRestored}, ohitettu {result.QuarantineSkipped}." +
+                          (result.RegistryFailed > 0 ? " HKLM-avaimet vaativat järjestelmänvalvojan." : ""));
+        return result.RegistryFailed == 0 && result.QuarantineSkipped == 0 ? 0 : 1;
     }
 }
