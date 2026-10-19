@@ -20,12 +20,6 @@ public sealed class LeftoverScanner
     public const string RegistryKeysCategory = "Rekisteriavaimet";
     public const string RegistryValuesCategory = "Rekisteriarvot";
 
-    /// <summary>Juuren lapset, joihin ei laskeuduta nimihaussa eikä arvohaussa (ForbiddenSegments lisäksi).</summary>
-    private static readonly string[] SkippedSegments = { "Classes", "Microsoft", "Policies" };
-
-    /// <summary>Juuren lapset, joita ei verrata ohjelman nimeen avainsäännössä.</summary>
-    private static readonly string[] SkippedKeyChildren = { "WOW6432Node", "Clients", "RegisteredApplications" };
-
     private static readonly EnumerationOptions Enumeration = new()
     {
         IgnoreInaccessible = true,
@@ -110,7 +104,7 @@ public sealed class LeftoverScanner
         // ---------- Asennuskansio (EDGE-2) ----------
 
         /// <summary>
-        /// InstallLocation, kun se on olemassa, ei ole peruskansio tai pikakuvakekansio, ei peruskansion yläkansio
+        /// InstallLocation, kun se on olemassa, ei ole peruskansio tai pikakuvakekansio, ei kummankaan yläkansio
         /// ja PathGuard sallii sen. Muuten null, jolloin InstallLocation-säännöt ohitetaan.
         /// </summary>
         private string? EffectiveInstallLocation()
@@ -132,7 +126,9 @@ public sealed class LeftoverScanner
             foreach (var s in _o.ShortcutFolders)
             {
                 var sp = NormalizePath(s.Path);
-                if (sp is not null && sp.Equals(path, StringComparison.OrdinalIgnoreCase)) return null;
+                if (sp is null) continue;
+                if (sp.Equals(path, StringComparison.OrdinalIgnoreCase)) return null;
+                if (IsUnder(sp, path)) return null; // pikakuvakekansion yläkansio
             }
 
             return PathGuard.IsSafeToDelete(path, out _) ? path : null;
@@ -277,7 +273,7 @@ public sealed class LeftoverScanner
                 foreach (var child in SortedSubKeys(rootKey))
                 {
                     _ct.ThrowIfCancellationRequested();
-                    if (IsSkippedSegment(child) || SkippedKeyChildren.Contains(child, StringComparer.OrdinalIgnoreCase)) continue;
+                    if (IsSkippedSegment(child)) continue;
 
                     var match = NameMatcher.Match(child, _p.Name, _p.Publisher);
                     var childPath = RegistryPaths.Combine(root, child);
@@ -494,8 +490,11 @@ public sealed class LeftoverScanner
         private static bool IsForbidden(string segment) =>
             RegistryGuard.ForbiddenSegments.Contains(segment, StringComparer.OrdinalIgnoreCase);
 
-        private static bool IsSkippedSegment(string segment) =>
-            IsForbidden(segment) || SkippedSegments.Contains(segment, StringComparer.OrdinalIgnoreCase);
+        /// <summary>
+        /// Juuren jälkeinen segmentti, johon ei laskeuduta nimi- eikä arvohaussa: sama joukko kuin vartijalla
+        /// (LeftoverGuard.DeniedSegments ja RegistryGuard.ForbiddenSegments), jotta skanneri ei tuota aina hylättäviä kohteita.
+        /// </summary>
+        private static bool IsSkippedSegment(string segment) => LeftoverGuard.IsDeniedSegment(segment);
 
         private string MatchReason(MatchKind match) => match switch
         {

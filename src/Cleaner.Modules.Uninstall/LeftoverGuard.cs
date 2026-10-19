@@ -10,9 +10,12 @@ namespace Cleaner.Modules.Uninstall;
 [SupportedOSPlatform("windows")]
 public static class LeftoverGuard
 {
-    /// <summary>Segmentit, joita ei sallita juuren jälkeisessä osassa (RegistryGuard.ForbiddenSegments lisäksi).</summary>
-    private static readonly string[] DeniedSegments =
-        { "Microsoft", "Classes", "Policies", "WOW6432Node", "Clients", "RegisteredApplications" };
+    /// <summary>
+    /// Segmentit, joita ei sallita juuren jälkeisessä osassa (RegistryGuard.ForbiddenSegments lisäksi).
+    /// LeftoverScanner ohittaa samat segmentit, jotta se ei tuota kohteita, jotka vartija aina hylkää.
+    /// </summary>
+    public static readonly IReadOnlyList<string> DeniedSegments =
+        new[] { "Microsoft", "Classes", "Policies", "WOW6432Node", "Clients", "RegisteredApplications" };
 
     public static bool IsAllowed(LeftoverKind kind, string path, string? valueName, InstalledProgram? target,
         LeftoverScanOptions o, out string reason)
@@ -114,9 +117,12 @@ public static class LeftoverGuard
         return segments.Length > 0 && segments.All(s => s.Length > 0);
     }
 
-    private static bool HasDeniedSegment(IEnumerable<string> segments) =>
-        segments.Any(s => RegistryGuard.ForbiddenSegments.Contains(s, StringComparer.OrdinalIgnoreCase)
-                          || DeniedSegments.Contains(s, StringComparer.OrdinalIgnoreCase));
+    private static bool HasDeniedSegment(IEnumerable<string> segments) => segments.Any(IsDeniedSegment);
+
+    /// <summary>RegistryGuard.ForbiddenSegments tai DeniedSegments. Sama sääntö vartijalle ja skannerille.</summary>
+    public static bool IsDeniedSegment(string segment) =>
+        RegistryGuard.ForbiddenSegments.Contains(segment, StringComparer.OrdinalIgnoreCase)
+        || DeniedSegments.Contains(segment, StringComparer.OrdinalIgnoreCase);
 
     private static string? NormalizeKey(string path)
     {

@@ -110,6 +110,13 @@ public sealed class UninstallModule : ICleanerModule
         {
             backup = new RegistryBackup(_registryBackupRoot, log);
             quarantine = new Quarantine(_quarantineRoot, backup.Timestamp, log);
+            // Aikaleiman tarkkuus on sekunti: saman sekunnin toinen ajo kirjoittaisi edellisen manifest.txt:n yli.
+            for (int attempt = 0; attempt < 3 && (Directory.Exists(backup.Directory) || Directory.Exists(quarantine.Directory)); attempt++)
+            {
+                WaitForNextSecond();
+                backup = new RegistryBackup(_registryBackupRoot, log);
+                quarantine = new Quarantine(_quarantineRoot, backup.Timestamp, log);
+            }
             LastQuarantineDirectory = null;
             LastBackupTimestamp = null;
         }
@@ -151,6 +158,19 @@ public sealed class UninstallModule : ICleanerModule
         context.Report(100, "Valmis");
         log.Info($"{DisplayName}: {(context.DryRun ? "käsiteltäisiin" : "käsitelty")} {result.Removed.Count} kohdetta, ohitettu {result.Skipped.Count}");
         return result;
+    }
+
+    /// <summary>Odottaa, kunnes DateTime.Now:n sekunti vaihtuu (enintään noin 1100 ms).</summary>
+    private static void WaitForNextSecond()
+    {
+        var start = DateTime.Now;
+        var startSecond = new DateTime(start.Ticks - start.Ticks % TimeSpan.TicksPerSecond);
+        for (int waited = 0; waited < 1100; waited += 50)
+        {
+            var now = DateTime.Now;
+            if (now - startSecond >= TimeSpan.FromSeconds(1) || now < startSecond) return;
+            Thread.Sleep(50);
+        }
     }
 
     private static void TryWriteManifest(Action write, CleanResult result, ICleanerLogger log)

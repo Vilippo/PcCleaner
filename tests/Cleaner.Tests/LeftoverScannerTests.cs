@@ -256,6 +256,36 @@ public sealed class LeftoverScannerTests : IDisposable
     }
 
     [Fact]
+    public void Values_under_guard_denied_segments_are_not_items()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        Create(_sub + @"\Root\Clients\Foo", ("Path", Install + @"\x.exe"));
+        Create(_sub + @"\Root\RegisteredApplications", ("Path", Install + @"\x.exe"));
+        var items = ScanAll();
+
+        var values = items.Where(i => i.Category == LeftoverScanner.RegistryValuesCategory).ToList();
+        Assert.DoesNotContain(values, v => v.Id.Contains(@"\Clients", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(values, v => v.Id.Contains(@"\RegisteredApplications", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(values, v => v.Id == LeftoverItemId.MakeValue(RegRoot + @"\Other\Thing", "Path"));
+    }
+
+    [Fact]
+    public void Parent_of_shortcut_folder_as_install_location_is_never_offered()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var menus = Path.Combine(_root, "Menus");
+        var startMenu = Path.Combine(menus, "StartMenu");
+        Directory.CreateDirectory(startMenu);
+        SeedFolders();
+        var options = Options() with { ShortcutFolders = new[] { new ShortcutFolder(startMenu, IsStartMenu: true) } };
+
+        var items = new LeftoverScanner(options).Scan(Program(menus), keyRemoved: true, ModuleId, null, default);
+
+        Assert.DoesNotContain(items, i => i.Category == LeftoverScanner.InstallFolderCategory);
+        Assert.DoesNotContain(items, i => i.Path.Equals(menus, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Uninstall_key_is_reported_only_when_not_removed()
     {
         if (!OperatingSystem.IsWindows()) return;

@@ -252,7 +252,7 @@ LocalAppData\Programs, Roaming ja LocalLow. Pikakuvakkeet haetaan Käynnistä-va
 | Käyttäjän datakansiot | mikä tahansa osuma LocalAppData-, Roaming- tai LocalLow-kansiossa (voi sisältää käyttäjän dataa) | High | ei |
 | Pikakuvakkeet | `.lnk`, jonka kohde on asennuskansion tai osuneen ohjelmakansion alla; Käynnistä-valikon kansio, jonka nimi osuu | Low | kyllä |
 | Rekisteriavaimet | `<juuri>\<Nimi>` ja `<juuri>\<Julkaisija>\<Nimi>` juurissa `HKCU\Software`, `HKLM\SOFTWARE`, `HKLM\SOFTWARE\WOW6432Node`; Uninstall-avain, jos se ei kadonnut; App Paths -avain ja Classes-ProgId, jotka osoittavat asennuskansioon | High | ei |
-| Rekisteriarvot | merkkijonoarvo, joka alkaa `InstallLocation`-polulla, juurten alla enintään 6 tason syvyydessä (`Classes`, `Microsoft`, `Policies` ohitetaan) sekä Run-avaimissa | High | ei |
+| Rekisteriarvot | merkkijonoarvo, joka alkaa `InstallLocation`-polulla, juurten alla enintään 6 tason syvyydessä (`Classes`, `Microsoft`, `Policies`, `WOW6432Node`, `Clients`, `RegisteredApplications` ja `RegistryGuard`-kieltosegmentit ohitetaan) sekä Run-avaimissa | High | ei |
 
 Kategorian kaikilla kohteilla on sama riski. Sama polku tai avain tulee vain kerran, ensimmäinen osuva sääntö voittaa.
 Jokaisen kohteen kuvaus kertoo osumasyyn, esim. "Pikakuvake osoittaa kansioon C:\...". Skannaus käy kansiot ja avaimet

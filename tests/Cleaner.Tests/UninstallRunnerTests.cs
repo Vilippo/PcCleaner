@@ -11,7 +11,7 @@ public sealed class UninstallRunnerTests : IDisposable
 {
     private const string Guid1 = "{11111111-2222-3333-4444-555555555555}";
     private readonly string _sub = $@"Software\PcCleanerTests\{Guid.NewGuid():N}";
-    private readonly string _tempDir = Path.Combine(Path.GetTempPath(), "PcCleanerTests", Guid.NewGuid().ToString("N"));
+    private readonly string _tempDir = Path.Combine(Path.GetTempPath(), "pccleaner-tests", Guid.NewGuid().ToString("N"));
 
     private string FooKey => @"HKCU\" + _sub + @"\Uninstall\Foo";
 
