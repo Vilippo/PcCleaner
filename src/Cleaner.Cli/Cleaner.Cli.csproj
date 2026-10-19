@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>pccleaner</AssemblyName>
+    <RootNamespace>Cleaner.Cli</RootNamespace>
+    <!-- Ei admin-vaatimusta oletuksena: käyttäjä päättää itse (ks. README). -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cleaner.Core\Cleaner.Core.csproj" />
+    <ProjectReference Include="..\Cleaner.Modules.Files\Cleaner.Modules.Files.csproj" />
+    <ProjectReference Include="..\Cleaner.Modules.Startup\Cleaner.Modules.Startup.csproj" />
+    <ProjectReference Include="..\Cleaner.Modules.DiskUsage\Cleaner.Modules.DiskUsage.csproj" />
+    <ProjectReference Include="..\Cleaner.Modules.Registry\Cleaner.Modules.Registry.csproj" />
+  </ItemGroup>
+
+</Project>

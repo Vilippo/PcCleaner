@@ -1,0 +1,104 @@
+{
+  // Kommentit ovat sallittuja tässä tiedostossa.
+  // Polut tukevat ympäristömuuttujia (%TEMP%) ja yhtä jokeria (*) kansiotasolla.
+  // MinAgeHours: poistetaan vain tiedostot, joita ei ole muokattu näin moneen tuntiin.
+  "schemaVersion": 1,
+  "rules": [
+    {
+      "id": "user-temp",
+      "name": "Käyttäjän väliaikaistiedostot",
+      "category": "Windows",
+      "description": "Ohjelmien väliaikaistiedostot. Vanhoja ei tarvita.",
+      "paths": [ "%TEMP%" ],
+      "minAgeHours": 24,
+      "risk": "Low"
+    },
+    {
+      "id": "windows-temp",
+      "name": "Windowsin väliaikaistiedostot",
+      "category": "Windows",
+      "description": "Järjestelmän väliaikaistiedostot.",
+      "paths": [ "%WINDIR%\\Temp" ],
+      "minAgeHours": 24,
+      "risk": "Low",
+      "requiresAdmin": true
+    },
+    {
+      "id": "windows-update-cache",
+      "name": "Windows Update -välimuisti",
+      "category": "Windows",
+      "description": "Ladatut päivityspaketit, jotka on jo asennettu. Windows lataa tarvittaessa uudelleen.",
+      "paths": [ "%WINDIR%\\SoftwareDistribution\\Download" ],
+      "minAgeHours": 240,
+      "risk": "Low",
+      "requiresAdmin": true
+    },
+    {
+      "id": "delivery-optimization",
+      "name": "Delivery Optimization -välimuisti",
+      "category": "Windows",
+      "description": "Päivitysten jakovälimuisti.",
+      "paths": [ "%WINDIR%\\SoftwareDistribution\\DeliveryOptimization" ],
+      "minAgeHours": 240,
+      "risk": "Low",
+      "requiresAdmin": true
+    },
+    {
+      "id": "thumbnail-cache",
+      "name": "Pikkukuvavälimuisti",
+      "category": "Windows",
+      "description": "Resurssienhallinnan pikkukuvat. Windows luo ne uudelleen.",
+      "paths": [ "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer" ],
+      "patterns": [ "thumbcache_*.db", "iconcache_*.db" ],
+      "recursive": false,
+      "minAgeHours": 0,
+      "risk": "Low",
+      "skipIfProcessRunning": []
+    },
+    {
+      "id": "windows-logs",
+      "name": "Windowsin lokitiedostot",
+      "category": "Windows",
+      "description": "Vanhat .log-tiedostot Windows-kansiossa.",
+      "paths": [ "%WINDIR%\\Logs" ],
+      "patterns": [ "*.log", "*.etl" ],
+      "minAgeHours": 168,
+      "risk": "Low",
+      "requiresAdmin": true
+    },
+    {
+      "id": "memory-dumps",
+      "name": "Muistivedokset",
+      "category": "Windows",
+      "description": "Kaatumisten muistivedokset. Hyödyllisiä vain vianetsinnässä.",
+      "paths": [ "%WINDIR%\\Minidump", "%LOCALAPPDATA%\\CrashDumps" ],
+      "patterns": [ "*.dmp" ],
+      "minAgeHours": 0,
+      "risk": "Low",
+      "requiresAdmin": true
+    },
+    {
+      "id": "prefetch",
+      "name": "Prefetch-tiedostot",
+      "category": "Windows",
+      "description": "Käynnistyksen nopeutusdata. Poisto hidastaa ohjelmien avaamista hetkellisesti – siksi ei oletuksena.",
+      "paths": [ "%WINDIR%\\Prefetch" ],
+      "patterns": [ "*.pf" ],
+      "minAgeHours": 720,
+      "risk": "Medium",
+      "requiresAdmin": true,
+      "enabledByDefault": false
+    },
+    {
+      "id": "windows-old",
+      "name": "Edellinen Windows-asennus (Windows.old)",
+      "category": "Windows",
+      "description": "Edellisen version varmuuskopio. Poiston jälkeen päivitystä ei voi peruuttaa.",
+      "paths": [ "%SYSTEMDRIVE%\\Windows.old" ],
+      "minAgeHours": 0,
+      "risk": "High",
+      "requiresAdmin": true,
+      "enabledByDefault": false
+    }
+  ]
+}

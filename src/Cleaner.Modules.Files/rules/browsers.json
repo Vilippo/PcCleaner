@@ -1,0 +1,60 @@
+{
+  // Selainten välimuistit. Jokainen sääntö ohitetaan, jos selain on käynnissä.
+  // Vain välimuisti – ei evästeitä, historiaa tai salasanoja.
+  "schemaVersion": 1,
+  "rules": [
+    {
+      "id": "edge-cache",
+      "name": "Microsoft Edge -välimuisti",
+      "category": "Selaimet",
+      "description": "Sivujen välimuisti. Sivut latautuvat ensimmäisellä kerralla hitaammin.",
+      "paths": [
+        "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Cache",
+        "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Code Cache",
+        "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\GPUCache"
+      ],
+      "minAgeHours": 0,
+      "risk": "Medium",
+      "skipIfProcessRunning": [ "msedge" ]
+    },
+    {
+      "id": "chrome-cache",
+      "name": "Google Chrome -välimuisti",
+      "category": "Selaimet",
+      "description": "Sivujen välimuisti.",
+      "paths": [
+        "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Cache",
+        "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Code Cache",
+        "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\GPUCache"
+      ],
+      "minAgeHours": 0,
+      "risk": "Medium",
+      "skipIfProcessRunning": [ "chrome" ]
+    },
+    {
+      "id": "firefox-cache",
+      "name": "Mozilla Firefox -välimuisti",
+      "category": "Selaimet",
+      "description": "Sivujen välimuisti.",
+      "paths": [
+        "%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\*\\cache2"
+      ],
+      "minAgeHours": 0,
+      "risk": "Medium",
+      "skipIfProcessRunning": [ "firefox" ]
+    },
+    {
+      "id": "brave-cache",
+      "name": "Brave-välimuisti",
+      "category": "Selaimet",
+      "description": "Sivujen välimuisti.",
+      "paths": [
+        "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Cache",
+        "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Code Cache"
+      ],
+      "minAgeHours": 0,
+      "risk": "Medium",
+      "skipIfProcessRunning": [ "brave" ]
+    }
+  ]
+}

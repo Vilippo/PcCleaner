@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cleaner.Core\Cleaner.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Sääntötiedostot kopioidaan ohjelman viereen "rules"-kansioon. -->
+    <None Include="rules\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

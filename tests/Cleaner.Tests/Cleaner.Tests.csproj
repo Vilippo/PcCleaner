@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Cleaner.Core\Cleaner.Core.csproj" />
+    <ProjectReference Include="..\..\src\Cleaner.Modules.Files\Cleaner.Modules.Files.csproj" />
+    <ProjectReference Include="..\..\src\Cleaner.Modules.Startup\Cleaner.Modules.Startup.csproj" />
+    <ProjectReference Include="..\..\src\Cleaner.Modules.DiskUsage\Cleaner.Modules.DiskUsage.csproj" />
+    <ProjectReference Include="..\..\src\Cleaner.Modules.Registry\Cleaner.Modules.Registry.csproj" />
+  </ItemGroup>
+
+</Project>

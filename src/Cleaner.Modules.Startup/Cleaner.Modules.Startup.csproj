@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- Rekisteri ja COM (Task Scheduler, WScript.Shell) ovat .NET:n mukana, ei NuGet-paketteja. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cleaner.Core\Cleaner.Core.csproj" />
+  </ItemGroup>
+
+</Project>
