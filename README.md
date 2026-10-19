@@ -33,6 +33,14 @@ dotnet run --project src\Cleaner.UI
 
 Exe on kansiossa `src\Cleaner.UI\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\PcCleaner.exe`.
 Windows App SDK -ajonaika kopioituu ohjelman viereen, erillistä asennusta ei tarvita.
+
+Julkaisukansio (Release, siirrettävissä toiselle koneelle, vaatii .NET 8 -ajonajan):
+
+```powershell
+dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner
+```
+
+Levytilan analyysin sivulla voi rajata kansion, valita top-N:n ja selata treemapia (napsautus avaa alikansion).
 Puhdistus kysyy kahdesti: ensin kuivan ajon yhteenveto, sitten vahvistus. Korkean riskin kohteet ovat
 omassa, oletuksena suljetussa lohkossa eikä niitä valita koskaan automaattisesti.
 

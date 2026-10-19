@@ -20,7 +20,7 @@ Solution `PcCleaner.sln` kääntyy 0 virhettä / 0 varoitusta. Käyttäjän kone
 | `src/Cleaner.Modules.Registry` (nimiavaruus `Cleaner.Modules.RegistryCleaner`) | `RegistryModule` (Uninstall-orvot, .ext/ProgId-orvot, MUICache-orvot, MRU-listat), `RegistryGuard` (sallitut juuret + kielletyt avaimet), `CommandLineParser` (exe komentorivistä, varovainen puuttumistarkistus), `RegistryBackup` (reg export/import, listaus, palautus), `RegistryScanOptions`, `RegistryPaths` | valmis, skannattu oikealla koneella 19.10.2026 |
 | `src/Cleaner.Cli` | `pccleaner modules | scan | clean [--apply] [--yes] [--module id] [--item id] [--path dir] [--top n] [--rules dir] [--include-disabled] [-v]`, `pccleaner restore [aikaleima]` (`RestoreCommand`), `ModuleFactory`, `ConsoleLogger` | valmis, ajettu Windowsissa 19.10.2026 |
 | `src/Cleaner.UI` | WinUI 3 (Windows App SDK 1.8.260921001, self-contained, pakkaamaton, x64), CommunityToolkit.Mvvm 8.4.2. `MainWindow` (NavigationView + kategoriat Expandereina + alapalkki), `MainViewModel` (skannaus, kolmivaiheinen puhdistus, peruutus, admin-uudelleenkäynnistys), `ModuleViewModel`, `CategoryViewModel`, `ItemViewModel`, `UiModuleFactory`, `UiLogger`, `Elevation`, `IDialogService` | valmis, käynnistetty ja testattu UI Automationilla 19.10.2026 |
-| `tests/Cleaner.Tests` | 59 xUnit-testiä: PathGuard, RuleLoader, FileCleanerModule, StartupApproved, StartupModule, DiskUsageModule, CommandLineParser, RegistryGuard, RegistryModule (oikea rekisteri avaimessa `HKCU\Software\PcCleanerTests\<guid>`, oikea reg export/import -kierros) | 59/59 läpi Windowsissa |
+| `tests/Cleaner.Tests` | 67 xUnit-testiä (lisäksi FileLogger-siivous, Treemap): PathGuard, RuleLoader, FileCleanerModule, StartupApproved, StartupModule, DiskUsageModule, CommandLineParser, RegistryGuard, RegistryModule (oikea rekisteri avaimessa `HKCU\Software\PcCleanerTests\<guid>`, oikea reg export/import -kierros) | 59/59 läpi Windowsissa |
 | `docs/ARCHITECTURE.md` | tekninen määrittely, 9 lukua | valmis |
 | `README.md` | käännös- ja käyttöohje | valmis |
 
@@ -127,8 +127,8 @@ Puhdistusketju `MainViewModel.CleanAsync`: kuiva ajo → ContentDialog "Kuivan a
 ContentDialog "Vahvista" (Poista pysyvästi / Poista käytöstä) → oikea ajo → tulosdialogi → moduuli skannataan uudelleen.
 Peruuta-nappi peruuttaa `CancellationTokenSource`-olion; keskeytetty oikea ajo skannaa moduulin uudelleen.
 
-Rajoitukset: ei treemapia (DiskUsage-puu on `LastTrees`-ominaisuudessa valmiina), ei `--path`/`--top`-vastineita
-(DiskUsage skannaa kaikki kiinteät asemat, top 20), ei asetuksia, ei kuvaketta (Assets puuttuu), ei MSIX-pakettia.
+Rajoitukset (tilanne illalla 19.10.): treemap ja polku/top-N-valinta lisätty (ks. "UI:n jatko"), ei asetuksia,
+ei kuvaketta (Assets puuttuu), ei MSIX-pakettia.
 Admin-kohteita ei merkitä harmaiksi rivikohtaisesti, koska `CleanItem` ei kanna admin-lippua; moduulitason vihje ja
 InfoBar-nappi "Käynnistä uudelleen järjestelmänvalvojana" (`runas`) ovat.
 
@@ -145,6 +145,26 @@ export → poisto → import -kierroksen testiavaimessa. UI:n rekisterisivu ja "
 Tunnisteet: `registry:uninstall:<avain>`, `registry:ext:<avain>`, `registry:progid:<avain>`, `registry:muicache:<avain>|<arvo>`,
 `registry:mru:<avain>`. Avainpolut muodossa `HKCU\...` / `HKLM\...` (ei HKCR). HKLM-kohteet ohitetaan ilman adminia.
 
+## UI:n jatko ja julkaisu 19.10.2026 (ilta)
+
+- `FileLogger` siivoaa käynnistyessä vanhat lokit: säilyttää 50 uusinta ja poistaa yli 30 päivää vanhat
+  (`PruneOldLogs`, testattu). Lokikansiossa oli ennen siivousta kymmeniä tiedostoja päivän ajoista.
+- Levytilan analyysin sivulla on kansio-kenttä (+ "Selaa..." FolderPicker, sidottu ikkunaan `InitializeWithWindow`),
+  Top-N NumberBox ja **treemap**: `Treemap.Squarify` (squarified-algoritmi, DiskUsage-projektissa, testattu) ja
+  piirto `MainWindow.xaml.cs`:ssä Canvasille (Border-lohkot, nimi + koko, ToolTip, napsautus avaa alikansion, "Ylös").
+  Useampi asema yhdistetään `DirectoryNode.Combine`-solmuksi. `DiskUsageModule.Options` on nyt vaihdettava ominaisuus.
+- `TextBox.Text`-sidonta käyttää `UpdateSourceTrigger=PropertyChanged`; ilman sitä Skannaa heti kirjoituksen jälkeen
+  skannasi vanhan polun (x:Bind päivittää oletuksena vasta fokuksen vaihtuessa).
+- Vain pyydettäessä ajettavien moduulien kategoria- ja tilarivit eivät enää näytä yhteiskokoa (sisäkkäiset kansiot
+  summautuivat 4 Tt:ksi).
+- **Julkaisu:** `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner` tuottaa 249 tiedostoa, 138 Mt,
+  ei vaadi Windows App SDK:n asennusta. Kaksi sudenkuoppaa korjattu csproj:ssa: (1) ilman `Platform=x64`-oletusta
+  publish ajoi AnyCPU-alustalla eikä XAML/PRI-vaiheita ajettu → exe kaatui 0xC000027B combase.dll:ssä;
+  (2) publish ei kopioi `PcCleaner.pri`- ja `.xbf`-tiedostoja, lisätty `CopyPriAndXbfToPublishDir`-target.
+  Julkaistu exe käynnistetty ja skannattu. `publish/` on .gitignoressa.
+- Illan skannaus löysi Tiedostosiivouksesta enää 34 kohdetta (aamulla 14 487): käyttäjä ajoi puhdistuksen itse
+  UI:sta päivän aikana. Uusi kategoria "Muistivedokset" (2 kpl) tuli julkaistun exen kaatumisista (`%LOCALAPPDATA%\CrashDumps`).
+
 ## Seuraavat vaiheet (järjestys sovittu)
 
 1. ~~`dotnet build` + `dotnet test` Windowsissa~~ tehty 19.10.2026, kaksi bugia korjattu (ks. yllä).
@@ -155,8 +175,9 @@ Tunnisteet: `registry:uninstall:<avain>`, `registry:ext:<avain>`, `registry:prog
 6. ~~Käyttäjä kokeilee UI:ta~~ kokeiltu 19.10.2026, "toimii tähän asti". ~~Registry (6.3)~~ tehty 19.10.2026.
    **Kaikki ARCHITECTURE.md:n suunnitellut moduulit ja UI:n ensimmäinen versio ovat valmiit.** Seuraavaksi ehdolla:
    a) ~~git init + ensimmäinen commit~~ tehty (`cba91ea`), etärepo puuttuu, b) ensimmäinen oikea rekisteripoisto pienellä
-   valinnalla (MRU tai muutama MUICache-arvo) ja palautuksen kokeilu, c) UI:n jatko: treemap, DiskUsage-polun valinta,
-   kuvake, Release-build ja julkaisukansio (`dotnet publish`), d) vanhojen lokien siivous `%LOCALAPPDATA%\PcCleaner\logs`.
+   valinnalla (MRU tai muutama MUICache-arvo) ja palautuksen kokeilu, c) ~~treemap, DiskUsage-polun valinta, dotnet publish~~
+   tehty; jäljellä sovelluskuvake (`<ApplicationIcon>`, Assets puuttuu) ja mahdollinen MSIX/asennusohjelma,
+   d) ~~vanhojen lokien siivous~~ tehty.
 7. WinUI 3 alkuperäinen kuvaus: projekti `src/Cleaner.UI`, `net8.0-windows10.0.19041.0`, MVVM (CommunityToolkit.Mvvm), NavigationView moduuleille, löydökset kategorioittain valintaruuduin, Skannaa/Puhdista-napit, kaksoisvahvistus, High-riski oletuksena kiinni, `Progress<T>` → ProgressBar, `CancellationToken` → Peruuta. Tarkempi kuvaus ARCHITECTURE.md luku 7.
 8. ~~Startup-moduuli (luku 6.1)~~ tehty. ~~DiskUsage (6.2)~~ tehty. ~~Registry (6.3)~~ tehty.
 
@@ -165,7 +186,7 @@ Tunnisteet: `registry:uninstall:<avain>`, `registry:ext:<avain>`, `registry:prog
 - Pikkukuvavälimuisti (387 Mt) on todennäköisesti Explorerin lukitsema. `--apply` ohittaa lukitut tiedostot IOException-syyllä, ei testattu.
 - `PathExpander` tukee vain yhtä `*`-jokeria kansiotasolla. Riittää nykyisille säännöille.
 - `RecycleBinModule` on merkitty `[SupportedOSPlatform("windows")]` ja rekisteröidään vain Windowsissa; ei testattu oikealla roskakorilla.
-- `FileLogger` kirjoittaa `%LOCALAPPDATA%\PcCleaner\logs\cleaner-<aika>-<pid>.log`. Vanhoja lokeja ei siivota – lisää joskus.
+- `FileLogger` kirjoittaa `%LOCALAPPDATA%\PcCleaner\logs\cleaner-<aika>-<pid>.log` ja siivoaa käynnistyessä vanhat (50 uusinta säilyy, yli 30 pv vanhat pois).
 - Startup ei näe pakattujen sovellusten (Store/MSIX) `StartupTask`-kohteita, jotka Tehtävienhallinta näyttää. Ne ovat avaimessa `HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData\<paketti>\<tehtävä>\State`. Lisää lähteenä myöhemmin, jos tarvitaan.
 - Startup: `StartupApproved\Run32`-avaimen käyttö Wow6432Node-kohteille on Tehtävienhallinnan käytäntö, mutta sitä ei ole todennettu tällä koneella (ei 32-bittisiä Run-kohteita).
 - Startup: ajoitetun tehtävän `Enabled = false` ilman adminia onnistuu vain käyttäjän omille tehtäville; muut päätyvät `Skipped`-listalle syyllä "Ei oikeuksia".

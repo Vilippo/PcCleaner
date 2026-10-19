@@ -223,8 +223,13 @@ Turvamekanismit (toteutettu):
 - Puhdistus on kolmivaiheinen: kuiva ajo → yhteenvetodialogi → vahvistusdialogi → oikea ajo → tulosdialogi →
   moduulin uudelleenskannaus. Dialogit `IDialogService`-rajapinnan kautta (`MainWindow` toteuttaa).
 - Oletusvalinta: `SelectedByDefault && Risk != High`. Startup- ja diskusage-kohteet ovat aina aluksi valitsematta.
-- Ei vielä: treemap (`DiskUsageModule.LastTrees` on valmiina), DiskUsage-polun ja top-N:n valinta, kuvake, MSIX.
-  Rivikohtainen admin-harmaannus puuttuu, koska `CleanItem` ei kanna admin-lippua; moduulitason vihje on.
+- Levytilan analyysin sivu: kansio (TextBox + FolderPicker), Top-N (NumberBox) ja treemap. `Treemap.Squarify`
+  (DiskUsage-projekti, puhdas laskenta, testattu) antaa suorakulmiot, `MainWindow` piirtää ne Canvasille Border-lohkoina:
+  nimi ja koko, ToolTip, napsautus avaa alikansion, "Ylös" palaa. Useampi asema yhdistetään `DirectoryNode.Combine`-solmuksi.
+- Julkaisu: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner`. Csproj asettaa `Platform=x64`-oletuksen
+  (muuten XAML/PRI-vaiheet jäävät pois) ja kopioi `PcCleaner.pri`- ja `.xbf`-tiedostot julkaisukansioon
+  (`CopyPriAndXbfToPublishDir`), koska publish ei tee sitä pakkaamattomalle sovellukselle.
+- Ei vielä: kuvake, MSIX. Rivikohtainen admin-harmaannus puuttuu, koska `CleanItem` ei kanna admin-lippua; moduulitason vihje on.
 
 ## 8. Testaus
 

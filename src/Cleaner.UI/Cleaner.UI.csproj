@@ -9,6 +9,9 @@
     <AssemblyName>PcCleaner</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64</Platforms>
+    <!-- Ilman tätä "dotnet publish src\Cleaner.UI" ajaa AnyCPU-alustalla, jolloin XAML- ja PRI-vaiheet jäävät pois
+         ja exe kaatuu käynnistyksessä (0xC000027B, combase.dll). Solution-build antaa alustan sln:stä. -->
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
@@ -39,5 +42,14 @@
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
+
+  <!-- dotnet publish ei kopioi pakkaamattoman sovelluksen omaa .pri-tiedostoa eikä .xbf-tiedostoja
+       julkaisukansioon (Windows App SDK 1.8). Ilman niitä exe kaatuu käynnistyksessä. -->
+  <Target Name="CopyPriAndXbfToPublishDir" AfterTargets="Publish">
+    <ItemGroup>
+      <_UiResourceFiles Include="$(OutDir)$(AssemblyName).pri;$(OutDir)*.xbf" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_UiResourceFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
