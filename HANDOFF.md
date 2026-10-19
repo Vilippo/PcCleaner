@@ -42,7 +42,7 @@ Korjattu samalla:
 Ei ajettu adminina (UAC-kehotetta ei voi hyväksyä Claude-sessiosta). `%WINDIR%\Temp`, Prefetch ja
 SoftwareDistribution-poisto ovat testaamatta. `--apply` ei ole ajettu kertaakaan oikealla datalla.
 Git alustettu 19.10.2026: haara `main`, ensimmäinen commit `cba91ea` (75 tiedostoa, ei bin/obj). Ei etärepoa.
-Juuren `ARCHITECTURE.md` on vanha kopio; ajantasainen on `docs/ARCHITECTURE.md`. Poisto käyttäjän päätettävissä.
+Tekninen määrittely on `docs/ARCHITECTURE.md`; juuren vanha kopio poistettiin commitissa `5cdfa52`.
 
 ### Startup-moduuli 19.10.2026
 
