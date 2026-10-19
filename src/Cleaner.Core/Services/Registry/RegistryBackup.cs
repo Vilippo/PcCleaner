@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using Cleaner.Core.Logging;
 
-namespace Cleaner.Modules.RegistryCleaner;
+namespace Cleaner.Core.Services;
 
 /// <summary>
 /// .reg-varmuuskopiot reg.exe-työkalulla. Yksi kansio per puhdistusajo:

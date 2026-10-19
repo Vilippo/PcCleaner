@@ -1,7 +1,7 @@
 using System.Runtime.Versioning;
 using Microsoft.Win32;
 
-namespace Cleaner.Modules.RegistryCleaner;
+namespace Cleaner.Core.Services;
 
 /// <summary>
 /// Rekisteripolkujen muoto tässä moduulissa: "HKCU\Software\..." tai "HKLM\SOFTWARE\...".

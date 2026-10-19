@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Cleaner.Core.Models;
+using Cleaner.Core.Services;
 using Cleaner.Modules.RegistryCleaner;
 using Microsoft.Win32;
 using Xunit;

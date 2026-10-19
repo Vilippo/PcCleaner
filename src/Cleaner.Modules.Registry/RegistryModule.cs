@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using Cleaner.Core.Abstractions;
 using Cleaner.Core.Models;
+using Cleaner.Core.Services;
 using Microsoft.Win32;
 
 namespace Cleaner.Modules.RegistryCleaner;

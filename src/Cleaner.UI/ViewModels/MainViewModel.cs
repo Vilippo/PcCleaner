@@ -4,7 +4,6 @@ using Cleaner.Core.Logging;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
 using Cleaner.Modules.DiskUsage;
-using Cleaner.Modules.RegistryCleaner;
 using Cleaner.UI.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;

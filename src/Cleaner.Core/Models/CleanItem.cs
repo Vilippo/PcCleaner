@@ -11,6 +11,10 @@ namespace Cleaner.Core.Models;
 /// <param name="SizeBytes">Koko tavuina. 0 jos ei sovellu (esim. rekisteriavain).</param>
 /// <param name="Description">Lyhyt ihmisluettava selitys, miksi kohde on tarpeeton.</param>
 /// <param name="Risk">Riskitaso.</param>
+/// <param name="Preselected">
+/// Kohteen oma esivalinta käyttöliittymässä: null = moduulin oletus (<c>SelectedByDefault</c>),
+/// true/false = kohde on tai ei ole valittuna oletuksena. High-riskinen kohde ei ole koskaan esivalittu.
+/// </param>
 public sealed record CleanItem(
     string Id,
     string ModuleId,
@@ -18,4 +22,5 @@ public sealed record CleanItem(
     string Path,
     long SizeBytes,
     string Description,
-    RiskLevel Risk);
+    RiskLevel Risk,
+    bool? Preselected = null);

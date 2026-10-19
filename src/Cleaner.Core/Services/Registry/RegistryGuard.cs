@@ -1,6 +1,6 @@
 using System.Runtime.Versioning;
 
-namespace Cleaner.Modules.RegistryCleaner;
+namespace Cleaner.Core.Services;
 
 /// <summary>
 /// Rekisterin viimeinen turvaverkko (vrt. PathGuard): kieltäytyy koskemasta avaimiin, jotka eivät ole

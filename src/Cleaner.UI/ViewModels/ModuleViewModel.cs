@@ -84,7 +84,7 @@ public sealed partial class ModuleViewModel : ObservableObject
         UpdateSelection();
     }
 
-    /// <summary>Korvaa edellisen tuloksen. Oletusvalinta: moduuli oletuksena mukana ja riski alle High.</summary>
+    /// <summary>Korvaa edellisen tuloksen. Oletusvalinta kohteittain: riski alle High ja (kohteen Preselected ?? moduulin SelectedByDefault).</summary>
     public void LoadScan(ScanResult result)
     {
         foreach (var c in Categories.Concat(HighRiskCategories))
@@ -100,8 +100,8 @@ public sealed partial class ModuleViewModel : ObservableObject
         foreach (var group in groups)
         {
             var risk = group.Max(i => i.Risk);
-            var selectByDefault = SelectedByDefault && risk != RiskLevel.High;
-            var category = new CategoryViewModel(group.Key, risk, group.Select(i => new ItemViewModel(i, selectByDefault)), showTotal: SelectedByDefault);
+            var items = group.Select(i => new ItemViewModel(i, i.Risk != RiskLevel.High && (i.Preselected ?? SelectedByDefault)));
+            var category = new CategoryViewModel(group.Key, risk, items, showTotal: SelectedByDefault);
             category.SelectionChanged += OnCategorySelectionChanged;
             (risk == RiskLevel.High ? HighRiskCategories : Categories).Add(category);
         }

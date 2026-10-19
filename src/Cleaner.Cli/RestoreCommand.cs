@@ -1,6 +1,6 @@
 using System.Runtime.Versioning;
 using Cleaner.Core.Logging;
-using Cleaner.Modules.RegistryCleaner;
+using Cleaner.Core.Services;
 
 namespace Cleaner.Cli;
 

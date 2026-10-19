@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using Cleaner.Core.Services;
 
 namespace Cleaner.Modules.RegistryCleaner;
 

@@ -183,6 +183,9 @@ Treemap-näkymä WinUI:hin vaiheessa 2.
 
 Projekti `src/Cleaner.Modules.Registry` (nimiavaruus `Cleaner.Modules.RegistryCleaner`, jotta
 `Microsoft.Win32.Registry` ei sekoitu). Polut ovat aina konkreettisia (`HKCU\...`, `HKLM\...`), ei HKCR-näkymää.
+`RegistryBackup`, `RegistryGuard` ja `RegistryPaths` ovat Core-palveluita (`Cleaner.Core.Services`,
+kansio `src/Cleaner.Core/Services/Registry/`), jotta muutkin moduulit voivat käyttää niitä viittaamatta
+Registry-moduuliin.
 
 | Kategoria | Sijainti | Tulkinta "orvoksi" | Toimenpide | Riski |
 |-----------|----------|--------------------|------------|-------|
