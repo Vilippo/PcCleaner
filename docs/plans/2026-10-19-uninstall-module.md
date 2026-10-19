@@ -41,8 +41,9 @@ luku 3.1, moduulin tunnisteiden konventio), `HANDOFF.md` (suunnittelupäätökse
   ohjelman Uninstall-avain katoaa (kysely 2 s välein). Tulos: `ExitCode`, `KeyRemoved`, `Elapsed`, `Error` (null kun
   käynnistys onnistui). Peruutus (`ct`) lopettaa odotuksen eikä tapa poisto-ohjelmaa.
 - REQ-3: `LeftoverScanner.Scan(program, keyRemoved, options, ct)` tuottaa `CleanItem`-kohteet luvun **Matching rules**
-  sääntöjen mukaan viidessä kategoriassa: "Asennuskansio", "Ohjelmakansiot", "Pikakuvakkeet", "Rekisteriavaimet",
-  "Rekisteriarvot". Sama polku tai avain esiintyy enintään kerran (ensimmäinen osuva sääntö voittaa).
+  sääntöjen mukaan kuudessa kategoriassa: "Asennuskansio", "Ohjelmakansiot", "Käyttäjän datakansiot", "Pikakuvakkeet",
+  "Rekisteriavaimet", "Rekisteriarvot". Kategorian kaikilla kohteilla on sama riski, jotta UI:n High-lohko ei sekoita
+  esivalittuja ja korkean riskin kohteita. Sama polku tai avain esiintyy enintään kerran (ensimmäinen osuva sääntö voittaa).
 - REQ-4: Jokaisen jäännöskohteen `Description` kertoo osumasyyn: säännön nimi ja mihin nimeen, julkaisijaan tai polkuun
   osuma perustuu (esim. "Kansion nimi täsmää ohjelman nimeen 'Foo Bar'", "Arvo viittaa asennuskansioon C:\...").
 - REQ-5: `CleanItem` saa valinnaisen kentän `bool? Preselected = null`. UI:n oletusvalinta on
@@ -58,16 +59,24 @@ luku 3.1, moduulin tunnisteiden konventio), `HANDOFF.md` (suunnittelupäätökse
   `BackupSessions.Restore(ts, log)` tuo molemmat takaisin: `.reg`-tiedostot `reg import` -komennolla ja karanteenin
   polut alkuperäisiin paikkoihinsa (puuttuvat yläkansiot luodaan). Jos alkuperäinen polku on jo olemassa, kohde ohitetaan
   ja syy raportoidaan. CLI `pccleaner restore [ts]` ja UI:n "Palauta varmuuskopio..." käyttävät `BackupSessions`-luokkaa.
-- REQ-8: Ennen jokaista siirtoa tai poistoa tarkistetaan vartija: tiedostojärjestelmäkohteen on oltava jonkin
-  **Matching rules** -luvun peruskansion alla tai ohjelman `InstallLocation`-kansion alla tai se itse, se ei saa olla
-  peruskansio itse, eikä `PathGuard.IsSafeToDelete` saa hylätä sitä. Rekisterikohteen on oltava `HKCU\Software`-,
-  `HKLM\SOFTWARE`- tai `HKLM\SOFTWARE\WOW6432Node`-juuren alla vähintään yhden segmentin syvyydessä juuresta, sen polussa ei
-  saa olla `RegistryGuard.ForbiddenSegments`-segmenttejä, eikä se saa olla tai olla segmentin `Microsoft`, `Classes`,
-  `Policies`, `WOW6432Node`, `Clients`, `RegisteredApplications` alla (poikkeus: `Microsoft\Windows\CurrentVersion\Uninstall\<avain>`
-  ja `Microsoft\Windows\CurrentVersion\App Paths\<exe>` sallitaan, koska ne ovat ohjelman omia merkintöjä). Väärennetty
-  tunniste, joka osoittaa muualle, päätyy `Skipped`-listalle.
+- REQ-8: Ennen jokaista siirtoa tai poistoa tarkistetaan tunnistetyyppikohtainen vartija (`LeftoverGuard`), ja väärennetty
+  tunniste, joka ei täytä oman tyyppinsä ehtoa, päätyy `Skipped`-listalle:
+  - `dir`/`file`: polku on jonkin **Matching rules** -luvun peruskansion tai pikakuvakekansion alla, tai se on ohjelman
+    `InstallLocation` tai sen alla; se ei ole peruskansio tai pikakuvakekansio itse; `PathGuard.IsSafeToDelete` sallii sen.
+  - `key`: polku on täsmälleen jotakin seuraavista muodoista, missä `<juuri>` on jokin `RegistryRoots`-juuri
+    (`HKCU\Software`, `HKLM\SOFTWARE`, `HKLM\SOFTWARE\WOW6432Node`): `<juuri>\<X>`, `<juuri>\<X>\<Y>`,
+    `<Uninstall-juuri>\<X>`, `<App Paths -juuri>\<X>`, `<Classes-juuri>\<X>`. Juuren jälkeisessä osassa ei saa olla
+    `RegistryGuard.ForbiddenSegments`-segmenttejä eikä segmenttejä `Microsoft`, `Classes`, `Policies`, `WOW6432Node`,
+    `Clients`, `RegisteredApplications` (segmentit tarkistetaan vain osuneen juuren jälkeisestä osasta, joten
+    `HKLM\SOFTWARE\WOW6432Node\Acme\Foo` on sallittu ja `HKLM\SOFTWARE\Microsoft\Windows` ei).
+  - `value`: avain on `RegistryRoots`-juuren alla enintään `MaxRegistryDepth`-syvyydessä samoilla segmenttiehdoilla kuin
+    `key`, **tai** avain on täsmälleen jokin `RunKeys`-avain.
+  Tämä poikkeaa HANDOFF-päätöksen 19 "suora lapsi" -säännöstä kahden tason syvyydellä (`<juuri>\<Julkaisija>\<Nimi>`);
+  poikkeama kirjataan uutena päätöksenä (T9).
 - REQ-9: Karanteeniin siirretyn kansion yläkansio poistetaan, jos se on tyhjä siirron jälkeen eikä ole peruskansio
-  (julkaisijakansio). Palautus luo puuttuvat yläkansiot uudelleen.
+  (julkaisijakansio). Vastaavasti poistetun rekisteriavaimen yläavain poistetaan, jos sillä ei ole aliavaimia eikä arvoja
+  poiston jälkeen eikä se ole `RegistryRoots`-juuri (julkaisija-avain). Palautus luo puuttuvat yläkansiot ja -avaimet
+  uudelleen (`reg import` luo väliavaimet itse).
 - REQ-10: Ennen poisto-ohjelman ajoa ja ennen oikeaa karanteenisiirtoa tarkistetaan, onko käynnissä prosessi, jonka
   exe on ohjelman `InstallLocation`-kansion tai karanteeniin siirrettävän kansion alla. Jos on, ajo/siirto ei ala ja
   virhe nimeää prosessin. Prosessit, joiden polkua ei voi lukea, ohitetaan.
@@ -96,12 +105,15 @@ luku 3.1, moduulin tunnisteiden konventio), `HANDOFF.md` (suunnittelupäätökse
 - EDGE-3: Ohjelman nimessä on vain yksi merkitsevä sana ja se on alle 5 merkkiä (esim. "Git") → vain täsmälleen samanniminen
   kansio osuu, ei osamerkkijono.
 - EDGE-4: Normalisoitu ohjelman nimi on sama kuin jonkin peruskansion tai kieltolistan nimi (esim. "Windows") → ei kansio-osumia.
-- EDGE-5: Karanteenisiirto eri asemalle (`Directory.Move` heittää `IOException`) → kopioidaan rekursiivisesti ja poistetaan
-  alkuperäinen vasta onnistuneen kopion jälkeen.
+- EDGE-5: Karanteenisiirto eri asemalle (`Path.GetPathRoot` eroaa lähteen ja kohteen välillä) → kopioidaan rekursiivisesti ja
+  poistetaan alkuperäinen vasta onnistuneen kopion jälkeen. Samalla asemalla `Directory.Move`-kutsun `IOException`
+  (lukittu tiedosto) → siirto epäonnistuu syyllä, mitään ei kopioida eikä poisteta.
 - EDGE-6: Palautuksessa alkuperäinen polku on jo olemassa → kohde jätetään karanteeniin, viesti kertoo polun.
 - EDGE-7: Peruutus rekisteriarvojen skannauksen aikana → `OperationCanceledException` etenee, osittaista tulosta ei palauteta.
-- EDGE-8: Prosessi ei ole korotettu (CLI tavallisena käyttäjänä) → HKLM-kohteet ja Program Files -kansiot päätyvät
-  `Skipped`-listalle syyllä "Tarvitsee järjestelmänvalvojan oikeudet" (kansio: `UnauthorizedAccessException` siirrossa).
+- EDGE-8: Prosessi ei ole korotettu (CLI tavallisena käyttäjänä) → HKLM-kohteet päätyvät `Skipped`-listalle syyllä
+  "Tarvitsee järjestelmänvalvojan oikeudet" (tarkistus ennen yritystä, kuten `RegistryModule`), ja Program Files -kansiot
+  syyllä `Quarantine`-palvelun virhetekstillä "Ei oikeuksia (tarvitsee järjestelmänvalvojan oikeudet)", jonka se palauttaa
+  `UnauthorizedAccessException`-tilanteessa.
 - EDGE-9: Sama kansio osuu usealla säännöllä (asennuskansio on myös nimiosuma) → yksi kohde, ensimmäinen sääntö
   (asennuskansio) voittaa.
 - EDGE-10: Poisto-ohjelmaa ei voi käynnistää (tiedosto puuttuu, `Win32Exception`) → `RunAsync` palauttaa `Error`-tekstin,
@@ -128,17 +140,22 @@ luku 3.1, moduulin tunnisteiden konventio), `HANDOFF.md` (suunnittelupäätökse
 
 Nämä säännöt ovat vaatimus (REQ-3, REQ-5, REQ-8 viittaavat tähän).
 
-**Nimen normalisointi** (`NameMatcher.Normalize`): poista suluissa oleva sisältö, versiomaiset merkkijonot
+**Nimen normalisointi** (`NameMatcher.Tokens`): poista suluissa oleva sisältö, versiomaiset merkkijonot
 (`\d+(\.\d+)+`, `v\d+`, `x64`, `x86`, `64-bit`, `32-bit`, `(64 bit)`), merkit `™ ® ©`; pienet kirjaimet; jaa
-sanoiksi muilla kuin kirjain- ja numeromerkeillä. Merkitsevät sanat: pituus ≥ 3 ja ei kieltolistalla
+sanoiksi muilla kuin kirjain- ja numeromerkeillä. Tulos on **sanalista**, ja vertailut tehdään sanalistoina, ei yhdistettynä
+merkkijonona (joten "Foobar" = [foobar] ja "Foo Bar" = [foo, bar] eivät ole samat). Merkitsevät sanat
+(`SignificantTokens`): pituus ≥ 3 ja ei kieltolistalla
 `the, for, and, windows, version, edition, app, application, software, inc, llc, ltd, corp, corporation, gmbh, oy, ab`.
+`Normalize` palauttaa sanat yhdellä välilyönnillä yhdistettynä (vain näyttöä ja lokeja varten).
 
-**Kansio-osuma** (`NameMatcher.Match(folderName, program)` → `MatchKind`):
-- `Exact`: kansion normalisoidut sanat yhdistettynä == ohjelman normalisoidut sanat yhdistettynä.
-- `Tokens`: kaikki ohjelman merkitsevät sanat esiintyvät kansion nimessä kokonaisina sanoina, ja ohjelmalla on ≥ 2
+**Kansio-osuma** (`NameMatcher.Match(folderName, programName, publisher)` → `MatchKind`):
+- `Exact`: kansion sanalista == ohjelman sanalista (järjestys ja määrä samat).
+- `Tokens`: kaikki ohjelman merkitsevät sanat esiintyvät kansion sanalistassa kokonaisina sanoina, ja ohjelmalla on ≥ 2
   merkitsevää sanaa tai sen ainoa merkitsevä sana on ≥ 5 merkkiä (EDGE-3).
-- `Publisher`: kansion normalisoidut sanat == julkaisijan normalisoidut sanat; tällöin tutkitaan kansion lapset
-  `Exact`/`Tokens`-säännöillä. Osuva lapsi on kohde; jos julkaisijakansiolla ei ole muita lapsia, kohde on julkaisijakansio.
+- `Publisher`: kansion merkitsevät sanat == julkaisijan merkitsevät sanat (yhtiöpäätteet `inc, corporation, ...` ovat
+  kieltolistalla, joten "Mozilla Corporation" osuu kansioon "Mozilla"); jos jommallakummalla ei ole merkitseviä sanoja,
+  verrataan koko sanalistoja. Skanneri tutkii tällöin kansion lapset `Exact`/`Tokens`-säännöillä, ja **osuva lapsi on kohde**;
+  julkaisijakansiota ei koskaan tarjota kohteena, vaan se poistuu REQ-9:n mukaan, jos se jää tyhjäksi.
 - `None` muuten. Kansion nimi, joka on kieltolistalla `Microsoft, Windows, WindowsApps, Common Files, Microsoft Shared,
   Packages, Temp, Programs, Google, Intel, NVIDIA, AMD`, ei osu koskaan (EDGE-4).
 
@@ -154,14 +171,14 @@ Programs (`Programs`, `CommonPrograms`), työpöytä (`Desktop`, `CommonDesktopD
 | Asennuskansio | `InstallLocation` (lainausmerkit ja loppukeno pois), kansio on olemassa, ei peruskansio, ei peruskansion yläkansio, PathGuard sallii | `uninstall:dir:<polku>` | Medium | true |
 | Asennuskansio | `DisplayIcon`- tai `UninstallString`-exen kansio, kun se on Program Files-, Program Files (x86)- tai LocalAppData\Programs-kansion alla, ei peruskansio, ja sen nimi osuu `Exact`/`Tokens`/`Publisher`-säännöllä | `uninstall:dir:<polku>` | Medium | true |
 | Ohjelmakansiot | Peruskansion välitön lapsi, `Exact`-osuma Program Files-, Program Files (x86)-, ProgramData- tai LocalAppData\Programs-kansiossa | `uninstall:dir:<polku>` | Medium | true |
-| Ohjelmakansiot | `Tokens`- tai `Publisher`-osuma samoissa kansioissa | `uninstall:dir:<polku>` | Medium | false |
-| Ohjelmakansiot | Mikä tahansa osuma `LocalApplicationData`-, `ApplicationData`- tai `LocalLow`-kansiossa (voi sisältää käyttäjän dataa) | `uninstall:dir:<polku>` | High | false |
+| Ohjelmakansiot | `Tokens`-osuma tai `Publisher`-kansion osuva lapsi samoissa kansioissa | `uninstall:dir:<polku>` | Medium | false |
+| Käyttäjän datakansiot | Mikä tahansa osuma (`Exact`, `Tokens`, `Publisher`-kansion lapsi) `LocalApplicationData`-, `ApplicationData`- tai `LocalLow`-kansiossa (voi sisältää käyttäjän dataa); oma kategoria, jotta High-riski ei sekoitu Ohjelmakansioihin | `uninstall:dir:<polku>` | High | false |
 | Pikakuvakkeet | `.lnk` Käynnistä-valikon Programs-kansioissa (rekursiivisesti) tai työpöydillä, jonka kohde (`ShortcutResolver`-tyylinen WScript.Shell-luku, kopioi logiikka moduuliin) on asennuskansion tai osuneen ohjelmakansion alla; tai Käynnistä-valikon kansio, jonka nimi osuu `Exact`/`Tokens` | `uninstall:file:<polku>` / `uninstall:dir:<polku>` | Low | true |
-| Rekisteriavaimet | `HKCU\Software\<Julkaisija>\<Nimi>`, `HKLM\SOFTWARE\<Julkaisija>\<Nimi>`, `HKLM\SOFTWARE\WOW6432Node\<Julkaisija>\<Nimi>`, `HKCU\Software\<Nimi>`, `HKLM\SOFTWARE\<Nimi>`, `HKLM\SOFTWARE\WOW6432Node\<Nimi>` kun avain on olemassa; aliavain- ja julkaisijanimen vertailu `Exact`-säännöllä juuren lapsiin (ei vain tarkka merkkijono). Julkaisijakansio kohteena, jos sillä ei ole muita lapsia | `uninstall:key:<avain>` | High | false |
+| Rekisteriavaimet | `<juuri>\<Julkaisija>\<Nimi>` ja `<juuri>\<Nimi>` jokaiselle `RegistryRoots`-juurelle (`HKCU\Software`, `HKLM\SOFTWARE`, `HKLM\SOFTWARE\WOW6432Node`), kun avain on olemassa; juuren lapsia verrataan julkaisijaan `Publisher`-säännöllä ja nimeen `Exact`-säännöllä (ei vain tarkka merkkijono), kielletyt segmentit ja kieltolistan nimet ohitetaan. Kohde on aina nimiavain; tyhjäksi jäävä julkaisija-avain poistuu REQ-9:n mukaan | `uninstall:key:<avain>` | High | false |
 | Rekisteriavaimet | Ohjelman Uninstall-avain, kun `keyRemoved == false` ja avain on yhä olemassa | `uninstall:key:<avain>` | High | false |
 | Rekisteriavaimet | `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\<x>.exe` (+ HKCU), jonka oletusarvo tai `Path` osoittaa asennuskansioon | `uninstall:key:<avain>` | High | false |
 | Rekisteriavaimet | `HKCU\Software\Classes\<ProgId>` ja `HKLM\SOFTWARE\Classes\<ProgId>` (ei `.ext`, ei ForbiddenSegments), jonka `shell\open\command` osoittaa asennuskansioon | `uninstall:key:<avain>` | High | false |
-| Rekisteriarvot | `HKCU\Software` ja `HKLM\SOFTWARE` (myös WOW6432Node) rekursiivisesti enintään 6 tason syvyydessä, ohittaen segmentit `Classes`, `Microsoft`, `Policies` ja ForbiddenSegments: `String`/`ExpandString`-arvo, jonka sisältö (laajennettuna, lainausmerkit pois) alkaa `InstallLocation`-polulla; lisäksi `...\CurrentVersion\Run`-arvot HKCU ja HKLM samalla ehdolla | `uninstall:value:<avain>\|<arvonimi>` | High | false |
+| Rekisteriarvot | `RegistryRoots`-juuret rekursiivisesti enintään `MaxRegistryDepth` (6) tason syvyydessä juuresta, ohittaen juuren jälkeiset segmentit `Classes`, `Microsoft`, `Policies` ja ForbiddenSegments: `String`/`ExpandString`-arvo, jonka sisältö (laajennettuna, lainausmerkit pois) alkaa `InstallLocation`-polulla; lisäksi `RunKeys`-avainten (`HKCU` ja `HKLM` `...\CurrentVersion\Run`) arvot samalla ehdolla, vaikka niiden polussa on `Microsoft`-segmentti | `uninstall:value:<avain>\|<arvonimi>` | High | false |
 
 Rekisteriarvojen skannaus kunnioittaa `ct`-peruutusta jokaisella avaimella (EDGE-7) ja ohittaa avaimet, joita ei voi avata.
 
@@ -180,7 +197,15 @@ Rekisteriarvojen skannaus kunnioittaa `ct`-peruutusta jokaisella avaimella (EDGE
 - Poisto-ohjelma käynnistetään `UseShellExecute = true` -tilassa ilman `runas`-verbiä: UI on jo korotettu
   (HANDOFF päätös 7), CLI tavallisena käyttäjänä saa UAC-kehotteen poisto-ohjelmalta itseltään.
 - Julkaisijakansion tyhjyys tarkistetaan vasta siirron jälkeen (REQ-9) `SafeFileDeleter.TryDeleteEmptyDirectory`-kutsulla;
-  palautus luo kansion `Directory.CreateDirectory`-kutsulla ennen `Directory.Move`-kutsua.
+  palautus luo kansion `Directory.CreateDirectory`-kutsulla ennen `Directory.Move`-kutsua. Julkaisija-avaimen tyhjyys
+  tarkistetaan vastaavasti poiston jälkeen (`SubKeyCount == 0 && ValueCount == 0`), ja tyhjä yläavain poistetaan ilman omaa
+  vientiä, koska `reg import` luo sen uudelleen lapsen palautuksessa.
+- Vartija on tunnistetyyppikohtainen mutta sallii kahden tason syvyyden rekisterijuuren alla (REQ-8), koska
+  `<juuri>\<Julkaisija>\<Nimi>` on tämän moduulin keskeisin kohde. HANDOFF-päätöksen 19 "suora lapsi" -sääntö pysyy
+  voimassa Registry-moduulissa; tämä on tietoinen, kirjattava poikkeama (T9, päätös 25).
+- Peräkkäiset `ScanAsync`-kutsut ilman muutoksia palauttavat samat tunnisteet samassa järjestyksessä: skanneri käy
+  kansiot ja avaimet aina samassa järjestyksessä (`Directory.EnumerateDirectories`-tulos järjestetään `OrdinalIgnoreCase`-
+  vertailulla, rekisterin `GetSubKeyNames` samoin) eikä muuta mitään.
 - UI:n ohjelmalista näyttää enintään kaikki ohjelmat (tyypillisesti 50–300), ei virtualisointiongelmaa.
 - Käynnissä olevan prosessin tarkistus (REQ-10) käyttää `Process.GetProcesses()` + `MainModule.FileName` try/catch-suojattuna;
   32-bittisten ja suojattujen prosessien polut jäävät lukematta ja ne ohitetaan. Tämä on hyväksytty rajoitus.
@@ -233,10 +258,9 @@ Yksi tehtävä: T1 koskee jaettuja sopimuksia (Core, Registry-moduuli, CLI, UI, 
 
 ## Wave 2
 
-Kaksi riippumatonta tehtävää: T2 kirjoittaa vain Core-projektin uusia tiedostoja ja omat testitiedostonsa, T3 luo uuden
-moduuliprojektin tiedostoineen, sln-rivit ja testiprojektin viittauksen. Tiedostojoukot eivät leikkaa. Kummankin Verify
-kääntää vain oman projektinsa (`--no-dependencies` käyttää Wave 1:n portissa käännettyä Core.dll:ää), koska koko solutionin
-käännös lukisi sisaren keskeneräisiä tiedostoja. Testit ajetaan aallon lopussa foremanin toimesta: `dotnet test PcCleaner.sln`.
+Yksi tehtävä: T2 kirjoittaa Core-projektiin, ja jokainen muu projekti lukee Core.dll:n (bin ja obj/ref) käännöksessään,
+joten mikään ei voi kääntyä rinnakkain Coren kanssa. Aallot 2–6 ovat peräkkäisiä samasta syystä: jokainen kirjoittaa
+projektiin, jonka seuraava lukee. Aitoa rinnakkaisuutta on vasta Wave 7:ssä (CLI, UI, dokumentit).
 
 ### T2: Core: Quarantine ja BackupSessions
 - Status: pending
@@ -244,7 +268,7 @@ käännös lukisi sisaren keskeneräisiä tiedostoja. Testit ajetaan aallon lopu
 - Requirements: REQ-7
 - Constraints/edge: CON-6, EDGE-5, EDGE-6
 - Files: src/Cleaner.Core/Services/Quarantine.cs, src/Cleaner.Core/Services/BackupSessions.cs, tests/Cleaner.Tests/QuarantineTests.cs, tests/Cleaner.Tests/BackupSessionsTests.cs
-- Verify: `dotnet build src/Cleaner.Core/Cleaner.Core.csproj -warnaserror` → exit 0. Testit (`QuarantineTests`, `BackupSessionsTests`) ajaa foreman aallon lopussa komennolla `dotnet test PcCleaner.sln` → kaikki vihreitä.
+- Verify: `dotnet build PcCleaner.sln -warnaserror` → exit 0, ja `dotnet test PcCleaner.sln --no-build --filter "FullyQualifiedName~QuarantineTests|FullyQualifiedName~BackupSessionsTests"` → kaikki vihreitä
 - Task:
   Kaksi uutta Core-palvelua nimiavaruuteen `Cleaner.Core.Services`. Lue mallia `src/Cleaner.Core/Services/Registry/RegistryBackup.cs`
   (sama tyyli: aikaleimakansio, `manifest.txt`, `List`, `Restore`, `RestoreResult`) ja `SafeFileDeleter.cs` (`PathGuard`-tarkistus
@@ -271,9 +295,11 @@ käännös lukisi sisaren keskeneräisiä tiedostoja. Testit ajetaan aallon lopu
   }
   ```
   Siirto: kohde `root\<timestamp>\<NNN>\<alkuperäinen nimi>` (NNN juokseva 001…), `PathGuard.IsSafeToDelete(path)` tarkistetaan
-  ensin ja hylkäys palauttaa false syyllä. `Directory.Move`; jos se heittää `IOException` (eri asema), kopioi rekursiivisesti
-  (`Directory.CreateDirectory` + `File.Copy` säilyttäen aikaleimat ei vaadita) ja poista alkuperäinen vasta onnistuneen kopion
-  jälkeen (EDGE-5). `manifest.txt` muoto: otsikkorivit (aikaleima, palautuskomento), sitten rivit `NNN<TAB>D|F<TAB>alkuperäinen polku<TAB>karanteenipolku`,
+  ensin ja hylkäys palauttaa false syyllä. Jos `Path.GetPathRoot(path)` eroaa karanteenijuuren asemasta (EDGE-5), kopioi
+  rekursiivisesti (`Directory.CreateDirectory` + `File.Copy`, aikaleimoja ei tarvitse säilyttää) ja poista alkuperäinen vasta
+  onnistuneen kopion jälkeen; muuten `Directory.Move`, ja sen `IOException` (lukittu tiedosto) palauttaa false syyllä
+  "Siirto epäonnistui: <viesti>" koskematta mihinkään. `UnauthorizedAccessException` palauttaa false syyllä täsmälleen
+  "Ei oikeuksia (tarvitsee järjestelmänvalvojan oikeudet)" (EDGE-8 ja T6 käyttävät tätä tekstiä sellaisenaan). `manifest.txt` muoto: otsikkorivit (aikaleima, palautuskomento), sitten rivit `NNN<TAB>D|F<TAB>alkuperäinen polku<TAB>karanteenipolku`,
   sitten "Käsitellyt kohteet:" ja annetut rivit. `ReadManifest` lukee vain `NNN`-rivit. `Restore`: jokaiselle merkinnälle luo
   alkuperäisen polun yläkansio, jos puuttuu; jos alkuperäinen polku on jo olemassa → `Skipped` ja viesti (EDGE-6); muuten
   siirrä takaisin (sama eri asema -käsittely); poista karanteenin NNN-kansio, kun se on tyhjä. `List` palauttaa sessiot uusin ensin,
@@ -298,13 +324,17 @@ käännös lukisi sisaren keskeneräisiä tiedostoja. Testit ajetaan aallon lopu
   `HKCU\Software\PcCleanerTests\<guid>` (`RegistryBackup.TryExport`), yhdistetty listaus ja palautus; Windows-only-osa guardataan
   `if (!OperatingSystem.IsWindows()) return;` ja luokka merkitään `[SupportedOSPlatform("windows")]` (katso `RegistryModuleTests`).
 
+## Wave 3
+
+Yksi tehtävä: T3 luo moduuliprojektin, johon T4, T5 ja T6 kirjoittavat myöhemmin.
+
 ### T3: Uninstall-projekti: InstalledProgramReader ja NameMatcher
 - Status: pending
 - Model: opus
 - Requirements: REQ-1
 - Constraints/edge: CON-1, CON-4, EDGE-3, EDGE-4
-- Files: src/Cleaner.Modules.Uninstall/Cleaner.Modules.Uninstall.csproj, src/Cleaner.Modules.Uninstall/InstalledProgram.cs, src/Cleaner.Modules.Uninstall/InstalledProgramReader.cs, src/Cleaner.Modules.Uninstall/NameMatcher.cs, PcCleaner.sln, tests/Cleaner.Tests/Cleaner.Tests.csproj, tests/Cleaner.Tests/InstalledProgramReaderTests.cs, tests/Cleaner.Tests/NameMatcherTests.cs
-- Verify: `dotnet build src/Cleaner.Modules.Uninstall/Cleaner.Modules.Uninstall.csproj --no-dependencies -warnaserror` → exit 0 (Core.dll on Wave 1:n portista). Testit ajaa foreman aallon lopussa: `dotnet test PcCleaner.sln`.
+- Files: src/Cleaner.Modules.Uninstall/Cleaner.Modules.Uninstall.csproj, src/Cleaner.Modules.Uninstall/InstalledProgram.cs, src/Cleaner.Modules.Uninstall/InstalledProgramReader.cs, src/Cleaner.Modules.Uninstall/UninstallCommandLine.cs, src/Cleaner.Modules.Uninstall/NameMatcher.cs, PcCleaner.sln, tests/Cleaner.Tests/Cleaner.Tests.csproj, tests/Cleaner.Tests/InstalledProgramReaderTests.cs, tests/Cleaner.Tests/NameMatcherTests.cs
+- Verify: `dotnet build PcCleaner.sln -warnaserror` → exit 0, ja `dotnet test PcCleaner.sln --no-build --filter "FullyQualifiedName~NameMatcherTests|FullyQualifiedName~InstalledProgramReaderTests"` → kaikki vihreitä
 - Task:
   Luo uusi projekti `src/Cleaner.Modules.Uninstall` (nimiavaruus `Cleaner.Modules.Uninstall`) kopioimalla
   `src/Cleaner.Modules.DiskUsage/Cleaner.Modules.DiskUsage.csproj`-tiedoston asetukset (net8.0, nullable, ImplicitUsings,
@@ -350,21 +380,29 @@ käännös lukisi sisaren keskeneräisiä tiedostoja. Testit ajetaan aallon lopu
       public static readonly string[] DeniedFolderNames;                       // Microsoft, Windows, WindowsApps, Common Files, ...
   }
   ```
-  `Match` palauttaa `Publisher`, kun kansion nimi normalisoituna == julkaisija normalisoituna (ja julkaisija ei ole tyhjä);
-  `Exact`, kun == ohjelman nimi; `Tokens` säännön mukaan (kaikki merkitsevät sanat kokonaisina sanoina kansion sanoissa; vaatii
-  ≥ 2 merkitsevää sanaa tai yhden ≥ 5 merkin sanan, EDGE-3); kielletty kansionimi → `None` aina (EDGE-4). Versiomaisten
-  merkkijonojen poisto: `\d+(\.\d+)+`, `^v\d+$`, `x64`, `x86`, `64-bit`, `32-bit` sanoina, sulkeiden sisältö kokonaan.
+  Vertailut tehdään sanalistoina (ei yhdistettynä merkkijonona): `Exact`, kun kansion sanalista == ohjelman sanalista;
+  `Publisher`, kun kansion merkitsevät sanat == julkaisijan merkitsevät sanat (jos jommallakummalla ei ole merkitseviä sanoja,
+  verrataan koko sanalistoja; tyhjä julkaisija ei osu koskaan); `Tokens` säännön mukaan (kaikki ohjelman merkitsevät sanat
+  kokonaisina sanoina kansion sanalistassa; vaatii ≥ 2 merkitsevää sanaa tai yhden ≥ 5 merkin sanan, EDGE-3). Tarkistusjärjestys:
+  kielletty kansionimi → `None` aina (EDGE-4); sitten `Exact`, `Publisher`, `Tokens`. Versiomaisten merkkijonojen poisto:
+  `\d+(\.\d+)+`, `^v\d+$`, `x64`, `x86`, `64-bit`, `32-bit` sanoina, sulkeiden sisältö kokonaan. `Normalize` palauttaa sanat
+  välilyönnillä yhdistettynä (näyttöä varten).
 
-  Testit: `NameMatcherTests` (Theory): "Notepad++ (64-bit x64)" → tokens [notepad]; "Git" vs "GitHub Desktop" → None;
-  "Git" vs "Git" → Exact; "7-Zip 23.01 (x64 edition)" vs "7-Zip" → Exact; "Mozilla Firefox" vs "Firefox" → None (Tokens vaatii
-  kaikki merkitsevät sanat: mozilla puuttuu); "Firefox" vs "Mozilla Firefox" → Tokens; julkaisija "Mozilla" vs kansio "Mozilla" →
-  Publisher; "Windows" → None; `IsDeniedFolderName("Common Files")` true. `InstalledProgramReaderTests`: testiavain
+  Testit: `NameMatcherTests`, kirjoita jokainen `Match`-kutsu nimetyillä argumenteilla (`folderName:`, `programName:`, `publisher:`),
+  koska parametrijärjestys ratkaisee tuloksen. `Tokens("Notepad++ (64-bit x64)")` → [notepad]; `Tokens("7-Zip 23.01 (x64 edition)")` →
+  [7, zip]; `Match(folderName: "GitHub Desktop", programName: "Git", publisher: null)` → None; `Match(folderName: "Git", programName: "Git", ...)` → Exact;
+  `Match(folderName: "7-Zip", programName: "7-Zip 23.01 (x64 edition)", ...)` → Exact; `Match(folderName: "Foobar", programName: "Foo Bar", ...)` → None;
+  `Match(folderName: "Firefox", programName: "Mozilla Firefox", ...)` → None (merkitsevä sana mozilla puuttuu kansiosta);
+  `Match(folderName: "Mozilla Firefox", programName: "Firefox", ...)` → Tokens; `Match(folderName: "Foo Bar Tools", programName: "Foo Bar", ...)` → Tokens;
+  `Match(folderName: "Mozilla", programName: "Mozilla Firefox", publisher: "Mozilla Corporation")` → Publisher;
+  `Match(folderName: "Mozilla", programName: "Firefox", publisher: "Mozilla")` → Publisher; `Match(folderName: "Windows", programName: "Windows", ...)` → None;
+  `IsDeniedFolderName("Common Files")` true. `InstalledProgramReaderTests`: testiavain
   `HKCU\Software\PcCleanerTests\<guid>\Uninstall` sisältää Normaali (kaikki kentät, EstimatedSize 2048 → 2 097 152), Msi
   (`WindowsInstaller` 1, avain `{GUID}`), Sys (`SystemComponent` 1), NoName (ei DisplayName), Update (`ParentKeyName`) → listassa
   vain Normaali ja Msi, järjestyksessä; `InstallLocation = "\"C:\\Foo\\\""` → `C:\Foo`. Luokka `[SupportedOSPlatform("windows")]`
   ja guard `if (!OperatingSystem.IsWindows()) return;` (malli `RegistryModuleTests`), avain poistetaan `Dispose`-metodissa (CON-8).
 
-## Wave 3
+## Wave 4
 
 Yksi tehtävä: T4 kirjoittaa Uninstall-projektiin, jonka T5 ja T6 myös muokkaavat; sama projekti ei käänny rinnakkaisten
 keskeneräisten tiedostojen kanssa, joten aallot ovat peräkkäisiä.
@@ -375,7 +413,7 @@ keskeneräisten tiedostojen kanssa, joten aallot ovat peräkkäisiä.
 - Requirements: REQ-3, REQ-4
 - Constraints/edge: CON-4, CON-8, EDGE-2, EDGE-7, EDGE-9
 - Files: src/Cleaner.Modules.Uninstall/LeftoverScanOptions.cs, src/Cleaner.Modules.Uninstall/LeftoverScanner.cs, src/Cleaner.Modules.Uninstall/LeftoverItemId.cs, src/Cleaner.Modules.Uninstall/ShortcutTarget.cs, tests/Cleaner.Tests/LeftoverScannerTests.cs
-- Verify: `dotnet build src/Cleaner.Modules.Uninstall/Cleaner.Modules.Uninstall.csproj --no-dependencies -warnaserror` → exit 0, ja `dotnet test PcCleaner.sln --filter "FullyQualifiedName~LeftoverScannerTests"` → kaikki vihreitä
+- Verify: `dotnet build PcCleaner.sln -warnaserror` → exit 0, ja `dotnet test PcCleaner.sln --no-build --filter "FullyQualifiedName~LeftoverScannerTests"` → kaikki vihreitä
 - Task:
   Toteuta jäänteiden haku suunnitelman luvun "Matching rules" taulukon mukaan (lue se kokonaan; se on vaatimus).
   Projekti `src/Cleaner.Modules.Uninstall` on olemassa (T3) ja sisältää:
@@ -394,7 +432,8 @@ keskeneräisten tiedostojen kanssa, joten aallot ovat peräkkäisiä.
   **`LeftoverScanOptions`** (sealed record): `BaseFolders` (nimetty tietue `BaseFolder(string Path, BaseFolderKind Kind)`,
   `enum BaseFolderKind { ProgramFiles, ProgramData, LocalPrograms, UserData }`; oletukset luvun "Matching rules" peruskansioista),
   `ShortcutFolders` (Käynnistä-valikon Programs user+common, työpöydät user+public), `RegistryRoots`
-  (`HKCU\Software`, `HKLM\SOFTWARE`, `HKLM\SOFTWARE\WOW6432Node`), `AppPathsRoots`, `RunKeys`, `ClassesRoots`, `MaxRegistryDepth = 6`.
+  (`HKCU\Software`, `HKLM\SOFTWARE`, `HKLM\SOFTWARE\WOW6432Node`), `UninstallRoots` (oletus `InstalledProgramReader`-vakiot;
+  T6 käyttää tätä `ListPrograms`-kutsussa), `AppPathsRoots`, `RunKeys`, `ClassesRoots`, `MaxRegistryDepth = 6`.
   Testit antavat omat kansiot ja testiavaimet.
 
   **`LeftoverItemId`** (static): `MakeDir(path)` → `uninstall:dir:<polku>`, `MakeFile(path)` → `uninstall:file:<polku>`,
@@ -412,6 +451,7 @@ keskeneräisten tiedostojen kanssa, joten aallot ovat peräkkäisiä.
       public LeftoverScanner(LeftoverScanOptions options);
       public const string InstallFolderCategory = "Asennuskansio";
       public const string ProgramFoldersCategory = "Ohjelmakansiot";
+      public const string UserDataFoldersCategory = "Käyttäjän datakansiot";
       public const string ShortcutsCategory = "Pikakuvakkeet";
       public const string RegistryKeysCategory = "Rekisteriavaimet";
       public const string RegistryValuesCategory = "Rekisteriarvot";
@@ -422,7 +462,9 @@ keskeneräisten tiedostojen kanssa, joten aallot ovat peräkkäisiä.
   Kohteen `SizeBytes`: kansioille rekursiivinen koko (`EnumerationOptions { IgnoreInaccessible = true, AttributesToSkip = ReparsePoint }`,
   virheet ohitetaan), tiedostoille pituus, rekisterille 0. `Description` REQ-4:n mukaan. Päällekkäisyys: pidä `HashSet`
   polkuja/avaimia (OrdinalIgnoreCase) ja lisää kohde vain, jos sitä ei ole (EDGE-9); myös alikansio jo lisätyn kansion alla
-  ohitetaan. `InstallLocation`-sääntö: EDGE-2:n ehdot; peruskansion yläkansion tunnistus: jokin peruskansio alkaa
+  ohitetaan. Determinismi: järjestä `Directory.EnumerateDirectories`- ja `GetSubKeyNames`-tulokset `StringComparer.OrdinalIgnoreCase`-
+  vertailulla ennen käsittelyä, jotta kaksi peräkkäistä skannausta antaa saman tunnistejärjestyksen. `Publisher`-osuma tuottaa
+  kohteeksi vain osuvan lapsen, ei koskaan julkaisijakansiota. `InstallLocation`-sääntö: EDGE-2:n ehdot; peruskansion yläkansion tunnistus: jokin peruskansio alkaa
   `path + "\"`. Rekisteriarvojen skannaus: rekursio `MaxRegistryDepth`, `ct.ThrowIfCancellationRequested()` joka avaimella
   (EDGE-7), avaamisvirheet ohitetaan, `RegistryGuard.ForbiddenSegments` ja segmentit `Classes`, `Microsoft`, `Policies`
   ohitetaan rekursiossa (mutta `RunKeys` ja `AppPathsRoots` tutkitaan erikseen). Arvon vertailu: `Environment.ExpandEnvironmentVariables`,
@@ -431,14 +473,18 @@ keskeneräisten tiedostojen kanssa, joten aallot ovat peräkkäisiä.
 
   Testit (`LeftoverScannerTests`, `[SupportedOSPlatform("windows")]`, temp-kansiot + testiavain, CON-8): rakenna peruskansiot
   temp-kansioon (`ProgramFiles`, `ProgramData`, `LocalAppData`, `LocalAppData\Programs`, `Roaming`, Start Menu) ja ohjelma
-  "Foo Bar" julkaisija "Acme": asennuskansio `ProgramFiles\Foo Bar` (Exact, Medium, Preselected true); `ProgramData\Acme\Foo Bar`
-  (Publisher → lapsi); `Roaming\Foo Bar` (High, false); `ProgramFiles\Foo Bar Tools` (Tokens, Medium, false); `ProgramFiles\Foobar`
-  (ei osu: tokens [foobar] ≠ [foo, bar]); pikakuvake `.lnk` Start Menussa, jonka kohde asennuskansiossa (luo oikea .lnk WScript.Shell:llä);
-  testiavaimet `Software\Acme\Foo Bar` ja `Software\Foo Bar` → Rekisteriavaimet; arvo `Software\Other\Thing` `Path = <asennuskansio>\x.exe`
-  → Rekisteriarvot; `InstallLocation` olematon → ei asennuskansiota; peruutettu `ct` → `OperationCanceledException`;
-  sama kansio kahdella säännöllä → yksi kohde; jokaisella kohteella ei-tyhjä `Description`.
+  "Foo Bar" julkaisija "Acme Inc": asennuskansio `ProgramFiles\Foo Bar` (kategoria Asennuskansio, Medium, Preselected true);
+  `ProgramData\Acme\Foo Bar` (Publisher → kohde on lapsi `Foo Bar`, ei `Acme`; Ohjelmakansiot, Medium, false);
+  `Roaming\Foo Bar` (Käyttäjän datakansiot, High, false); `ProgramFiles\Foo Bar Tools` (Tokens, Ohjelmakansiot, Medium, false);
+  `ProgramFiles\Foobar` (ei osu: sanalista [foobar] ≠ [foo, bar]); pikakuvake `.lnk` Start Menussa, jonka kohde asennuskansiossa
+  (luo oikea .lnk WScript.Shell:llä); testiavaimet (testijuuri annetaan `RegistryRoots`-listassa) `<juuri>\Acme\Foo Bar`,
+  `<juuri>\Foo Bar` ja `<juuri>\Wow\Acme\Foo Bar` (toinen juuri, jonka nimi sisältää segmentin, simuloi WOW6432Node-juurta) →
+  Rekisteriavaimet, kohde on aina nimiavain; arvo `<juuri>\Other\Thing` `Path = <asennuskansio>\x.exe` → Rekisteriarvot;
+  `RunKeys`-testiavaimen arvo `Foo = "<asennuskansio>\foo.exe" -tray` → Rekisteriarvot; `InstallLocation` olematon → ei asennuskansiota;
+  peruutettu `ct` → `OperationCanceledException`; sama kansio kahdella säännöllä → yksi kohde; kaksi peräkkäistä skannausta
+  antavat saman tunnistelistan; jokaisella kohteella ei-tyhjä `Description`; jokaisen kategorian kohteilla sama riski.
 
-## Wave 4
+## Wave 5
 
 Yksi tehtävä: T5 muokkaa samaa projektia kuin T4 ja T6.
 
@@ -448,7 +494,7 @@ Yksi tehtävä: T5 muokkaa samaa projektia kuin T4 ja T6.
 - Requirements: REQ-2, REQ-10
 - Constraints/edge: CON-4, EDGE-1, EDGE-10
 - Files: src/Cleaner.Modules.Uninstall/UninstallRunner.cs, src/Cleaner.Modules.Uninstall/RunningProcessCheck.cs, tests/Cleaner.Tests/UninstallRunnerTests.cs
-- Verify: `dotnet build src/Cleaner.Modules.Uninstall/Cleaner.Modules.Uninstall.csproj --no-dependencies -warnaserror` → exit 0, ja `dotnet test PcCleaner.sln --filter "FullyQualifiedName~UninstallRunnerTests"` → kaikki vihreitä
+- Verify: `dotnet build PcCleaner.sln -warnaserror` → exit 0, ja `dotnet test PcCleaner.sln --no-build --filter "FullyQualifiedName~UninstallRunnerTests"` → kaikki vihreitä
 - Task:
   **`UninstallRunner`** (`[SupportedOSPlatform("windows")]`):
   ```csharp
@@ -480,7 +526,7 @@ Yksi tehtävä: T5 muokkaa samaa projektia kuin T4 ja T6.
   `KeyRemoved false` kun timeout on 1 s ja poll 200 ms; olematon exe → `Error` ei null. `RunningProcessCheck.FindRunningUnder(Environment.SystemDirectory)`
   ei heitä (tulos voi olla null tai prosessin nimi); `FindRunningUnder(temp-kansio)` → null.
 
-## Wave 5
+## Wave 6
 
 Yksi tehtävä: T6 kokoaa moduulin samaan projektiin.
 
@@ -490,7 +536,7 @@ Yksi tehtävä: T6 kokoaa moduulin samaan projektiin.
 - Requirements: REQ-6, REQ-8, REQ-9
 - Constraints/edge: CON-3, CON-6, CON-7, CON-8, EDGE-8
 - Files: src/Cleaner.Modules.Uninstall/UninstallModule.cs, src/Cleaner.Modules.Uninstall/LeftoverGuard.cs, tests/Cleaner.Tests/UninstallModuleTests.cs
-- Verify: `dotnet build src/Cleaner.Modules.Uninstall/Cleaner.Modules.Uninstall.csproj --no-dependencies -warnaserror` → exit 0, ja `dotnet test PcCleaner.sln --filter "FullyQualifiedName~UninstallModuleTests"` → kaikki vihreitä
+- Verify: `dotnet build PcCleaner.sln -warnaserror` → exit 0, ja `dotnet test PcCleaner.sln --no-build --filter "FullyQualifiedName~UninstallModuleTests"` → kaikki vihreitä
 - Task:
   Toteuta `UninstallModule : ICleanerModule` (`Cleaner.Core.Abstractions`; sopimus `docs/ARCHITECTURE.md` luku 3.1:
   `ScanAsync` ei muuta mitään, `CleanAsync` käsittelee vain `item.ModuleId == Id`, kuiva ajo täyttää `Removed`-listan muuttamatta
@@ -507,7 +553,7 @@ Yksi tehtävä: T6 kokoaa moduulin samaan projektiin.
       public UninstallModule(); public UninstallModule(LeftoverScanOptions scanOptions, string? quarantineRoot, string? registryBackupRoot);
       public InstalledProgram? Target { get; set; }                 // ScanAsync skannaa tämän jäänteet; null → ScanResult.Errors
       public bool TargetKeyRemoved { get; set; } = true;            // UninstallRunner-tulos; false → Uninstall-avain tarjotaan jäänteenä
-      public IReadOnlyList<InstalledProgram> ListPrograms();        // InstalledProgramReader.List(scanOptions.UninstallRoots?) – lisää UninstallRoots LeftoverScanOptions-tietueeseen, jos sitä ei ole
+      public IReadOnlyList<InstalledProgram> ListPrograms();        // InstalledProgramReader.List(scanOptions.UninstallRoots)
       public Task<UninstallRunResult> RunUninstallerAsync(InstalledProgram program, bool quiet, CleanerContext context, CancellationToken ct); // REQ-10-tarkistus ensin
       public string? LastQuarantineDirectory { get; }
       public string? LastBackupTimestamp { get; }
@@ -519,31 +565,42 @@ Yksi tehtävä: T6 kokoaa moduulin samaan projektiin.
   `RegistryPaths.OpenWritable`, `SafeFileDeleter.TryDeleteEmptyDirectory`, `PathGuard`. T4 `LeftoverScanner`, `LeftoverItemId`,
   `LeftoverScanOptions`; T5 `UninstallRunner`, `RunningProcessCheck`.
 
-  `CleanAsync`-silmukka per kohde: moduulitarkistus → `LeftoverItemId.TryParse` → **`LeftoverGuard`** (uusi static-luokka, REQ-8:
-  tiedostojärjestelmä: polku on jonkin `BaseFolders`/`ShortcutFolders`-kansion alla tai `Target.InstallLocation` tai sen alla,
-  ei peruskansio itse, `PathGuard.IsSafeToDelete`; rekisteri: `RegistryGuard.IsAllowed(path, RegistryRoots + AppPathsRoots + RunKeys + ClassesRoots, allowExactRoot: false)`
-  ja lisäksi polun segmentti ei saa olla `Microsoft`, `Classes`, `Policies`, `WOW6432Node`, `Clients`, `RegisteredApplications`
-  paitsi kun avain on `...\CurrentVersion\Uninstall\<x>`- tai `...\CurrentVersion\App Paths\<x>`-muotoa tai `Classes\<ProgId>`
-  ClassesRoots-juuren suora lapsi) → olemassaolo (`Directory.Exists`/`File.Exists`/`KeyExists`/arvo) → REQ-10 kansioille
-  (`RunningProcessCheck.FindRunningUnder`) → kuiva ajo: `Removed` → oikea ajo: kansio/tiedosto `Quarantine.TryMove*`,
-  avain `RegistryBackup.TryExport` + `DeleteSubKeyTree`, arvo `TryExport(avain)` + `DeleteValue`. Epäonnistuminen →
-  `Skipped` syyllä; `UnauthorizedAccessException` → "Ei oikeuksia" / HKLM ilman korotusta → "Tarvitsee järjestelmänvalvojan oikeudet"
-  (EDGE-8, kuten `RegistryModule`). REQ-9: siirron jälkeen, jos yläkansio on tyhjä eikä ole peruskansio, `SafeFileDeleter.TryDeleteEmptyDirectory`.
+  `CleanAsync`-silmukka per kohde: moduulitarkistus → `LeftoverItemId.TryParse` → **`LeftoverGuard`** (uusi static-luokka,
+  `IsAllowed(LeftoverKind kind, string path, string? valueName, InstalledProgram? target, LeftoverScanOptions o, out string reason)`),
+  joka toteuttaa REQ-8:n tunnistetyyppikohtaiset ehdot täsmälleen: `Dir`/`File`: polku jonkin `BaseFolders`/`ShortcutFolders`-kansion
+  alla tai `target.InstallLocation` tai sen alla, ei mikään näistä kansioista itse, `PathGuard.IsSafeToDelete`. `Key`: polku on muotoa
+  `<RegistryRoots-juuri>\<X>` tai `<juuri>\<X>\<Y>`, tai `<UninstallRoots-juuri>\<X>`, `<AppPathsRoots-juuri>\<X>`, `<ClassesRoots-juuri>\<X>`;
+  juuren jälkeisessä osassa ei `RegistryGuard.ForbiddenSegments`-segmenttejä eikä segmenttejä `Microsoft`, `Classes`, `Policies`,
+  `WOW6432Node`, `Clients`, `RegisteredApplications` (vertaa vasta osuneen juuren jälkeistä osaa, jotta `HKLM\SOFTWARE\WOW6432Node\Acme\Foo`
+  kelpaa). `Value`: avain `RegistryRoots`-juuren alla enintään `MaxRegistryDepth`-syvyydessä samoilla segmenttiehdoilla, tai avain on
+  täsmälleen jokin `RunKeys`-avain. Sitten olemassaolo (`Directory.Exists`/`File.Exists`/`KeyExists`/arvo) → HKLM-kohde ilman korotusta
+  (`!context.IsElevated`) → `Skipped` "Tarvitsee järjestelmänvalvojan oikeudet" → REQ-10 kansioille (`RunningProcessCheck.FindRunningUnder`)
+  → kuiva ajo: `Removed` → oikea ajo: kansio/tiedosto `Quarantine.TryMove*` (virheteksti `Skipped`-syyksi sellaisenaan, EDGE-8),
+  avain `RegistryBackup.TryExport` + `DeleteSubKeyTree`, arvo `TryExport(avain)` + `DeleteValue`; `UnauthorizedAccessException`
+  rekisterissä → "Ei oikeuksia". REQ-9: siirron jälkeen, jos yläkansio on tyhjä eikä ole peruskansio, `SafeFileDeleter.TryDeleteEmptyDirectory`;
+  avaimen poiston jälkeen, jos yläavain ei ole `RegistryRoots`-juuri ja sillä ei ole aliavaimia eikä arvoja, poista se
+  (`DeleteSubKey`, ilman omaa vientiä).
   Lopuksi `Quarantine.WriteManifest` ja `RegistryBackup.WriteManifest` (jos merkintöjä), lokiin karanteenikansio ja
   "palautus: pccleaner restore <ts>". `ScanAsync`: `Target == null` → `Errors.Add("Valitse ohjelma ensin.")`; muuten
   `LeftoverScanner.Scan(Target, TargetKeyRemoved, Id, context.Progress, ct)` `Task.Run`-kutsussa.
 
   Testit (`UninstallModuleTests`, CON-8): temp-peruskansiot ja testiavaimet kuten `LeftoverScannerTests`, karanteeni- ja
-  rekisterijuuret temp-kansioissa: skannaus → kuiva ajo ei muuta mitään eikä luo kansioita; oikea ajo siirtää asennuskansion
-  karanteeniin ja poistaa testiavaimen, manifestit syntyvät, `LastQuarantineDirectory` ja `LastBackupTimestamp` täytetyt ja
-  aikaleimat samat; tyhjä julkaisijakansio poistuu (REQ-9); `BackupSessions.Restore(ts)` (T2) tuo kansion ja avaimen takaisin;
-  väärennetyt tunnisteet (polku peruskansion ulkopuolella, peruskansio itse, `HKLM\SOFTWARE\Microsoft\Windows`, ForbiddenSegments,
-  vieras moduuli) → kaikki `Skipped`, mitään ei siirretty; `Target == null` → virhe ilman poikkeusta.
+  rekisterijuuret temp-kansioissa: skannaus kahdesti antaa samat tunnisteet eikä muuta levyä tai rekisteriä (ARCHITECTURE luku 8
+  vaatii idempotenssitestin); kuiva ajo ei muuta mitään eikä luo kansioita; oikea ajo siirtää asennuskansion ja `ProgramData\Acme\Foo Bar`-
+  kansion karanteeniin ja poistaa testiavaimen `<juuri>\Acme\Foo Bar`, manifestit syntyvät, `LastQuarantineDirectory` ja
+  `LastBackupTimestamp` täytetyt ja aikaleimat samat; tyhjäksi jäänyt `ProgramData\Acme` poistuu ja tyhjä `<juuri>\Acme`-avain
+  poistuu (REQ-9); `BackupSessions.Restore(ts)` (T2) tuo kansiot (yläkansio luodaan) ja avaimen takaisin; väärennetyt tunnisteet
+  (polku peruskansion ulkopuolella, peruskansio itse, `uninstall:key:HKLM\SOFTWARE\Microsoft\Windows`, kolmen tason avain
+  `<juuri>\A\B\C`, ForbiddenSegments, vieras moduuli, virheellinen tunniste) → kaikki `Skipped`, mitään ei siirretty eikä
+  karanteenikansiota luotu; `Target == null` → `ScanResult.Errors` ilman poikkeusta.
 
-## Wave 6
+## Wave 7
 
 Kolme riippumatonta tehtävää: T7 muokkaa vain CLI-projektia, T8 vain UI-projektia, T9 vain dokumentteja. Tiedostojoukot
-eivät leikkaa. T7:n ja T8:n Verify kääntää vain oman projektinsa `--no-dependencies`-valinnalla (Uninstall.dll on Wave 5:n portista).
+eivät leikkaa. T7:n ja T8:n Verify kääntää vain oman projektinsa `--no-dependencies`-valinnalla: molemmat lukevat Core- ja
+Uninstall-dll:t Wave 6:n portista, eikä kumpikaan kirjoita niitä. Foreman ajaa `dotnet build PcCleaner.sln -warnaserror` ja
+`dotnet test PcCleaner.sln --no-build` aallon lopussa. T9:n `docs/ARCHITECTURE.md` on myös T1:n Files-listalla (Wave 1, luvun 6.3
+lause); T9 tulee myöhemmin ja muokkaa muita lukuja, joten tämä on sallittu eri aaltojen jako.
 
 ### T7: CLI: uninstall-komento ja restore BackupSessions-luokalla
 - Status: pending
@@ -565,9 +622,15 @@ eivät leikkaa. T7:n ja T8:n Verify kääntää vain oman projektinsa `--no-depe
   BackupSessions.List() / Restore(ts, log) → RestoreResult(RegistryImported, RegistryFailed, QuarantineRestored, QuarantineSkipped, Messages)  // Cleaner.Core.Services
   ```
   Uusi `UninstallCommand` (static, `[SupportedOSPlatform("windows")]`, malli `RestoreCommand.cs`):
-  `public static Task<int> RunAsync(string[] args, bool apply, bool yes, bool verbose, CleanerContext context, UninstallModule module)`.
-  `Program.cs`: lisää `case "uninstall"` (Windows-guard kuten `restore`), `Values("--program")`, `Flag("--leftovers-only")`,
-  `Flag("--quiet")`, `Flag("--all")`; `--item` on jo olemassa (`itemFilters`), välitä se. Ohjelmalistan tulostus: nimi,
+  ```csharp
+  public sealed record UninstallCommandOptions(string? Program, bool LeftoversOnly, bool Quiet, bool Apply, bool All, bool Yes,
+      IReadOnlyList<string> ItemFilters);
+  public static Task<int> RunAsync(UninstallCommandOptions options, CleanerContext context, ICleanerLogger log, UninstallModule module);
+  ```
+  `Program.cs` jäsentää valinnat samalla `Flag`/`Values`-mekanismilla kuin muut (huom: `Flag` ja `Values` poistavat valinnan
+  `args_`-listasta, joten ne on kutsuttava ennen `command`-switchiä niin kuin nykyiset valinnat riveillä 18–26): `Values("--program")`
+  (viimeinen arvo), `Flag("--leftovers-only")`, `Flag("--quiet")`, `Flag("--all")`; `apply`, `yes` ja `itemFilters` ovat jo olemassa.
+  Lisää `case "uninstall"` Windows-guardilla kuten `restore`, ja hae moduuli `engine.GetModule("uninstall") as UninstallModule`. Ohjelmalistan tulostus: nimi,
   versio, julkaisija, koko (`ByteFormatter.Format`), avain. REQ-11:n valintasäännöt (tarkka nimi tai yksikäsitteinen
   osamerkkijono; usea → listaa ehdokkaat, koodi 2; ei yhtään → virhe, koodi 2). Poisto-ohjelman ajo tulostaa "Käynnistetään
   poisto-ohjelma..." ja tuloksen (`ExitCode`, `KeyRemoved`, `Error`), sitten jäänteet kuivana samassa muodossa kuin `scan`
@@ -615,18 +678,22 @@ eivät leikkaa. T7:n ja T8:n Verify kääntää vain oman projektinsa `--no-depe
 - Model: opus
 - Requirements: REQ-13
 - Files: docs/ARCHITECTURE.md, README.md, HANDOFF.md
-- Verify: `grep -c "uninstall" docs/ARCHITECTURE.md README.md HANDOFF.md` → jokaisessa ≥ 1; `dotnet build PcCleaner.sln -warnaserror` ei koske dokumentteja (ei ajeta)
+- Verify: `grep -c "### 6.4" docs/ARCHITECTURE.md` → 1; `grep -c "leftovers-only" README.md` → ≥ 1; `grep -c "uninstall:dir" HANDOFF.md` → ≥ 1; `grep -c "^25\." HANDOFF.md` → 1 (päätös 25 kirjattu)
 - Task:
   Päivitä dokumentit tämän suunnitelman mukaan (lue suunnitelma `docs/plans/2026-10-19-uninstall-module.md` kokonaan; se on
-  tämän tehtävän ainoa lähde yhdessä koodin kanssa). `docs/ARCHITECTURE.md`: uusi luku 6.4 "Ohjelman poisto (`uninstall`)"
+  tämän tehtävän ainoa lähde yhdessä koodin kanssa). `docs/ARCHITECTURE.md`: uusi luku `### 6.4 Ohjelman poisto (\`uninstall\`)`
   samassa muodossa kuin 6.3 (taulukko kategorioista, säännöt, tunnisteet, karanteeni ja `BackupSessions`, vartija, mitä ei
   kosketa), luvun 2 kerroskaavion moduulilistaan `Uninstall`, luvun 8 testaukseen uudet testiluokat, luvun 3.2 `CleanItem`-
-  riville `Preselected`. `README.md`: käyttöesimerkit `uninstall`, `uninstall --program ... --leftovers-only`, `--apply`,
-  `restore` (rekisteri + karanteeni), turvallisuusperiaate 7 "Jäänteet karanteeniin, ei poistoon". `HANDOFF.md`:
-  projektitaulukkoon `src/Cleaner.Modules.Uninstall` ja Core-palveluiden siirto, testimäärä, päätökset 21 (Win32 vain), 22
-  (karanteeni + yhteinen aikaleima), 23 (laaja haku, säännöt ARCHITECTURE 6.4), 24 (`CleanItem.Preselected`), tunnisteet
-  `uninstall:dir|file|key|value`, tunnetut rajoitukset (Store-sovellukset, 32-bittisten prosessien polut, julkaisijakansio
-  vain kun ei muita lapsia), "Seuraavat vaiheet" päivitettynä. Kirjoita suomeksi, ilman ajatusviivoja, tiiviisti.
+  riville `Preselected`, luvun 7 rivi "Oletusvalinta: `SelectedByDefault && Risk != High`" muotoon
+  "`Risk != High && (Preselected ?? SelectedByDefault)`". `README.md`: käyttöesimerkit `uninstall`, `uninstall --program ... --leftovers-only`,
+  `--apply`, `restore` (rekisteri + karanteeni), turvallisuusperiaate 7 "Jäänteet karanteeniin, ei poistoon". `HANDOFF.md`:
+  projektitaulukkoon `src/Cleaner.Modules.Uninstall` ja Core-palveluiden siirto (`RegistryBackup`, `RegistryGuard`, `RegistryPaths`
+  ovat nyt `Cleaner.Core.Services`), testimäärä, päätös 17 päivitettynä uuteen oletusvalintasääntöön, uudet numeroidut päätökset
+  21 (Win32 vain), 22 (karanteeni + yhteinen aikaleima), 23 (laaja haku, säännöt ARCHITECTURE 6.4), 24 (`CleanItem.Preselected`),
+  25 (Uninstall-moduulin rekisterivartija sallii kahden tason syvyyden `<juuri>\<Julkaisija>\<Nimi>`, poikkeama päätöksestä 19,
+  joka pysyy voimassa Registry-moduulissa), tunnisteet `uninstall:dir|file|key|value`, tunnetut rajoitukset (Store-sovellukset,
+  32-bittisten prosessien polut, julkaisijakansio poistuu vain tyhjänä), "Seuraavat vaiheet" päivitettynä. Kirjoita suomeksi,
+  ilman ajatusviivoja, tiiviisti.
 
 ## Final verification
 - AC-1 [auto]: `dotnet build PcCleaner.sln -warnaserror` → exit 0, 0 varoitusta
