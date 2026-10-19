@@ -41,7 +41,8 @@ Korjattu samalla:
 
 Ei ajettu adminina (UAC-kehotetta ei voi hyväksyä Claude-sessiosta). `%WINDIR%\Temp`, Prefetch ja
 SoftwareDistribution-poisto ovat testaamatta. `--apply` ei ole ajettu kertaakaan oikealla datalla.
-Git alustettu 19.10.2026: haara `main`, ensimmäinen commit `cba91ea` (75 tiedostoa, ei bin/obj). Ei etärepoa.
+Git alustettu 19.10.2026: haara `main`, ensimmäinen commit `cba91ea` (75 tiedostoa, ei bin/obj).
+Etärepo: https://github.com/Vilippo/PcCleaner (yksityinen, `origin`, luotu `gh repo create` 19.10.2026).
 Tekninen määrittely on `docs/ARCHITECTURE.md`; juuren vanha kopio poistettiin commitissa `5cdfa52`.
 
 ### Startup-moduuli 19.10.2026
@@ -183,7 +184,7 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
 5. ~~WinUI 3 (luku 7)~~ ensimmäinen versio tehty 19.10.2026. Jäljellä UI:ssa: treemap, DiskUsage-polun valinta, kuvake, oikean poiston kokeilu.
 6. ~~Käyttäjä kokeilee UI:ta~~ kokeiltu 19.10.2026, "toimii tähän asti". ~~Registry (6.3)~~ tehty 19.10.2026.
    **Kaikki ARCHITECTURE.md:n suunnitellut moduulit ja UI:n ensimmäinen versio ovat valmiit.** Seuraavaksi ehdolla:
-   a) ~~git init + ensimmäinen commit~~ tehty (`cba91ea`), etärepo puuttuu, b) ~~ensimmäinen oikea rekisteripoisto
+   a) ~~git init + ensimmäinen commit~~ tehty (`cba91ea`), ~~etärepo~~ github.com/Vilippo/PcCleaner (yksityinen), b) ~~ensimmäinen oikea rekisteripoisto
    ja palautuksen kokeilu~~ käyttäjä teki 19.10.2026 (MUICache), c) ~~treemap, DiskUsage-polun valinta, dotnet publish~~
    tehty; ~~sovelluskuvake~~ tehty 19.10.2026 (`tools\make-icon.ps1` generoi `src\Cleaner.UI\Assets\PcCleaner.ico`
    9 koossa + `.png`; `<ApplicationIcon>` UI- ja CLI-exeen, ikkunaan `AppWindow.SetIcon` tiedostosta, koska pakkaamaton
