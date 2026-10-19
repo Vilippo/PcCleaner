@@ -30,7 +30,8 @@ Ominaisuudet kehitysjärjestyksessä:
 │  Cleaner.Core.Engine.CleanerEngine              │   reitittää kutsut moduuleille
 ├─────────────────────────────────────────────────┤
 │  ICleanerModule-toteutukset                     │   yksi projekti per aihe
-│  Files · Browsers · RecycleBin · Startup · ...  │
+│  Files · Browsers · RecycleBin · Startup ·      │
+│  DiskUsage · Registry · Uninstall               │
 ├─────────────────────────────────────────────────┤
 │  Cleaner.Core.Services                          │   jaetut turvapalvelut
 │  PathGuard · SafeFileDeleter · PathExpander ... │
@@ -73,8 +74,9 @@ Sopimus, jota jokaisen toteutuksen on noudatettava:
 
 ### 3.2 Mallit
 
-- `CleanItem` – muuttumaton record: `Id, ModuleId, Category, Path, SizeBytes, Description, Risk`.
-  Käyttöliittymä näyttää näitä ja antaa valitut takaisin.
+- `CleanItem` – muuttumaton record: `Id, ModuleId, Category, Path, SizeBytes, Description, Risk, Preselected`.
+  Käyttöliittymä näyttää näitä ja antaa valitut takaisin. `Preselected` (`bool?`, oletus null) on kohteen oma
+  oletusvalinta; null tarkoittaa moduulin `SelectedByDefault`-arvoa.
 - `ScanResult` – `Items`, `Errors`, laskettu `TotalBytes`.
 - `CleanResult` – `Removed`, `Skipped (item, syy)`, `Errors`, `FreedBytes`, `WasDryRun`.
 - `CleanerContext` – `DryRun` (oletus **true**), `Logger`, `Progress`, `IsElevated`.
@@ -211,6 +213,79 @@ Turvamekanismit (toteutettu):
 - Jokainen löydös kertoo kuvauksessaan polun, johon merkintä viittaa, ja miksi se katsotaan puuttuvaksi.
 - `SelectedByDefault = false`, moduuli ajetaan vain pyydettäessä; UI ei valitse mitään oletuksena.
 
+### 6.4 Ohjelman poisto (`uninstall`) – toteutettu
+
+Projekti `src/Cleaner.Modules.Uninstall`. Käyttäjä valitsee asennetun Win32-ohjelman, moduuli ajaa ohjelman oman
+poisto-ohjelman, odottaa sen valmistumista ja etsii jäänteet. "Etsi jäänteet" toimii myös ilman poisto-ohjelman ajoa.
+`Risk = High`, `RequiresAdmin = true`, `SelectedByDefault = false`. Store/MSIX-sovellukset eivät kuulu moduuliin.
+
+- `InstalledProgramReader` lukee Uninstall-juuret `HKLM\SOFTWARE\...\Uninstall`, `HKLM\SOFTWARE\WOW6432Node\...\Uninstall` ja
+  `HKCU\Software\...\Uninstall`. Pois jäävät `SystemComponent = 1`, tyhjä `DisplayName` ja `ParentKeyName`-arvolliset päivitykset.
+- `UninstallRunner` ajaa `QuietUninstallString`-komennon hiljaisessa tilassa, muuten `UninstallString`. MSI-ohjelmalle se ajaa
+  `msiexec /x {GUID}`, hiljaisena lisäksi `/qb-` (ei koskaan `/qn`). Se odottaa prosessin päättymistä ja kysyy sen jälkeen 2 s
+  välein enintään 60 s, onko Uninstall-avain kadonnut (`KeyRemoved`). Peruutus lopettaa odotuksen eikä tapa poisto-ohjelmaa.
+- `RunningProcessCheck` estää poisto-ohjelman ajon ja karanteenisiirron, jos jonkin prosessin exe on kohdekansion alla.
+  Prosessit, joiden polkua ei voi lukea (32-bittiset, suojatut), ohitetaan.
+- Moduulin ominaisuudet: `Target` (skannattava ohjelma), `TargetKeyRemoved`, `ListPrograms()`, `RunUninstallerAsync`,
+  `LastQuarantineDirectory`, `LastBackupTimestamp`.
+
+Nimivertailu (`NameMatcher`) tehdään sanalistoina: suluissa oleva sisältö, versiot (`1.2.3`, `v2`, `x64`, `64-bit`) ja ™®©
+poistetaan, ja merkitsevä sana on vähintään 3 merkkiä eikä kieltolistalla (`the`, `windows`, `software`, `inc`, `corporation`,
+`oy` ...). Osumatyypit:
+
+- `Exact`: kansion sanalista on sama kuin ohjelman.
+- `Tokens`: kaikki ohjelman merkitsevät sanat ovat kansion nimessä, ja sanoja on vähintään 2 tai ainoa sana on vähintään
+  5 merkkiä ("Git" osuu vain kansioon `Git`).
+- `Publisher`: kansio on julkaisijan nimi. Kohde on silloin osuva lapsikansio, ei julkaisijakansio itse.
+- Kieltolistan kansiot eivät osu koskaan: `Microsoft`, `Windows`, `WindowsApps`, `Common Files`, `Microsoft Shared`, `Packages`,
+  `Temp`, `Programs`, `Google`, `Intel`, `NVIDIA`, `AMD`.
+
+Peruskansiot (`LeftoverScanOptions.BaseFolders`): Program Files, Program Files (x86), ProgramData, LocalAppData,
+LocalAppData\Programs, Roaming ja LocalLow. Pikakuvakkeet haetaan Käynnistä-valikon Programs-kansioista ja työpöydiltä
+(käyttäjä ja yhteinen).
+
+| Kategoria | Sääntö | Riski | Esivalittu |
+|-----------|--------|-------|------------|
+| Asennuskansio | `InstallLocation` olemassa, ei peruskansio eikä sen yläkansio; tai `DisplayIcon`/`UninstallString`-exen kansio Program Files- tai LocalAppData\Programs-kansiossa, kun nimi osuu | Medium | kyllä |
+| Ohjelmakansiot | peruskansion lapsi Program Files-, ProgramData- tai LocalAppData\Programs-kansiossa: `Exact` | Medium | kyllä |
+| Ohjelmakansiot | samoissa kansioissa `Tokens` tai julkaisijakansion osuva lapsi | Medium | ei |
+| Käyttäjän datakansiot | mikä tahansa osuma LocalAppData-, Roaming- tai LocalLow-kansiossa (voi sisältää käyttäjän dataa) | High | ei |
+| Pikakuvakkeet | `.lnk`, jonka kohde on asennuskansion tai osuneen ohjelmakansion alla; Käynnistä-valikon kansio, jonka nimi osuu | Low | kyllä |
+| Rekisteriavaimet | `<juuri>\<Nimi>` ja `<juuri>\<Julkaisija>\<Nimi>` juurissa `HKCU\Software`, `HKLM\SOFTWARE`, `HKLM\SOFTWARE\WOW6432Node`; Uninstall-avain, jos se ei kadonnut; App Paths -avain ja Classes-ProgId, jotka osoittavat asennuskansioon | High | ei |
+| Rekisteriarvot | merkkijonoarvo, joka alkaa `InstallLocation`-polulla, juurten alla enintään 6 tason syvyydessä (`Classes`, `Microsoft`, `Policies` ohitetaan) sekä Run-avaimissa | High | ei |
+
+Kategorian kaikilla kohteilla on sama riski. Sama polku tai avain tulee vain kerran, ensimmäinen osuva sääntö voittaa.
+Jokaisen kohteen kuvaus kertoo osumasyyn, esim. "Pikakuvake osoittaa kansioon C:\...". Skannaus käy kansiot ja avaimet
+aina samassa järjestyksessä eikä muuta mitään.
+
+Tunnisteet: `uninstall:dir:<polku>`, `uninstall:file:<polku>`, `uninstall:key:<avain>`, `uninstall:value:<avain>|<arvonimi>`.
+
+Karanteeni ja palautus:
+- Kansiot ja tiedostot siirretään `Quarantine`-palvelulla (`Cleaner.Core.Services`) kansioon
+  `%LOCALAPPDATA%\PcCleaner\quarantine\<aikaleima>\NNN\<nimi>`, ja `manifest.txt` kirjaa `NNN → alkuperäinen polku`. Eri asemalle
+  kopioidaan rekursiivisesti ja alkuperäinen poistetaan vasta onnistuneen kopion jälkeen. Lukittu tiedosto (`IOException`)
+  ohittaa kohteen koskematta mihinkään.
+- Rekisteriavaimet ja -arvot viedään `RegistryBackup`-palvelulla ennen poistoa samalla aikaleimalla, joten yksi
+  `pccleaner restore <aikaleima>` palauttaa molemmat. Epäonnistunut siirto tai vienti ohittaa kohteen (`Skipped`).
+- `BackupSessions` yhdistää rekisterivarmuuskopiot ja karanteenisessiot aikaleiman mukaan. `Restore` tuo `.reg`-tiedostot
+  (`reg import`) ja siirtää karanteenin kohteet takaisin, puuttuvat yläkansiot luodaan. Jos alkuperäinen polku on jo
+  olemassa, kohde jää karanteeniin ja syy raportoidaan. CLI:n `restore` ja UI:n "Palauta varmuuskopio..." käyttävät tätä.
+- Siirron jälkeen tyhjäksi jäänyt yläkansio (julkaisijakansio) poistetaan, jos se ei ole peruskansio. Tyhjäksi jäänyt
+  yläavain poistetaan ilman omaa vientiä, jos se ei ole juuri; `reg import` luo sen palautuksessa uudelleen.
+
+`LeftoverGuard` tarkistetaan ennen jokaista siirtoa tai poistoa tunnistetyypin mukaan:
+- `dir`/`file`: polku on peruskansion tai pikakuvakekansion alla tai ohjelman `InstallLocation`-kansiossa, ei näistä mikään
+  itse, ja `PathGuard` sallii sen.
+- `key`: täsmälleen `<juuri>\<X>` tai `<juuri>\<X>\<Y>` rekisterijuuren alla, tai yksi taso Uninstall-, App Paths- tai
+  Classes-juuren alla. Juuren jälkeisessä osassa ei saa olla `RegistryGuard`-kieltosegmenttejä eikä segmenttejä
+  `Microsoft`, `Classes`, `Policies`, `WOW6432Node`, `Clients`, `RegisteredApplications`.
+- `value`: avain rekisterijuuren alla enintään 6 tason syvyydessä samoilla segmenttiehdoilla, tai täsmälleen Run-avain.
+- HKLM-kohteet ohitetaan ilman korotusta syyllä "Tarvitsee järjestelmänvalvojan oikeudet".
+
+Mitä ei kosketa: Store/MSIX-sovellukset, ajurit ja palvelut, Windows-komponentit, muiden käyttäjien profiilit,
+peruskansiot ja julkaisijakansiot kohteina, `Microsoft`- ja `Policies`-haarat rekisterijuurten alla (poikkeuksina
+Run-avainten arvot sekä App Paths- ja Classes-juurten suorat lapset).
+
 ## 7. WinUI 3 -käyttöliittymä – toteutettu (ensimmäinen versio)
 
 - Projekti `src/Cleaner.UI`: Windows App SDK 1.8 (self-contained, `WindowsPackageType=None`, x64),
@@ -227,7 +302,8 @@ Turvamekanismit (toteutettu):
   (enintään 500 näkyvää riviä, kolmitilainen valintaruutu), `ItemViewModel`.
 - Puhdistus on kolmivaiheinen: kuiva ajo → yhteenvetodialogi → vahvistusdialogi → oikea ajo → tulosdialogi →
   moduulin uudelleenskannaus. Dialogit `IDialogService`-rajapinnan kautta (`MainWindow` toteuttaa).
-- Oletusvalinta: `SelectedByDefault && Risk != High`. Startup- ja diskusage-kohteet ovat aina aluksi valitsematta.
+- Oletusvalinta: `Risk != High && (Preselected ?? SelectedByDefault)`. Startup-, diskusage- ja registry-kohteet ovat
+  aina aluksi valitsematta; uninstall valitsee vain kohteet, joille skanneri asettaa `Preselected = true`.
 - Levytilan analyysin sivu: kansio (TextBox + FolderPicker), Top-N (NumberBox) ja treemap. `Treemap.Squarify`
   (DiskUsage-projekti, puhdas laskenta, testattu) antaa suorakulmiot, `MainWindow` piirtää ne Canvasille Border-lohkoina:
   nimi ja koko, ToolTip, napsautus avaa alikansion, "Ylös" palaa. Useampi asema yhdistetään `DirectoryNode.Combine`-solmuksi.
@@ -252,6 +328,12 @@ Turvamekanismit (toteutettu):
 - `RegistryModule` testataan oikealla rekisterillä omassa avaimessa `HKCU\Software\PcCleanerTests\<guid>` ja
   väliaikaisessa varmuuskopiokansiossa: orpotulkinnat (myös väärät positiivit: selkonimi, aliavain, päätteetön exe,
   trailing null), kuiva ajo, export → poisto → import -kierros, vartijan esto väärennetyillä tunnisteilla.
+- Ohjelman poisto: `QuarantineTests` ja `BackupSessionsTests` (siirto, palautus, olemassa oleva kohde ohitetaan,
+  PathGuard-hylkäys, yhdistetty listaus), `NameMatcherTests` (sanalistat, lyhyt nimi, kieltolista),
+  `InstalledProgramReaderTests`, `LeftoverScannerTests` (säännöt ja esivalinta temp-kansioissa ja testiavaimessa),
+  `UninstallRunnerTests` (komentorivin valinta, MSI, avaimen katoamisen odotus, puuttuva exe, `RunningProcessCheck`) ja `UninstallModuleTests`
+  (idempotentti skannaus, kuiva ajo, karanteeni + rekisteri + palautus, väärennetyt tunnisteet). Rekisteritestit
+  käyttävät `HKCU\Software\PcCleanerTests\<guid>`-avainta, tiedostotestit `%TEMP%\pccleaner-tests\<guid>`-kansiota.
 - UI:lla ei ole yksikkötestejä. Savutesti tehdään UI Automationilla (PowerShell `System.Windows.Automation`:
   Invoke "Skannaa", Toggle valintaruutu, Invoke "Puhdista", lue dialogin tekstit, Invoke "Peruuta").
 - Manuaalinen testi ennen julkaisua: `scan` tavallisena käyttäjänä ja adminina, `clean` kuivana,

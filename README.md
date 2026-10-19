@@ -61,9 +61,29 @@ dotnet run -- clean --module startup --item "startup:hkcu-run:Spotify" --apply  
 dotnet run -- scan --module diskusage --path C:\Users\%USERNAME% --top 10         # suurimmat kansiot ja tiedostot
 dotnet run -- scan --module registry                                             # orvot rekisterimerkinnät (vain luku)
 dotnet run -- clean --module registry --item "registry:mru:" --apply              # tyhjennä MRU-listat, varmuuskopio ensin
-dotnet run -- restore                                                             # listaa rekisterivarmuuskopiot
-dotnet run -- restore 20261019-170000                                             # tuo yksi takaisin (reg import)
+dotnet run -- uninstall                                                           # listaa asennetut ohjelmat
+dotnet run -- uninstall --program "7-Zip"                                         # aja poisto-ohjelma, listaa jäänteet kuivana
+dotnet run -- uninstall --program "7-Zip" --quiet                                 # sama hiljaisella poistokomennolla
+dotnet run -- uninstall --program "7-Zip" --leftovers-only                        # vain jäänteiden haku, ei poisto-ohjelmaa
+dotnet run -- uninstall --program "7-Zip" --leftovers-only --apply                # siirrä esivalitut (*) karanteeniin
+dotnet run -- uninstall --program "7-Zip" --leftovers-only --apply --all          # kaikki jäänteet, myös High-riskin
+dotnet run -- restore                                                             # listaa varmuuskopiot (rekisteri + karanteeni)
+dotnet run -- restore 20261019-170000                                             # tuo session takaisin (reg import + karanteeni)
 ```
+
+Ohjelman poisto (`uninstall`) ajaa ohjelman oman poisto-ohjelman, odottaa sen loppumista ja etsii jäänteet: kansiot,
+pikakuvakkeet, rekisteriavaimet ja -arvot. `--program` hyväksyy tarkan nimen tai yksikäsitteisen osan nimestä; usealla
+osumalla komento listaa ehdokkaat ja palauttaa koodin 2. Jäänteet tulostetaan kuivana, esivalitut `*`-merkillä.
+`--apply` siirtää esivalitut kohteet, `--item`-rajauksen kohteet tai `--all`-valinnalla kaikki, ja kysyy vahvistuksen
+`[k/E]` ellei `--yes`. Kansiot ja tiedostot siirtyvät kansioon `%LOCALAPPDATA%\PcCleaner\quarantine\<aikaleima>\`,
+rekisteri viedään `.reg`-tiedostoihin samalla aikaleimalla. Tuloste kertoo karanteenikansion ja palautuskomennon.
+Vain Win32-ohjelmat; Store-sovellukset eivät näy listassa.
+
+Graafisessa sovelluksessa sivulla "Ohjelman poisto" on hakukenttä, ohjelmalista (nimi, versio, julkaisija, koko) ja
+napit "Päivitä lista", "Poista ohjelma" ja "Etsi jäänteet". "Poista ohjelma" näyttää odotustilan
+"Odotetaan poisto-ohjelmaa: <nimi>" (Peruuta lopettaa odotuksen, ei poistoa) ja skannaa jäänteet automaattisesti.
+Jäänteet näkyvät tavallisessa kategorianäkymässä, ja Puhdista siirtää valitut karanteeniin. "Palauta varmuuskopio..."
+listaa sekä rekisterivarmuuskopiot että karanteenisessiot.
 
 Rekisterin puhdistus (`registry`) on rajattu: orvot Uninstall-merkinnät, tiedostotyyppikytkökset, MUICache ja
 viimeksi käytettyjen listat. Jokainen muutettava avain viedään `.reg`-tiedostoon kansioon
@@ -88,6 +108,7 @@ käynnistetty järjestelmänvalvojana. Ilman sitä ne vain ohitetaan.
 4. **Selain auki = ohitus.** Välimuistia ei kosketa, jos selain on käynnissä.
 5. **Kaikki lokitetaan** tiedostoon `%LOCALAPPDATA%\PcCleaner\logs\`.
 6. **Rekisteri varmuuskopioidaan aina ensin.** Ilman onnistunutta `.reg`-vientiä avainta ei muuteta, ja palautus on yksi komento.
+7. **Jäänteet karanteeniin, ei poistoon.** Ohjelman poisto siirtää jäännöskansiot ja -tiedostot karanteeniin, ja `pccleaner restore <aikaleima>` tuo ne takaisin.
 
 ## Uuden siivouskohteen lisääminen
 

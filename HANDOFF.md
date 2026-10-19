@@ -13,14 +13,15 @@ Solution `PcCleaner.sln` kääntyy 0 virhettä / 0 varoitusta. Käyttäjän kone
 
 | Projekti | Sisältö | Tila |
 |---|---|---|
-| `src/Cleaner.Core` | `ICleanerModule`, mallit (`CleanItem`, `ScanResult`, `CleanResult`, `CleanerContext`, `RiskLevel`), `CleanRule` + `RuleLoader` (JSON), `CleanerEngine`, palvelut `PathGuard`, `SafeFileDeleter`, `PathExpander`, `ProcessChecker`, `ElevationHelper`, `ByteFormatter`, lokitus (`ICleanerLogger`, `FileLogger`, `CompositeLogger`) | valmis |
+| `src/Cleaner.Core` | `ICleanerModule`, mallit (`CleanItem`, `ScanResult`, `CleanResult`, `CleanerContext`, `RiskLevel`), `CleanRule` + `RuleLoader` (JSON), `CleanerEngine`, palvelut `PathGuard`, `SafeFileDeleter`, `PathExpander`, `ProcessChecker`, `ElevationHelper`, `ByteFormatter`, lokitus (`ICleanerLogger`, `FileLogger`, `CompositeLogger`). Rekisteripalvelut `RegistryBackup`, `RegistryGuard`, `RegistryPaths` siirrettiin Registry-moduulista tänne (nimiavaruus `Cleaner.Core.Services`, kansio `Services/Registry/`), uudet `Quarantine` ja `BackupSessions`. `CleanItem` sai kentän `bool? Preselected = null` | valmis |
 | `src/Cleaner.Modules.Files` | `FileCleanerModule` (sääntöpohjainen), `RecycleBinModule` (shell32 P/Invoke), `rules/files.json` (9 sääntöä), `rules/browsers.json` (Edge, Chrome, Firefox, Brave) | valmis |
 | `src/Cleaner.Modules.Startup` | `StartupModule` (Run-avaimet HKCU/HKLM/Wow6432Node, käynnistyskansiot, Task Schedulerin juurikansion kirjautumistehtävät), `StartupSource`, `StartupApproved` (12 tavun arvomuoto), `TaskSchedulerSource` ja `ShortcutResolver` (COM myöhäissidonnaisesti `dynamic`-tyypillä) | valmis, skannattu oikealla koneella 19.10.2026 |
 | `src/Cleaner.Modules.DiskUsage` | `DiskUsageModule` (kansiopuu `DirectoryNode`, ylätason kansiot rinnakkain, top-N kansiot ja tiedostot, puu jää `LastTrees`-ominaisuuteen treemapia varten), `DiskUsageOptions` (juuret, top-N, rinnakkaisuus) | valmis, skannattu oikealla levyllä 19.10.2026 |
-| `src/Cleaner.Modules.Registry` (nimiavaruus `Cleaner.Modules.RegistryCleaner`) | `RegistryModule` (Uninstall-orvot, .ext/ProgId-orvot, MUICache-orvot, MRU-listat), `RegistryGuard` (sallitut juuret + kielletyt avaimet), `CommandLineParser` (exe komentorivistä, varovainen puuttumistarkistus), `RegistryBackup` (reg export/import, listaus, palautus), `RegistryScanOptions`, `RegistryPaths` | valmis, skannattu oikealla koneella 19.10.2026 |
+| `src/Cleaner.Modules.Registry` (nimiavaruus `Cleaner.Modules.RegistryCleaner`) | `RegistryModule` (Uninstall-orvot, .ext/ProgId-orvot, MUICache-orvot, MRU-listat), `CommandLineParser` (exe komentorivistä, varovainen puuttumistarkistus), `RegistryScanOptions`; käyttää Coren `RegistryGuard`-, `RegistryBackup`- ja `RegistryPaths`-palveluita | valmis, skannattu oikealla koneella 19.10.2026 |
+| `src/Cleaner.Modules.Uninstall` | `UninstallModule` (`uninstall`, "Ohjelman poisto"), `InstalledProgramReader`, `NameMatcher`, `UninstallCommandLine`, `UninstallRunner`, `RunningProcessCheck`, `LeftoverScanner` (6 kategoriaa), `LeftoverScanOptions`, `LeftoverItemId`, `LeftoverGuard`, `ShortcutTarget`. Kuvaus ARCHITECTURE luku 6.4 | toteutettu 19.10.2026, testattu yksikkötesteillä; manuaaliset tarkistukset AC-5 ja AC-6 tekemättä |
 | `src/Cleaner.Cli` | `pccleaner modules | scan | clean [--apply] [--yes] [--module id] [--item id] [--path dir] [--top n] [--rules dir] [--include-disabled] [-v]`, `pccleaner restore [aikaleima]` (`RestoreCommand`), `ModuleFactory`, `ConsoleLogger` | valmis, ajettu Windowsissa 19.10.2026 |
 | `src/Cleaner.UI` | WinUI 3 (Windows App SDK 1.8.260921001, self-contained, pakkaamaton, x64), CommunityToolkit.Mvvm 8.4.2. `MainWindow` (NavigationView + kategoriat Expandereina + alapalkki), `MainViewModel` (skannaus, kolmivaiheinen puhdistus, peruutus, admin-uudelleenkäynnistys), `ModuleViewModel`, `CategoryViewModel`, `ItemViewModel`, `UiModuleFactory`, `UiLogger`, `Elevation`, `IDialogService` | valmis, käynnistetty ja testattu UI Automationilla 19.10.2026 |
-| `tests/Cleaner.Tests` | 67 xUnit-testiä (lisäksi FileLogger-siivous, Treemap): PathGuard, RuleLoader, FileCleanerModule, StartupApproved, StartupModule, DiskUsageModule, CommandLineParser, RegistryGuard, RegistryModule (oikea rekisteri avaimessa `HKCU\Software\PcCleanerTests\<guid>`, oikea reg export/import -kierros) | 59/59 läpi Windowsissa |
+| `tests/Cleaner.Tests` | 132 xUnit-testiä (lisäksi FileLogger-siivous, Treemap): PathGuard, RuleLoader, FileCleanerModule, StartupApproved, StartupModule, DiskUsageModule, CommandLineParser, RegistryGuard, RegistryModule (oikea rekisteri avaimessa `HKCU\Software\PcCleanerTests\<guid>`, oikea reg export/import -kierros). Ohjelman poisto toi 65: QuarantineTests 9, BackupSessionsTests 2, NameMatcherTests 17, InstalledProgramReaderTests 2, LeftoverScannerTests 16, UninstallRunnerTests 14, UninstallModuleTests 5 | 132 on toteutusajon luku (67 + 65), ei uudelleen ajettu dokumentoinnin yhteydessä |
 | `docs/ARCHITECTURE.md` | tekninen määrittely, 9 lukua | valmis |
 | `README.md` | käännös- ja käyttöohje | valmis |
 
@@ -70,10 +71,15 @@ StartupApproved-kirjoituksen omassa testiavaimessa.
 14. **Windows App SDK 1.8-linja, ei 2.x.** 2.x julkaisuja tulee tiheään (2.0 → 2.5 vuodessa) ja niiden muutoksia ei tunneta; 1.8 on huollettu (viimeisin 1.8.260921001, syyskuu 2026). Päivitys 2.x:ään on oma tehtävänsä.
 15. **UI näyttää enintään 500 riviä per kategoria** (`CategoryViewModel.MaxVisibleItems`). Kategoriat ovat Expandereita ScrollViewerissa eivätkä virtualisoi; 14 000 riviä jäädyttäisi ikkunan. Kategorian valintaruutu koskee kaikkia kohteita, myös piilotettuja, ja tämä sanotaan listan alla.
 16. **UI lataa kaikki säännöt, myös `enabledByDefault: false`** (Prefetch, Windows.old). Ne päätyvät High-riskin lohkoon, joka on oletuksena kiinni ja valitsematta. CLI sen sijaan ohittaa ne ilman `--include-disabled`.
-17. **Oletusvalinta UI:ssa:** kohde on valittu, kun moduulin `SelectedByDefault` on tosi ja riski alle High. Startup-, diskusage- ja registry-kohteet ovat aina aluksi valitsematta.
+17. **Oletusvalinta UI:ssa:** `Risk != High && (Preselected ?? SelectedByDefault)`. Kohteen oma `Preselected` voittaa moduulin oletuksen, High-kohde ei ole koskaan valittuna. Startup-, diskusage- ja registry-kohteet ovat aina aluksi valitsematta (ne eivät aseta `Preselected`-kenttää). Uninstall valitsee vain skannerin esivalitsemat kohteet (päätös 24).
 18. **Rekisteri: varmuuskopio on ehto poistolle.** `RegistryModule.Clean` vie avaimen `reg export` -komennolla ennen muutosta; jos vienti epäonnistuu, kohde ohitetaan. Yksi kansio per ajo: `%LOCALAPPDATA%\PcCleaner\registry-backups\<aikaleima>\NNN-<avain>.reg` + `manifest.txt`. Palautus `pccleaner restore <aikaleima>` tai UI:n nappi "Palauta varmuuskopio..." tuo kansion kaikki tiedostot (`reg import`).
 19. **Rekisterivartija on tyyppikohtainen ja vaatii suoran lapsen.** `uninstall`-kohde saa osua vain Uninstall-juurten suoriin lapsiin, `ext`/`progid` vain Classes-juurten suoriin lapsiin, `muicache` ja `mru` vain täsmälleen omaan avaimeensa. Polun segmentit CLSID, Interface, TypeLib, AppID, Services, Drivers, SharedDLLs, Fonts estävät aina. Ensimmäinen versio salli "minkä tahansa sallitun juuren alla" ja testi paljasti, että uninstall-tunnisteella olisi voinut poistaa Classes-avaimen; korjattu.
 20. **Orpotulkinta on varovainen.** Uninstall: vain kun `UninstallString` on, sen exe on absoluuttinen ja puuttuu, exe ei ole msiexec, `SystemComponent` ei ole 1 ja `InstallLocation` ei ole olemassa. `.ext`: oletusarvo ilman välilyöntejä (selkonimi "Microsoft Email Message" ei ole ProgId), ProgId puuttuu kaikista Classes-juurista, avaimella ei aliavaimia (OpenWithProgids, PersistentHandler menetettäisiin). ProgId: `shell\open\command` ilman `DelegateExecute`-arvoa, exe absoluuttinen ja puuttuu; pääte-ettömälle komennolle (`perfmon /sys`) kokeillaan `.exe`. Puuttumistarkistus palauttaa "ei puutu", jos polku on suhteellinen, verkkopolku, asemaa ei ole tai polku on `WindowsApps`-kansiossa (ei lukuoikeutta). MRU: ei orpotarkistusta, avaimen sisältö tyhjennetään ja avain säilyy.
+21. **Ohjelman poisto koskee vain Win32-ohjelmia** (Uninstall-avaimet HKLM, HKLM\WOW6432Node, HKCU). Store/MSIX-sovellukset, ajurit, palvelut ja Windows-komponentit jäävät pois. Käyttäjän päätös 19.10.2026.
+22. **Jäänteet karanteeniin, ei poistoon.** Kansiot ja tiedostot siirretään kansioon `%LOCALAPPDATA%\PcCleaner\quarantine\<aikaleima>\NNN\<nimi>` (`manifest.txt`), rekisteri viedään `.reg`-tiedostoihin samalla aikaleimalla. `UninstallModule` luo aikaleiman kerran `RegistryBackup`-oliossa ja antaa sen `Quarantine`-palvelulle, joten yksi `restore <aikaleima>` tuo molemmat takaisin (`BackupSessions`). Käyttäjän päätös 19.10.2026.
+23. **Laaja, Revo-tyylinen haku:** asennuskansio, nimiosumat peruskansioissa, julkaisijakansioiden lapset, pikakuvakkeet, rekisteriavaimet ja asennuskansioon viittaavat rekisteriarvot. Säännöt, riskit ja esivalinta ovat ARCHITECTURE luvussa 6.4. Kategorian kohteilla on sama riski, jotta UI:n High-lohko ei sekoita esivalittuja ja korkean riskin kohteita. Käyttäjän päätös 19.10.2026.
+24. **`CleanItem.Preselected`** (`bool?`, oletus null) on positional-recordin viimeinen valinnainen kenttä, ei uusi rajapinta. Nykyiset moduulit eivät aseta sitä, joten niiden käytös ei muutu. Uninstall asettaa `true` asennuskansiolle, `Exact`-ohjelmakansioille ja pikakuvakkeille, muille `false`. CLI `uninstall --apply` käyttää samaa kenttää.
+25. **Uninstall-moduulin rekisterivartija sallii kahden tason syvyyden** `<juuri>\<Julkaisija>\<Nimi>` juurissa `HKCU\Software`, `HKLM\SOFTWARE`, `HKLM\SOFTWARE\WOW6432Node`, koska se on moduulin tärkein rekisterikohde. Uninstall-, App Paths- ja Classes-juurten alla sallitaan yksi taso. Kieltosegmentit (`RegistryGuard.ForbiddenSegments` sekä `Microsoft`, `Classes`, `Policies`, `WOW6432Node`, `Clients`, `RegisteredApplications`) tarkistetaan osuneen juuren jälkeisestä osasta, joten `HKLM\SOFTWARE\WOW6432Node\Acme\Foo` kelpaa ja `HKLM\SOFTWARE\Microsoft\Windows` ei. Tämä on tietoinen poikkeama päätöksestä 19, joka pysyy voimassa Registry-moduulissa. `LeftoverGuard`, testattu väärennetyillä tunnisteilla (`UninstallModuleTests`).
 
 ## Rajapintasopimus (kopio, jotta uusi moduuli voidaan kirjoittaa ilman zipin avaamista)
 
@@ -89,7 +95,7 @@ public interface ICleanerModule
     Task<ScanResult>  ScanAsync(CleanerContext ctx, CancellationToken ct = default);   // EI muuta mitään
     Task<CleanResult> CleanAsync(IReadOnlyList<CleanItem> items, CleanerContext ctx, CancellationToken ct = default);
 }
-public sealed record CleanItem(string Id, string ModuleId, string Category, string Path, long SizeBytes, string Description, RiskLevel Risk);
+public sealed record CleanItem(string Id, string ModuleId, string Category, string Path, long SizeBytes, string Description, RiskLevel Risk, bool? Preselected = null);
 ```
 
 Säännöt: `CleanAsync` käsittelee vain `item.ModuleId == Id`; DryRun-tilassa ei kirjoittavia operaatioita mutta `Removed` täytetään; yksittäisen kohteen virhe → `Skipped`, ei poikkeus; levy-I/O `Task.Run`-kutsussa.
@@ -148,6 +154,20 @@ Käyttäjän arvio: "vaikutti toimivan".
 Tunnisteet: `registry:uninstall:<avain>`, `registry:ext:<avain>`, `registry:progid:<avain>`, `registry:muicache:<avain>|<arvo>`,
 `registry:mru:<avain>`. Avainpolut muodossa `HKCU\...` / `HKLM\...` (ei HKCR). HKLM-kohteet ohitetaan ilman adminia.
 
+## Uninstall-moduuli 19.10.2026
+
+Suunnitelma `docs/plans/2026-10-19-uninstall-module.md`, kuvaus ARCHITECTURE luku 6.4. CLI: `pccleaner uninstall` listaa
+ohjelmat, `--program <teksti>` valitsee (tarkka nimi tai yksikäsitteinen osa, usea osuma → koodi 2), `--quiet`,
+`--leftovers-only`, `--apply` (esivalitut, `--item`-rajaus tai `--all`), `--yes`. `pccleaner restore [aikaleima]` listaa
+ja palauttaa sekä rekisterivarmuuskopiot että karanteenisessiot (`BackupSessions`). UI: sivu "Ohjelman poisto"
+(hakukenttä, ohjelmalista, "Päivitä lista", "Poista ohjelma", "Etsi jäänteet", odotustila Peruuta-napilla), jäänteet
+tavallisessa kategorianäkymässä, "Palauta varmuuskopio..." listaa `BackupSessions`-sessiot.
+
+Tunnisteet: `uninstall:dir:<polku>`, `uninstall:file:<polku>`, `uninstall:key:<avain>`, `uninstall:value:<avain>|<arvonimi>`.
+Kategoriat `Asennuskansio`, `Ohjelmakansiot`, `Käyttäjän datakansiot`, `Pikakuvakkeet`, `Rekisteriavaimet`, `Rekisteriarvot`.
+`Description` kertoo osumasyyn. Avainpolut muodossa `HKCU\...` / `HKLM\...`; HKLM-kohteet ohitetaan ilman adminia.
+Karanteeni `%LOCALAPPDATA%\PcCleaner\quarantine\<aikaleima>\`, rekisteri `registry-backups\<sama aikaleima>\`.
+
 ## UI:n jatko ja julkaisu 19.10.2026 (ilta)
 
 - `FileLogger` siivoaa käynnistyessä vanhat lokit: säilyttää 50 uusinta ja poistaa yli 30 päivää vanhat
@@ -192,6 +212,13 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
    d) ~~vanhojen lokien siivous~~ tehty.
 7. WinUI 3 alkuperäinen kuvaus: projekti `src/Cleaner.UI`, `net8.0-windows10.0.19041.0`, MVVM (CommunityToolkit.Mvvm), NavigationView moduuleille, löydökset kategorioittain valintaruuduin, Skannaa/Puhdista-napit, kaksoisvahvistus, High-riski oletuksena kiinni, `Progress<T>` → ProgressBar, `CancellationToken` → Peruuta. Tarkempi kuvaus ARCHITECTURE.md luku 7.
 8. ~~Startup-moduuli (luku 6.1)~~ tehty. ~~DiskUsage (6.2)~~ tehty. ~~Registry (6.3)~~ tehty.
+9. ~~Ohjelman poisto (6.4)~~ toteutettu 19.10.2026 haarassa `feature/uninstall-module`. Jäljellä käyttäjän manuaaliset tarkistukset:
+   a) AC-5: korotetussa UI:ssa "Etsi jäänteet" jollekin asennetulle ohjelmalle näyttää kategoriat, kuvaukset kertovat
+   osumasyyn, mikään High-kohde ei ole valittuna ja asennuskansio on valittuna.
+   b) AC-6: käyttäjä poistaa UI:sta yhden pienen testiohjelman alusta loppuun: poisto-ohjelma käynnistyy, odotustila näkyy,
+   jäänteet skannataan automaattisesti, Puhdista siirtää esivalitut karanteeniin, "Palauta varmuuskopio..." tuo ne
+   takaisin ja `pccleaner restore <aikaleima>` listaa saman session.
+   c) Tämän jälkeen haaran yhdistäminen `main`-haaraan.
 
 ## Tunnetut puutteet / huomiot
 
@@ -207,6 +234,11 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
 - Registry: MUICache-avain viedään kokonaan (yksi .reg, voi olla satoja kilotavuja) ennen ensimmäistä arvon poistoa; sama avain vain kerran per ajo. Palautus tuo koko avaimen takaisin, myös sen jälkeen lisätyt arvot säilyvät (reg import ei poista).
 - Registry: `reg export`/`reg import` -tulosteet ovat lokalisoituja; virheviesti välitetään sellaisenaan.
 - Registry: ei vielä Uninstall-orpoja MSI-tuotteille (msiexec ohitetaan aina) eikä HKCR-reflektoituja 32-bittisiä ProgId-avaimia (`HKLM\SOFTWARE\WOW6432Node\Classes`).
+- Uninstall: Store/MSIX-sovelluksia ei listata eikä poisteta (päätös 21).
+- Uninstall: `RunningProcessCheck` ei pysty lukemaan 32-bittisten ja suojattujen prosessien exe-polkua, joten ne ohitetaan. Käynnissä oleva ohjelma voi siksi jäädä huomaamatta; lukittu tiedosto pysäyttää silloin karanteenisiirron (`IOException`).
+- Uninstall: julkaisijakansio ja julkaisija-avain poistuvat vain, jos ne ovat tyhjiä siirron tai poiston jälkeen. Muuten ne jäävät paikalleen.
+- Uninstall: `Quarantine`-siirto eri asemalle kopioi ensin. Jos kopio onnistuu mutta alkuperäisen poisto epäonnistuu, kopio jää karanteeniin manifest-merkinnällä ja kohde raportoidaan `Skipped`-listalla karanteenipolun kanssa.
+- `Quarantine.Restore(aikaleima)` ja `BackupSessions.Restore` eivät tarkista aikaleiman muotoa (sama kuin `RegistryBackup`).
 - `Prefetch` ja `Windows.old` ovat `enabledByDefault: false`. CLI ohittaa ne ilman `--include-disabled`. UI:n pitää näyttää ne valintaruutuina, oletuksena pois päältä.
 
 ## Ympäristöhuomio Claudelle
