@@ -41,6 +41,7 @@ dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner
 ```
 
 Levytilan analyysin sivulla voi rajata kansion, valita top-N:n ja selata treemapia (napsautus avaa alikansion).
+Sovelluskuvake generoidaan skriptillä `tools\make-icon.ps1` (ei vaadi kuvankäsittelyohjelmaa).
 Puhdistus kysyy kahdesti: ensin kuivan ajon yhteenveto, sitten vahvistus. Korkean riskin kohteet ovat
 omassa, oletuksena suljetussa lohkossa eikä niitä valita koskaan automaattisesti.
 

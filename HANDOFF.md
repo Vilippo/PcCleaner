@@ -127,8 +127,8 @@ Puhdistusketju `MainViewModel.CleanAsync`: kuiva ajo → ContentDialog "Kuivan a
 ContentDialog "Vahvista" (Poista pysyvästi / Poista käytöstä) → oikea ajo → tulosdialogi → moduuli skannataan uudelleen.
 Peruuta-nappi peruuttaa `CancellationTokenSource`-olion; keskeytetty oikea ajo skannaa moduulin uudelleen.
 
-Rajoitukset (tilanne illalla 19.10.): treemap ja polku/top-N-valinta lisätty (ks. "UI:n jatko"), ei asetuksia,
-ei kuvaketta (Assets puuttuu), ei MSIX-pakettia.
+Rajoitukset (tilanne illalla 19.10.): treemap, polku/top-N-valinta ja kuvake lisätty (ks. "UI:n jatko"),
+ei asetuksia, ei MSIX-pakettia.
 Admin-kohteita ei merkitä harmaiksi rivikohtaisesti, koska `CleanItem` ei kanna admin-lippua; moduulitason vihje ja
 InfoBar-nappi "Käynnistä uudelleen järjestelmänvalvojana" (`runas`) ovat.
 
@@ -176,7 +176,9 @@ Tunnisteet: `registry:uninstall:<avain>`, `registry:ext:<avain>`, `registry:prog
    **Kaikki ARCHITECTURE.md:n suunnitellut moduulit ja UI:n ensimmäinen versio ovat valmiit.** Seuraavaksi ehdolla:
    a) ~~git init + ensimmäinen commit~~ tehty (`cba91ea`), etärepo puuttuu, b) ensimmäinen oikea rekisteripoisto pienellä
    valinnalla (MRU tai muutama MUICache-arvo) ja palautuksen kokeilu, c) ~~treemap, DiskUsage-polun valinta, dotnet publish~~
-   tehty; jäljellä sovelluskuvake (`<ApplicationIcon>`, Assets puuttuu) ja mahdollinen MSIX/asennusohjelma,
+   tehty; ~~sovelluskuvake~~ tehty 19.10.2026 (`tools\make-icon.ps1` generoi `src\Cleaner.UI\Assets\PcCleaner.ico`
+   9 koossa + `.png`; `<ApplicationIcon>` UI- ja CLI-exeen, ikkunaan `AppWindow.SetIcon` tiedostosta, koska pakkaamaton
+   WinUI 3 ei käytä exe-resurssia otsikkopalkissa). Jäljellä mahdollinen MSIX/asennusohjelma,
    d) ~~vanhojen lokien siivous~~ tehty.
 7. WinUI 3 alkuperäinen kuvaus: projekti `src/Cleaner.UI`, `net8.0-windows10.0.19041.0`, MVVM (CommunityToolkit.Mvvm), NavigationView moduuleille, löydökset kategorioittain valintaruuduin, Skannaa/Puhdista-napit, kaksoisvahvistus, High-riski oletuksena kiinni, `Progress<T>` → ProgressBar, `CancellationToken` → Peruuta. Tarkempi kuvaus ARCHITECTURE.md luku 7.
 8. ~~Startup-moduuli (luku 6.1)~~ tehty. ~~DiskUsage (6.2)~~ tehty. ~~Registry (6.3)~~ tehty.

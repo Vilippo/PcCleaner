@@ -8,6 +8,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>pccleaner</AssemblyName>
     <RootNamespace>Cleaner.Cli</RootNamespace>
+    <ApplicationIcon>..\Cleaner.UI\Assets\PcCleaner.ico</ApplicationIcon>
     <!-- Ei admin-vaatimusta oletuksena: käyttäjä päättää itse (ks. README). -->
   </PropertyGroup>
 

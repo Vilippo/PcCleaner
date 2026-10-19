@@ -8,6 +8,8 @@
     <RootNamespace>Cleaner.UI</RootNamespace>
     <AssemblyName>PcCleaner</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Exen kuvake (Resurssienhallinta, tehtäväpalkki). Generoitu: tools\make-icon.ps1 -->
+    <ApplicationIcon>Assets\PcCleaner.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <!-- Ilman tätä "dotnet publish src\Cleaner.UI" ajaa AnyCPU-alustalla, jolloin XAML- ja PRI-vaiheet jäävät pois
          ja exe kaatuu käynnistyksessä (0xC000027B, combase.dll). Solution-build antaa alustan sln:stä. -->
@@ -41,6 +43,8 @@
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
+    <!-- Ikkunan kuvake ladataan ajon aikana tiedostosta (AppWindow.SetIcon), joten se kopioidaan exen viereen. -->
+    <Content Include="Assets\PcCleaner.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- dotnet publish ei kopioi pakkaamattoman sovelluksen omaa .pri-tiedostoa eikä .xbf-tiedostoja

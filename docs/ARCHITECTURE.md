@@ -229,7 +229,10 @@ Turvamekanismit (toteutettu):
 - Julkaisu: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner`. Csproj asettaa `Platform=x64`-oletuksen
   (muuten XAML/PRI-vaiheet jäävät pois) ja kopioi `PcCleaner.pri`- ja `.xbf`-tiedostot julkaisukansioon
   (`CopyPriAndXbfToPublishDir`), koska publish ei tee sitä pakkaamattomalle sovellukselle.
-- Ei vielä: kuvake, MSIX. Rivikohtainen admin-harmaannus puuttuu, koska `CleanItem` ei kanna admin-lippua; moduulitason vihje on.
+- Kuvake: `tools\make-icon.ps1` piirtää sen System.Drawing-kirjastolla ja kirjoittaa `Assets\PcCleaner.ico`
+  (PNG-pakatut merkinnät 16–256 px) ja `PcCleaner.png`. `<ApplicationIcon>` antaa exe-kuvakkeen; otsikko- ja
+  tehtäväpalkin kuvake asetetaan `AppWindow.SetIcon`-kutsulla tiedostosta, joka kopioidaan exen viereen (`Content`).
+- Ei vielä: MSIX. Rivikohtainen admin-harmaannus puuttuu, koska `CleanItem` ei kanna admin-lippua; moduulitason vihje on.
 
 ## 8. Testaus
 

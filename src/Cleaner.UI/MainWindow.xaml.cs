@@ -23,6 +23,10 @@ public sealed partial class MainWindow : Window, IDialogService
         Title = ViewModel.TitleText;
         AppWindow.Resize(new SizeInt32(1200, 820));
 
+        // Otsikkopalkin ja tehtäväpalkin kuvake. Exe-resurssia ei käytetä automaattisesti pakkaamattomassa WinUI 3:ssa.
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "PcCleaner.ico");
+        if (File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
+
         Nav.SelectedItem = ViewModel.Modules.FirstOrDefault();
         Closed += (_, _) => ViewModel.Dispose();
 
