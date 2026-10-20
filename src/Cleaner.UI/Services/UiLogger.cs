@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Logging;
 using Microsoft.UI.Dispatching;
 
@@ -35,8 +36,8 @@ public sealed class UiLogger : ICleanerLogger
 
     private static string Tag(LogLevel level) => level switch
     {
-        LogLevel.Error => "VIRHE",
-        LogLevel.Warning => "VAROITUS",
+        LogLevel.Error => Loc.T("ERROR", "VIRHE"),
+        LogLevel.Warning => Loc.T("WARNING", "VAROITUS"),
         LogLevel.Debug => "debug",
         _ => "info"
     };

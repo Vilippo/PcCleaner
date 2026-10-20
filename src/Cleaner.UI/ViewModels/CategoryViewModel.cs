@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -20,13 +21,36 @@ public sealed partial class CategoryViewModel : ObservableObject
     public IReadOnlyList<ItemViewModel> VisibleItems { get; }
     public int HiddenCount => Items.Count - VisibleItems.Count;
     public bool HasHidden => HiddenCount > 0;
-    public string HiddenText => HasHidden ? $"... ja {HiddenCount} muuta kohdetta. Kategorian valinta koskee myös niitä." : "";
+    public string HiddenText => HasHidden
+        ? Loc.T($"... and {HiddenCount} more items. Selecting the category also applies to them.",
+                $"... ja {HiddenCount} muuta kohdetta. Kategorian valinta koskee myös niitä.")
+        : "";
     public long TotalBytes { get; }
-    public string SummaryText { get; }
-    public string RiskText => Risk switch { RiskLevel.High => "korkea riski", RiskLevel.Medium => "keskiriski", _ => "matala riski" };
+
+    /// <summary>Lasketaan joka lukukerralla, jotta teksti seuraa kielen vaihtoa (<see cref="RefreshLanguage"/>).</summary>
+    public string SummaryText
+    {
+        get
+        {
+            if (_showTotal && TotalBytes > 0)
+            {
+                var size = ByteFormatter.Format(TotalBytes);
+                return Loc.T($"{Items.Count} items, {size}", $"{Items.Count} kpl, {size}");
+            }
+            return Loc.T($"{Items.Count} items", $"{Items.Count} kpl");
+        }
+    }
+
+    public string RiskText => Risk switch
+    {
+        RiskLevel.High => Loc.T("high risk", "korkea riski"),
+        RiskLevel.Medium => Loc.T("medium risk", "keskiriski"),
+        _ => Loc.T("low risk", "matala riski")
+    };
 
     public event EventHandler? SelectionChanged;
 
+    private readonly bool _showTotal;
     private bool _suppress;
 
     /// <param name="showTotal">
@@ -40,10 +64,18 @@ public sealed partial class CategoryViewModel : ObservableObject
         Items = items.ToList();
         VisibleItems = Items.Take(MaxVisibleItems).ToList();
         TotalBytes = Items.Sum(i => i.SizeBytes);
-        SummaryText = showTotal && TotalBytes > 0 ? $"{Items.Count} kpl, {ByteFormatter.Format(TotalBytes)}" : $"{Items.Count} kpl";
+        _showTotal = showTotal;
 
         foreach (var item in Items)
             item.PropertyChanged += OnItemChanged;
+    }
+
+    /// <summary>Kielen vaihto: kielestä riippuvat tekstit luetaan uudelleen. Kategorian nimi jää syntykieleensä.</summary>
+    public void RefreshLanguage()
+    {
+        OnPropertyChanged(nameof(RiskText));
+        OnPropertyChanged(nameof(SummaryText));
+        OnPropertyChanged(nameof(HiddenText));
     }
 
     private void OnItemChanged(object? sender, PropertyChangedEventArgs e)

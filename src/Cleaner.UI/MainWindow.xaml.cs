@@ -1,3 +1,4 @@
+using Cleaner.Core.Localization;
 using Cleaner.Core.Services;
 using Cleaner.Modules.DiskUsage;
 using Cleaner.UI.Services;
@@ -29,6 +30,13 @@ public sealed partial class MainWindow : Window, IDialogService
 
         Nav.SelectedItem = ViewModel.Modules.FirstOrDefault();
         Closed += (_, _) => ViewModel.Dispose();
+
+        // Kielen vaihto: otsikko ja treemap piirretään uudelleen nykyisellä kielellä (XAML-sidonnat päivittyvät itse).
+        ViewModel.LanguageRefreshed += (_, _) =>
+        {
+            Title = ViewModel.TitleText;
+            DrawTreemap();
+        };
 
         ViewModel.PropertyChanged += (_, e) =>
         {
@@ -62,8 +70,9 @@ public sealed partial class MainWindow : Window, IDialogService
         catch (Exception ex)
         {
             // Windowsin valitsimet eivät toimi järjestelmänvalvojana ajettavassa prosessissa.
-            await InfoAsync("Kansiovalitsin ei ole käytettävissä",
-                $"Kirjoita polku kenttään käsin.\n\nSyy: {ex.Message}");
+            await InfoAsync(Loc.T("Folder picker is not available", "Kansiovalitsin ei ole käytettävissä"), Loc.T(
+                $"Type the path in the field manually.\n\nReason: {ex.Message}",
+                $"Kirjoita polku kenttään käsin.\n\nSyy: {ex.Message}"));
         }
     }
 
@@ -93,7 +102,7 @@ public sealed partial class MainWindow : Window, IDialogService
         TreemapCanvas.Children.Clear();
         var node = _treemapCurrent;
         TreemapUpButton.IsEnabled = _treemapStack.Count > 0;
-        TreemapPathText.Text = node is null ? "" : $"{node.Path}  ({ByteFormatter.Format(node.TotalBytes)}, {node.FileCount} tiedostoa)";
+        TreemapPathText.Text = node is null ? "" : $"{ViewModel.TreemapNodeLabel(node)}  ({ByteFormatter.Format(node.TotalBytes)}, {FilesText(node.FileCount)})";
         if (node is null) return;
 
         double width = TreemapCanvas.ActualWidth, height = TreemapCanvas.ActualHeight;
@@ -104,13 +113,13 @@ public sealed partial class MainWindow : Window, IDialogService
             .Where(c => c.TotalBytes > 0)
             .Select(c => (Node: (DirectoryNode?)c, Bytes: c.TotalBytes, Label: NameOf(c.Path)))
             .ToList();
-        if (node.OwnBytes > 0) blocks.Add((null, node.OwnBytes, "(tiedostot tässä kansiossa)"));
+        if (node.OwnBytes > 0) blocks.Add((null, node.OwnBytes, Loc.T("(files in this folder)", "(tiedostot tässä kansiossa)")));
         blocks.Sort((a, b) => b.Bytes.CompareTo(a.Bytes));
         if (blocks.Count > 60)
         {
             var rest = blocks.Skip(59).Sum(b => b.Bytes);
             blocks = blocks.Take(59).ToList();
-            blocks.Add((null, rest, "(muut)"));
+            blocks.Add((null, rest, Loc.T("(other)", "(muut)")));
         }
         if (blocks.Count == 0) return;
 
@@ -148,9 +157,9 @@ public sealed partial class MainWindow : Window, IDialogService
 
             var tip = block.Node is null
                 ? $"{block.Label}\n{ByteFormatter.Format(block.Bytes)}"
-                : $"{block.Node.Path}\n{ByteFormatter.Format(block.Node.TotalBytes)}, {block.Node.FileCount} tiedostoa" +
-                  (block.Node.HadErrors ? "\nosa alikansioista ei luettavissa" : "") +
-                  (block.Node.Children.Count > 0 ? "\nNapsauta avataksesi" : "");
+                : $"{block.Node.Path}\n{ByteFormatter.Format(block.Node.TotalBytes)}, {FilesText(block.Node.FileCount)}" +
+                  (block.Node.HadErrors ? Loc.T("\nsome subfolders could not be read", "\nosa alikansioista ei luettavissa") : "") +
+                  (block.Node.Children.Count > 0 ? Loc.T("\nClick to open", "\nNapsauta avataksesi") : "");
             ToolTipService.SetToolTip(border, tip);
 
             if (block.Node is { Children.Count: > 0 })
@@ -170,6 +179,8 @@ public sealed partial class MainWindow : Window, IDialogService
         DrawTreemap();
     }
 
+    private static string FilesText(int count) => Loc.T($"{count} files", $"{count} tiedostoa");
+
     private static string NameOf(string path)
     {
         var trimmed = path.TrimEnd('\\');
@@ -179,14 +190,14 @@ public sealed partial class MainWindow : Window, IDialogService
 
     // ---------- IDialogService ----------
 
-    public async Task<bool> ConfirmAsync(string title, string message, string primaryText, string closeText = "Peruuta")
+    public async Task<bool> ConfirmAsync(string title, string message, string primaryText, string? closeText = null)
     {
         var dialog = new ContentDialog
         {
             Title = title,
             Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true },
             PrimaryButtonText = primaryText,
-            CloseButtonText = closeText,
+            CloseButtonText = closeText ?? Loc.T("Cancel", "Peruuta"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = Content.XamlRoot
         };
@@ -205,7 +216,7 @@ public sealed partial class MainWindow : Window, IDialogService
             Title = title,
             Content = panel,
             PrimaryButtonText = primaryText,
-            CloseButtonText = "Peruuta",
+            CloseButtonText = Loc.T("Cancel", "Peruuta"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = Content.XamlRoot
         };
@@ -219,7 +230,7 @@ public sealed partial class MainWindow : Window, IDialogService
         {
             Title = title,
             Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true },
-            CloseButtonText = "Sulje",
+            CloseButtonText = Loc.T("Close", "Sulje"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = Content.XamlRoot
         };

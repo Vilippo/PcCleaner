@@ -18,10 +18,10 @@
                  IsOpen="{x:Bind ViewModel.ShowElevationHint}"
                  IsClosable="True"
                  Severity="Informational"
-                 Title="Tavallinen käyttäjä"
-                 Message="Järjestelmäkansiot (Windows\Temp, SoftwareDistribution) ja HKLM-käynnistyskohteet ohitetaan ilman järjestelmänvalvojan oikeuksia.">
+                 Title="{x:Bind ViewModel.T.StandardUserTitle, Mode=OneWay}"
+                 Message="{x:Bind ViewModel.T.StandardUserMessage, Mode=OneWay}">
             <InfoBar.ActionButton>
-                <Button Content="Käynnistä uudelleen järjestelmänvalvojana"
+                <Button Content="{x:Bind ViewModel.T.RestartElevated, Mode=OneWay}"
                         Command="{x:Bind ViewModel.RestartElevatedCommand}" />
             </InfoBar.ActionButton>
         </InfoBar>
@@ -34,11 +34,11 @@
                         IsBackButtonVisible="Collapsed"
                         PaneDisplayMode="Left"
                         OpenPaneLength="240"
-                        PaneTitle="Moduulit">
+                        PaneTitle="{x:Bind ViewModel.T.PaneTitle, Mode=OneWay}">
             <NavigationView.MenuItemTemplate>
                 <DataTemplate x:DataType="vm:ModuleViewModel">
-                    <NavigationViewItem Content="{x:Bind DisplayName}"
-                                        ToolTipService.ToolTip="{x:Bind Description}">
+                    <NavigationViewItem Content="{x:Bind DisplayName, Mode=OneWay}"
+                                        ToolTipService.ToolTip="{x:Bind Description, Mode=OneWay}">
                         <NavigationViewItem.Icon>
                             <FontIcon Glyph="{x:Bind Glyph}" />
                         </NavigationViewItem.Icon>
@@ -48,10 +48,18 @@
 
             <NavigationView.PaneFooter>
                 <StackPanel Padding="12,8" Spacing="4">
-                    <Button Content="Skannaa kaikki"
+                    <Button Content="{x:Bind ViewModel.T.ScanAll, Mode=OneWay}"
                             HorizontalAlignment="Stretch"
                             Command="{x:Bind ViewModel.ScanAllCommand}"
-                            ToolTipService.ToolTip="Skannaa kaikki moduulit, jotka kuuluvat oletussiivoukseen" />
+                            ToolTipService.ToolTip="{x:Bind ViewModel.T.ScanAllToolTip, Mode=OneWay}" />
+                    <!-- Kielivalitsin: kohdat aina omalla kielellään. Pois käytöstä, kun sovellus on kiireinen (EDGE-3). -->
+                    <ComboBox HorizontalAlignment="Stretch"
+                              SelectedIndex="{x:Bind ViewModel.LanguageIndex, Mode=TwoWay}"
+                              IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                              ToolTipService.ToolTip="Language / Kieli">
+                        <ComboBoxItem Content="English" />
+                        <ComboBoxItem Content="Suomi" />
+                    </ComboBox>
                 </StackPanel>
             </NavigationView.PaneFooter>
 
@@ -88,10 +96,10 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Header="Kansio"
-                                     PlaceholderText="Tyhjä = kaikki kiinteät asemat"
+                            <TextBox Grid.Column="0" Header="{x:Bind ViewModel.T.FolderHeader, Mode=OneWay}"
+                                     PlaceholderText="{x:Bind ViewModel.T.FolderPlaceholder, Mode=OneWay}"
                                      Text="{x:Bind ViewModel.DiskUsagePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            <Button Grid.Column="1" Content="Selaa..." VerticalAlignment="Bottom" Click="PickFolder_Click" />
+                            <Button Grid.Column="1" Content="{x:Bind ViewModel.T.Browse, Mode=OneWay}" VerticalAlignment="Bottom" Click="PickFolder_Click" />
                             <NumberBox Grid.Column="2" Header="Top-N" Minimum="1" Maximum="500" SmallChange="5"
                                        SpinButtonPlacementMode="Compact" MinWidth="120"
                                        Value="{x:Bind ViewModel.DiskUsageTop, Mode=TwoWay}" />
@@ -106,7 +114,7 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" x:Name="TreemapUpButton" Content="Ylös" Click="TreemapUp_Click" IsEnabled="False" />
+                                <Button Grid.Column="0" x:Name="TreemapUpButton" Content="{x:Bind ViewModel.T.Up, Mode=OneWay}" Click="TreemapUp_Click" IsEnabled="False" />
                                 <TextBlock Grid.Column="1" x:Name="TreemapPathText" VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis" Style="{StaticResource BodyStrongTextBlockStyle}" />
                             </Grid>
@@ -123,14 +131,19 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" PlaceholderText="Hae ohjelmaa nimellä tai julkaisijalla"
+                            <TextBox Grid.Column="0" PlaceholderText="{x:Bind ViewModel.T.ProgramSearchPlaceholder, Mode=OneWay}"
                                      Text="{x:Bind ViewModel.ProgramFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <ComboBox Grid.Column="1" MinWidth="220"
                                       Header=""
                                       SelectedIndex="{x:Bind ViewModel.ProgramSortIndex, Mode=TwoWay}"
-                                      ToolTipService.ToolTip="Listan järjestys">
-                                <ComboBoxItem Content="Nimi" />
-                                <ComboBoxItem Content="Asennuspäivä, uusin ensin" />
+                                      ToolTipService.ToolTip="{x:Bind ViewModel.T.SortToolTip, Mode=OneWay}">
+                                <!-- TextBlock-sisältö: suljettu ComboBox näyttää valitun kohteen elementin, joten teksti päivittyy kielen vaihtuessa. -->
+                                <ComboBoxItem>
+                                    <TextBlock Text="{x:Bind ViewModel.T.SortByName, Mode=OneWay}" />
+                                </ComboBoxItem>
+                                <ComboBoxItem>
+                                    <TextBlock Text="{x:Bind ViewModel.T.SortByInstallDate, Mode=OneWay}" />
+                                </ComboBoxItem>
                             </ComboBox>
                         </Grid>
                         <ListView ItemsSource="{x:Bind ViewModel.Programs, Mode=OneWay}"
@@ -160,12 +173,12 @@
                                                    VerticalAlignment="Center"
                                                    Style="{StaticResource CaptionTextBlockStyle}"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <TextBlock Grid.Column="3" Text="{x:Bind InstallDateText}"
+                                        <TextBlock Grid.Column="3" Text="{x:Bind InstallDateText, Mode=OneWay}"
                                                    VerticalAlignment="Center"
                                                    Style="{StaticResource CaptionTextBlockStyle}"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                   ToolTipService.ToolTip="Asennuspäivä" />
-                                        <TextBlock Grid.Column="4" Text="{x:Bind SizeText}" HorizontalAlignment="Right"
+                                                   ToolTipService.ToolTip="{x:Bind InstallDateToolTip, Mode=OneWay}" />
+                                        <TextBlock Grid.Column="4" Text="{x:Bind SizeText, Mode=OneWay}" HorizontalAlignment="Right"
                                                    VerticalAlignment="Center"
                                                    Style="{StaticResource CaptionTextBlockStyle}" />
                                     </Grid>
@@ -173,13 +186,13 @@
                             </ListView.ItemTemplate>
                         </ListView>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="Päivitä lista" Command="{x:Bind ViewModel.RefreshProgramsCommand}" />
-                            <Button Content="Poista ohjelma"
+                            <Button Content="{x:Bind ViewModel.T.RefreshList, Mode=OneWay}" Command="{x:Bind ViewModel.RefreshProgramsCommand}" />
+                            <Button Content="{x:Bind ViewModel.T.UninstallProgram, Mode=OneWay}"
                                     Style="{StaticResource AccentButtonStyle}"
                                     Command="{x:Bind ViewModel.UninstallProgramCommand}" />
-                            <Button Content="Etsi jäänteet" Command="{x:Bind ViewModel.ScanLeftoversCommand}" />
+                            <Button Content="{x:Bind ViewModel.T.FindLeftovers, Mode=OneWay}" Command="{x:Bind ViewModel.ScanLeftoversCommand}" />
                         </StackPanel>
-                        <TextBlock Text="Poista ohjelma ajaa ohjelman oman poisto-ohjelman ja etsii sen jälkeen jäänteet. Jäänteet siirretään karanteeniin, josta Palauta varmuuskopio... tuo ne takaisin."
+                        <TextBlock Text="{x:Bind ViewModel.T.UninstallHelp, Mode=OneWay}"
                                    TextWrapping="Wrap"
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -195,7 +208,7 @@
                          IsOpen="{x:Bind ViewModel.SelectedModule.HasErrors, Mode=OneWay}"
                          IsClosable="False"
                          Severity="Warning"
-                         Title="Huomautukset"
+                         Title="{x:Bind ViewModel.T.NotesTitle, Mode=OneWay}"
                          Message="{x:Bind ViewModel.SelectedModule.ErrorText, Mode=OneWay}" />
 
                 <ScrollViewer Grid.Row="2" Margin="0,8,0,0">
@@ -222,10 +235,10 @@
                                                           IsChecked="{x:Bind IsChecked, Mode=TwoWay}" />
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                     <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                                    <TextBlock Text="{x:Bind RiskText}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                    <TextBlock Text="{x:Bind RiskText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                 </StackPanel>
-                                                <TextBlock Grid.Column="2" Text="{x:Bind SummaryText}"
+                                                <TextBlock Grid.Column="2" Text="{x:Bind SummaryText, Mode=OneWay}"
                                                            VerticalAlignment="Center"
                                                            Style="{StaticResource BodyTextBlockStyle}" />
                                             </Grid>
@@ -258,7 +271,7 @@
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
-                                            <TextBlock Text="{x:Bind HiddenText}"
+                                            <TextBlock Text="{x:Bind HiddenText, Mode=OneWay}"
                                                        Visibility="{x:Bind HasHidden}"
                                                        Margin="0,8,0,0"
                                                        Style="{StaticResource CaptionTextBlockStyle}"
@@ -276,9 +289,9 @@
                                   IsExpanded="False">
                             <Expander.Header>
                                 <StackPanel>
-                                    <TextBlock Text="Korkean riskin kohteet" Style="{StaticResource BodyStrongTextBlockStyle}"
+                                    <TextBlock Text="{x:Bind ViewModel.T.HighRiskHeader, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"
                                                Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
-                                    <TextBlock Text="Ei koskaan valittuna oletuksena. Tarkista jokainen kohde ennen valintaa."
+                                    <TextBlock Text="{x:Bind ViewModel.T.HighRiskHint, Mode=OneWay}"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
@@ -301,7 +314,7 @@
                                                               IsChecked="{x:Bind IsChecked, Mode=TwoWay}" />
                                                     <TextBlock Grid.Column="1" Text="{x:Bind Name}" VerticalAlignment="Center"
                                                                Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                                    <TextBlock Grid.Column="2" Text="{x:Bind SummaryText}" VerticalAlignment="Center"
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind SummaryText, Mode=OneWay}" VerticalAlignment="Center"
                                                                Style="{StaticResource BodyTextBlockStyle}" />
                                                 </Grid>
                                             </Expander.Header>
@@ -333,7 +346,7 @@
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
-                                                <TextBlock Text="{x:Bind HiddenText}"
+                                                <TextBlock Text="{x:Bind HiddenText, Mode=OneWay}"
                                                            Visibility="{x:Bind HasHidden}"
                                                            Margin="0,8,0,0"
                                                            Style="{StaticResource CaptionTextBlockStyle}"
@@ -345,7 +358,7 @@
                             </ItemsControl>
                         </Expander>
 
-                        <TextBlock Text="Ei löydöksiä."
+                        <TextBlock Text="{x:Bind ViewModel.T.NothingFound, Mode=OneWay}"
                                    Visibility="{x:Bind ViewModel.SelectedModule.IsEmpty, Mode=OneWay}"
                                    Style="{StaticResource BodyTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -382,23 +395,23 @@
                            Text="{x:Bind ViewModel.SelectedModule.SelectionText, Mode=OneWay}"
                            VerticalAlignment="Center"
                            Style="{StaticResource BodyTextBlockStyle}" />
-                <Button Grid.Column="1" Content="Palauta varmuuskopio..."
+                <Button Grid.Column="1" Content="{x:Bind ViewModel.T.RestoreBackup, Mode=OneWay}"
                         Visibility="{x:Bind ViewModel.ShowRestoreButton, Mode=OneWay}"
                         Command="{x:Bind ViewModel.RestoreBackupCommand}"
-                        ToolTipService.ToolTip="Tuo aiemman ajon rekisterivarmuuskopiot ja karanteeniin siirretyt kohteet takaisin" />
-                <Button Grid.Column="2" Content="Peruuta"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.T.RestoreBackupToolTip, Mode=OneWay}" />
+                <Button Grid.Column="2" Content="{x:Bind ViewModel.T.Cancel, Mode=OneWay}"
                         Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                         Command="{x:Bind ViewModel.CancelCommand}" />
-                <Button Grid.Column="3" Content="Skannaa"
+                <Button Grid.Column="3" Content="{x:Bind ViewModel.T.Scan, Mode=OneWay}"
                         MinWidth="120"
                         Command="{x:Bind ViewModel.ScanCommand}" />
-                <Button Grid.Column="4" Content="Puhdista"
+                <Button Grid.Column="4" Content="{x:Bind ViewModel.T.Clean, Mode=OneWay}"
                         MinWidth="120"
                         Style="{StaticResource AccentButtonStyle}"
                         Command="{x:Bind ViewModel.CleanCommand}" />
             </Grid>
 
-            <Expander Header="Loki" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="False">
+            <Expander Header="{x:Bind ViewModel.T.Log, Mode=OneWay}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="False">
                 <StackPanel Spacing="4">
                     <ListView ItemsSource="{x:Bind ViewModel.LogLines}"
                               MaxHeight="180"
@@ -417,7 +430,7 @@
                         </ListView.ItemContainerStyle>
                     </ListView>
                     <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button Content="Tyhjennä" Command="{x:Bind ViewModel.ClearLogCommand}" />
+                        <Button Content="{x:Bind ViewModel.T.ClearLog, Mode=OneWay}" Command="{x:Bind ViewModel.ClearLogCommand}" />
                         <TextBlock Text="{x:Bind ViewModel.LogPath}" VerticalAlignment="Center" IsTextSelectionEnabled="True"
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

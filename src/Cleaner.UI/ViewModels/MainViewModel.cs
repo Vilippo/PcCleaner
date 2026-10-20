@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Cleaner.Core.Engine;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Logging;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
@@ -23,15 +24,48 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly FileLogger _fileLog;
     private readonly UiLogger _uiLog;
     private readonly ICleanerLogger _log;
+    private readonly DispatcherQueue _dispatcher;
     private CancellationTokenSource? _cts;
 
     public ObservableCollection<ModuleViewModel> Modules { get; } = new();
     public ObservableCollection<string> LogLines => _uiLog.Lines;
 
+    /// <summary>MainWindow.xaml-tiedoston kiinteät tekstit nykyisellä kielellä.</summary>
+    public UiText T { get; } = new();
+
+    /// <summary>Laukeaa UI-säikeessä, kun kielestä riippuvat tekstit on päivitetty (ikkunan otsikko, treemap).</summary>
+    public event EventHandler? LanguageRefreshed;
+
     public bool IsElevated { get; }
     public bool ShowElevationHint => !IsElevated;
-    public string TitleText => IsElevated ? "PC Cleaner (järjestelmänvalvoja)" : "PC Cleaner";
+    public string TitleText => IsElevated ? Loc.T("PC Cleaner (administrator)", "PC Cleaner (järjestelmänvalvoja)") : "PC Cleaner";
     public string LogPath => _fileLog.FilePath;
+
+    /// <summary>
+    /// Kielivalitsimen indeksi: 0 = English, 1 = Suomi. Valitsimen alkuvalinta kirjoittaa saman arvon takaisin,
+    /// joten tallennus tehdään vain, kun kieli todella vaihtuu (settings.json syntyy vasta käyttäjän vaihdosta).
+    /// </summary>
+    public int LanguageIndex
+    {
+        get => Loc.Current == Language.Fi ? 1 : 0;
+        set
+        {
+            if (value is not (0 or 1)) return;
+            var language = value == 1 ? Language.Fi : Language.En;
+            if (language == Loc.Current) return;
+
+            // Kieli vaihtuu tälle istunnolle, vaikka tallennus epäonnistuisi.
+            Loc.Current = language;
+            try
+            {
+                new AppSettings { Language = Loc.ToCode(language) }.Save();
+            }
+            catch (Exception ex)
+            {
+                _log.Warning(Loc.T($"Saving the language setting failed: {ex.Message}", $"Kielivalinnan tallennus epäonnistui: {ex.Message}"));
+            }
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanScanAll))]
@@ -112,6 +146,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public MainViewModel(IDialogService dialogs, DispatcherQueue dispatcher)
     {
         _dialogs = dialogs;
+        _dispatcher = dispatcher;
         ProgressMessage = "";
         BusyTitle = "";
         DiskUsagePath = "";
@@ -129,8 +164,41 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         foreach (var module in _engine.Modules)
             Modules.Add(new ModuleViewModel(module));
 
-        _log.Info($"PC Cleaner käynnistyi ({(IsElevated ? "järjestelmänvalvoja" : "tavallinen käyttäjä")}). Loki: {_fileLog.FilePath}");
+        _log.Info(Loc.T(
+            $"PC Cleaner started ({(IsElevated ? "administrator" : "standard user")}). Log: {_fileLog.FilePath}",
+            $"PC Cleaner käynnistyi ({(IsElevated ? "järjestelmänvalvoja" : "tavallinen käyttäjä")}). Loki: {_fileLog.FilePath}"));
+
+        // Staattinen tapahtuma: tilaus perutaan Dispose-kutsussa (ikkunan Closed).
+        Loc.Changed += OnLanguageChanged;
     }
+
+    // ---------- Kieli ----------
+
+    /// <summary>Loc.Changed voi tulla mistä säikeestä tahansa, joten päivitys ajetaan UI-säikeessä.</summary>
+    private void OnLanguageChanged(object? sender, EventArgs e) => _dispatcher.TryEnqueue(RefreshLanguage);
+
+    /// <summary>
+    /// Päivittää kaikki kielestä riippuvat tekstit ilman uudelleenkäynnistystä. Jo tuotetut moduulitulokset
+    /// ja kirjoitetut lokirivit jäävät kielelle, jolla ne syntyivät.
+    /// </summary>
+    private void RefreshLanguage()
+    {
+        T.Refresh();
+        OnPropertyChanged(nameof(TitleText));
+        OnPropertyChanged(nameof(LanguageIndex));
+        foreach (var module in Modules)
+            module.RefreshLanguage();
+        foreach (var program in Programs)
+            program.RefreshLanguage();
+        LanguageRefreshed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Treemapin otsikkorivin polku: useamman aseman yhdistetty juuri nimetään nykyisellä kielellä.</summary>
+    public string TreemapNodeLabel(DirectoryNode node) =>
+        _treemapCombined && ReferenceEquals(node, TreemapRoot) ? Loc.T("All drives", "Kaikki asemat") : node.Path;
+
+    /// <summary>TreemapRoot on DirectoryNode.Combine-kutsun luoma keinotekoinen solmu (useampi asema).</summary>
+    private bool _treemapCombined;
 
     // ---------- Konteksti ----------
 
@@ -191,19 +259,19 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private async Task ScanModulesAsync(IReadOnlyList<ModuleViewModel> targets)
     {
-        var cts = BeginBusy("Skannataan");
+        var cts = BeginBusy(Loc.T("Scanning", "Skannataan"));
         try
         {
             foreach (var target in targets)
             {
                 cts.Token.ThrowIfCancellationRequested();
-                BusyTitle = $"Skannataan: {target.DisplayName}";
+                BusyTitle = Loc.T($"Scanning: {target.DisplayName}", $"Skannataan: {target.DisplayName}");
                 target.ClearScan();
 
                 // Ohjelman poisto: kohde asetetaan Etsi jäänteet- tai Poista ohjelma -napilla ennen skannausta.
                 if (target.Module is UninstallModule { Target: null })
                 {
-                    target.StatusText = "Valitse ohjelma listasta ja paina Etsi jäänteet tai Poista ohjelma.";
+                    target.Status = ModuleScanStatus.SelectProgram;
                     continue;
                 }
 
@@ -225,19 +293,23 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 target.LoadScan(results[0]);
 
                 if (target.Module is DiskUsageModule scanned && scanned.LastTrees.Count > 0)
-                    TreemapRoot = DirectoryNode.Combine(scanned.LastTrees, "Kaikki asemat");
+                {
+                    // Yhdistetyn juuren nimi lasketaan piirrettäessä (TreemapNodeLabel), jotta se seuraa kieltä.
+                    _treemapCombined = scanned.LastTrees.Count > 1;
+                    TreemapRoot = DirectoryNode.Combine(scanned.LastTrees, Loc.T("All drives", "Kaikki asemat"));
+                }
             }
         }
         catch (OperationCanceledException)
         {
-            _log.Warning("Skannaus peruutettu.");
+            _log.Warning(Loc.T("Scan canceled.", "Skannaus peruutettu."));
             foreach (var target in targets.Where(t => !t.HasScanned))
-                target.StatusText = "Skannaus peruutettu.";
+                target.Status = ModuleScanStatus.ScanCanceled;
         }
         catch (Exception ex)
         {
-            _log.Error($"Skannaus epäonnistui: {ex}");
-            await _dialogs.InfoAsync("Skannaus epäonnistui", ex.Message);
+            _log.Error(Loc.T($"Scan failed: {ex}", $"Skannaus epäonnistui: {ex}"));
+            await _dialogs.InfoAsync(Loc.T("Scan failed", "Skannaus epäonnistui"), ex.Message);
         }
         finally
         {
@@ -256,25 +328,27 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var items = module.SelectedItems();
         if (items.Count == 0)
         {
-            await _dialogs.InfoAsync("Ei valittuja kohteita", "Valitse ensin kohteet valintaruuduista.");
+            await _dialogs.InfoAsync(Loc.T("No items selected", "Ei valittuja kohteita"),
+                Loc.T("Select items with the checkboxes first.", "Valitse ensin kohteet valintaruuduista."));
             return;
         }
 
         var isStartup = module.Id == "startup";
         var isUninstall = module.Id == "uninstall";
         var isProcesses = module.Id == "processes";
+        // Suomen lauseet rakennetaan verbistä; englanniksi kirjoitetaan kokonaiset lauseet moduulityypin mukaan.
         var verb = isUninstall ? "siirretään karanteeniin" : isStartup ? "poistetaan käytöstä" : isProcesses ? "lopetetaan" : "poistetaan";
 
         // 1) Kuiva ajo
         IReadOnlyList<CleanResult> dry;
-        var cts = BeginBusy($"Kuiva ajo: {module.DisplayName}");
+        var cts = BeginBusy(Loc.T($"Dry run: {module.DisplayName}", $"Kuiva ajo: {module.DisplayName}"));
         try
         {
             dry = await _engine.CleanAsync(items, CreateContext(dryRun: true, cts), cts.Token);
         }
         catch (OperationCanceledException)
         {
-            _log.Warning("Kuiva ajo peruutettu.");
+            _log.Warning(Loc.T("Dry run canceled.", "Kuiva ajo peruutettu."));
             return;
         }
         finally
@@ -287,55 +361,75 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var drySkipped = dry.SelectMany(r => r.Skipped).ToList();
         var dryErrors = dry.SelectMany(r => r.Errors).ToList();
 
-        var summary = $"Kuivassa ajossa {verb} {dryRemoved} kohdetta" +
-                      (dryBytes > 0 ? $" ({ByteFormatter.Format(dryBytes)})" : "") + ".";
+        var drySize = dryBytes > 0 ? $" ({ByteFormatter.Format(dryBytes)})" : "";
+        var dryEn = isUninstall ? $"The dry run would move {dryRemoved} items to quarantine"
+            : isStartup ? $"The dry run would disable {dryRemoved} items"
+            : isProcesses ? $"The dry run would end {dryRemoved} processes"
+            : $"The dry run would delete {dryRemoved} items";
+        var summary = Loc.T(dryEn, $"Kuivassa ajossa {verb} {dryRemoved} kohdetta") + drySize + ".";
         if (drySkipped.Count > 0)
         {
             var reasons = drySkipped.GroupBy(s => s.Reason)
                 .OrderByDescending(g => g.Count())
                 .Take(4)
-                .Select(g => $"  • {g.Count()} kpl: {g.Key}");
-            summary += $"\n\nOhitettaisiin {drySkipped.Count} kohdetta:\n{string.Join("\n", reasons)}";
+                .Select(g => Loc.T($"  • {g.Count()} items: {g.Key}", $"  • {g.Count()} kpl: {g.Key}"));
+            summary += Loc.T($"\n\n{drySkipped.Count} items would be skipped:\n{string.Join("\n", reasons)}",
+                             $"\n\nOhitettaisiin {drySkipped.Count} kohdetta:\n{string.Join("\n", reasons)}");
         }
         if (dryErrors.Count > 0)
-            summary += $"\n\nVirheet:\n{string.Join("\n", dryErrors.Take(4))}";
+            summary += Loc.T($"\n\nErrors:\n{string.Join("\n", dryErrors.Take(4))}", $"\n\nVirheet:\n{string.Join("\n", dryErrors.Take(4))}");
 
         if (dryRemoved == 0)
         {
-            await _dialogs.InfoAsync("Ei mitään tehtävää", summary);
+            await _dialogs.InfoAsync(Loc.T("Nothing to do", "Ei mitään tehtävää"), summary);
             return;
         }
 
         // 2) Yhteenveto kuivasta ajosta
-        if (!await _dialogs.ConfirmAsync("Kuivan ajon yhteenveto", summary, "Jatka"))
+        if (!await _dialogs.ConfirmAsync(Loc.T("Dry run summary", "Kuivan ajon yhteenveto"), summary, Loc.T("Continue", "Jatka")))
             return;
 
         // 3) Toinen vahvistus
         var confirmText = isUninstall
-            ? $"Siirretäänkö {dryRemoved} kohdetta karanteeniin?\n\nKansiot ja tiedostot siirretään kansioon %LOCALAPPDATA%\\PcCleaner\\quarantine, rekisteriavaimet viedään .reg-varmuuskopioon. Palautus: Palauta varmuuskopio... tai pccleaner restore <aikaleima>."
+            ? Loc.T(
+                $"Move {dryRemoved} items to quarantine?\n\nFolders and files are moved to %LOCALAPPDATA%\\PcCleaner\\quarantine and registry keys are exported to a .reg backup. To restore: Restore backup... or pccleaner restore <timestamp>.",
+                $"Siirretäänkö {dryRemoved} kohdetta karanteeniin?\n\nKansiot ja tiedostot siirretään kansioon %LOCALAPPDATA%\\PcCleaner\\quarantine, rekisteriavaimet viedään .reg-varmuuskopioon. Palautus: Palauta varmuuskopio... tai pccleaner restore <aikaleima>.")
             : isStartup
-            ? $"Poistetaanko {dryRemoved} käynnistyskohdetta käytöstä?\n\nMitään ei poisteta. Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä."
+            ? Loc.T(
+                $"Disable {dryRemoved} startup items?\n\nNothing is deleted. You can re-enable them on the Startup apps tab of Task Manager.",
+                $"Poistetaanko {dryRemoved} käynnistyskohdetta käytöstä?\n\nMitään ei poisteta. Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä.")
             : isProcesses
-            ? $"Lopetetaanko {dryRemoved} prosessia" + (dryBytes > 0 ? $" ({ByteFormatter.Format(dryBytes)})" : "") +
-              "?\n\nTallentamattomat tiedot katoavat, jos ohjelma on auki. Mitään ei poisteta levyltä. Ohjelman voi käynnistää uudelleen tavallisesti."
-            : $"Poistetaanko {dryRemoved} kohdetta pysyvästi" + (dryBytes > 0 ? $" ({ByteFormatter.Format(dryBytes)})" : "") +
-              "?\n\nTiedostot eivät mene roskakoriin. Kaikki poistot kirjataan lokiin.";
-        var confirmButton = isUninstall ? "Siirrä karanteeniin" : isStartup ? "Poista käytöstä" : isProcesses ? "Lopeta prosessit" : "Poista pysyvästi";
+            ? Loc.T($"End {dryRemoved} processes", $"Lopetetaanko {dryRemoved} prosessia") + drySize +
+              Loc.T(
+                  "?\n\nUnsaved data is lost if the program is open. Nothing is deleted from disk. You can start the program again as usual.",
+                  "?\n\nTallentamattomat tiedot katoavat, jos ohjelma on auki. Mitään ei poisteta levyltä. Ohjelman voi käynnistää uudelleen tavallisesti.")
+            : Loc.T($"Permanently delete {dryRemoved} items", $"Poistetaanko {dryRemoved} kohdetta pysyvästi") + drySize +
+              Loc.T(
+                  "?\n\nFiles do not go to the Recycle Bin. All deletions are written to the log.",
+                  "?\n\nTiedostot eivät mene roskakoriin. Kaikki poistot kirjataan lokiin.");
+        var confirmButton = isUninstall ? Loc.T("Move to quarantine", "Siirrä karanteeniin")
+            : isStartup ? Loc.T("Disable", "Poista käytöstä")
+            : isProcesses ? Loc.T("End processes", "Lopeta prosessit")
+            : Loc.T("Delete permanently", "Poista pysyvästi");
 
-        if (!await _dialogs.ConfirmAsync("Vahvista", confirmText, confirmButton))
+        if (!await _dialogs.ConfirmAsync(Loc.T("Confirm", "Vahvista"), confirmText, confirmButton))
             return;
 
         // 4) Oikea ajo
         IReadOnlyList<CleanResult> real;
-        cts = BeginBusy($"Puhdistetaan: {module.DisplayName}");
+        cts = BeginBusy(Loc.T($"Cleaning: {module.DisplayName}", $"Puhdistetaan: {module.DisplayName}"));
         try
         {
             real = await _engine.CleanAsync(items, CreateContext(dryRun: false, cts), cts.Token);
         }
         catch (OperationCanceledException)
         {
-            _log.Warning("Puhdistus peruutettu kesken. Osa kohteista on jo käsitelty, katso loki.");
-            await _dialogs.InfoAsync("Peruutettu", "Puhdistus keskeytettiin. Jo poistetut kohteet näkyvät lokissa.");
+            _log.Warning(Loc.T(
+                "Cleaning canceled midway. Some items were already processed, see the log.",
+                "Puhdistus peruutettu kesken. Osa kohteista on jo käsitelty, katso loki."));
+            await _dialogs.InfoAsync(Loc.T("Canceled", "Peruutettu"), Loc.T(
+                "Cleaning was interrupted. Items already removed are listed in the log.",
+                "Puhdistus keskeytettiin. Jo poistetut kohteet näkyvät lokissa."));
             await ScanModulesAsync(new[] { module });
             return;
         }
@@ -347,17 +441,26 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var removed = real.Sum(r => r.Removed.Count);
         var freed = real.Sum(r => r.FreedBytes);
         var skipped = real.Sum(r => r.Skipped.Count);
-        var resultText = $"{char.ToUpper(verb[0])}{verb[1..]} {removed} kohdetta" +
-                         (freed > 0 ? (isProcesses ? $", vapautettu muistia {ByteFormatter.Format(freed)}" : $", vapautettu {ByteFormatter.Format(freed)}") : "") +
-                         (skipped > 0 ? $". Ohitettu {skipped} (katso loki)." : ".");
+        var resultEn = isUninstall ? $"Moved {removed} items to quarantine"
+            : isStartup ? $"Disabled {removed} items"
+            : isProcesses ? $"Ended {removed} processes"
+            : $"Deleted {removed} items";
+        var freedText = freed > 0 ? ByteFormatter.Format(freed) : "";
+        var resultText = Loc.T(resultEn, $"{char.ToUpper(verb[0])}{verb[1..]} {removed} kohdetta") +
+                         (freed > 0
+                             ? (isProcesses
+                                 ? Loc.T($", freed {freedText} of memory", $", vapautettu muistia {freedText}")
+                                 : Loc.T($", freed {freedText}", $", vapautettu {freedText}"))
+                             : "") +
+                         (skipped > 0 ? Loc.T($". Skipped {skipped} (see the log).", $". Ohitettu {skipped} (katso loki).") : ".");
         if (module.Module is UninstallModule uninstall)
         {
             if (uninstall.LastQuarantineDirectory is not null)
-                resultText += $"\n\nKaranteeni: {uninstall.LastQuarantineDirectory}";
+                resultText += Loc.T($"\n\nQuarantine: {uninstall.LastQuarantineDirectory}", $"\n\nKaranteeni: {uninstall.LastQuarantineDirectory}");
             if (uninstall.LastBackupTimestamp is not null)
-                resultText += $"\nPalautus: pccleaner restore {uninstall.LastBackupTimestamp}";
+                resultText += Loc.T($"\nRestore: pccleaner restore {uninstall.LastBackupTimestamp}", $"\nPalautus: pccleaner restore {uninstall.LastBackupTimestamp}");
         }
-        await _dialogs.InfoAsync("Valmis", resultText);
+        await _dialogs.InfoAsync(Loc.T("Done", "Valmis"), resultText);
 
         // Tulos vanheni: skannataan moduuli uudelleen.
         await ScanModulesAsync(new[] { module });
@@ -369,7 +472,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void Cancel()
     {
         _cts?.Cancel();
-        ProgressMessage = "Peruutetaan...";
+        ProgressMessage = Loc.T("Canceling...", "Peruutetaan...");
     }
 
     [RelayCommand]
@@ -380,7 +483,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             Microsoft.UI.Xaml.Application.Current.Exit();
             return;
         }
-        await _dialogs.InfoAsync("Ei käynnistetty", "Järjestelmänvalvojan oikeuksia ei myönnetty. Ohjelma jatkaa tavallisena käyttäjänä.");
+        await _dialogs.InfoAsync(Loc.T("Not restarted", "Ei käynnistetty"), Loc.T(
+            "Administrator rights were not granted. The program continues as a standard user.",
+            "Järjestelmänvalvojan oikeuksia ei myönnetty. Ohjelma jatkaa tavallisena käyttäjänä."));
     }
 
     [RelayCommand]
@@ -392,20 +497,23 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var sessions = BackupSessions.List();
         if (sessions.Count == 0)
         {
-            await _dialogs.InfoAsync("Ei varmuuskopioita",
-                $"Varmuuskopioita ei ole kansioissa\n{RegistryBackup.DefaultRoot}\n{Quarantine.DefaultRoot}");
+            await _dialogs.InfoAsync(Loc.T("No backups", "Ei varmuuskopioita"), Loc.T(
+                $"No backups found in the folders\n{RegistryBackup.DefaultRoot}\n{Quarantine.DefaultRoot}",
+                $"Varmuuskopioita ei ole kansioissa\n{RegistryBackup.DefaultRoot}\n{Quarantine.DefaultRoot}"));
             return;
         }
 
         var options = sessions.Select(s => $"{s.Timestamp}  ({s.Summary})").ToList();
         var chosen = await _dialogs.PickAsync(
-            "Palauta varmuuskopio",
-            "Valitun ajon .reg-tiedostot tuodaan takaisin rekisteriin ja karanteenin kansiot siirretään alkuperäisiin paikkoihinsa. HKLM-avaimet ja Program Files vaativat järjestelmänvalvojan.",
-            options, "Palauta");
+            Loc.T("Restore backup", "Palauta varmuuskopio"),
+            Loc.T(
+                "The .reg files of the selected run are imported back into the registry and the quarantined folders are moved back to their original locations. HKLM keys and Program Files require administrator rights.",
+                "Valitun ajon .reg-tiedostot tuodaan takaisin rekisteriin ja karanteenin kansiot siirretään alkuperäisiin paikkoihinsa. HKLM-avaimet ja Program Files vaativat järjestelmänvalvojan."),
+            options, Loc.T("Restore", "Palauta"));
         if (chosen is null) return;
 
         var session = sessions[options.IndexOf(chosen)];
-        var cts = BeginBusy($"Palautetaan: {session.Timestamp}");
+        var cts = BeginBusy(Loc.T($"Restoring: {session.Timestamp}", $"Palautetaan: {session.Timestamp}"));
         BackupSessions.RestoreResult result;
         try
         {
@@ -416,10 +524,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             EndBusy();
         }
 
-        var text = $"Rekisteri: palautettu {result.RegistryImported}, epäonnistui {result.RegistryFailed}. " +
-                   $"Karanteeni: palautettu {result.QuarantineRestored}, ohitettu {result.QuarantineSkipped}.";
+        var text = Loc.T(
+            $"Registry: restored {result.RegistryImported}, failed {result.RegistryFailed}. " +
+            $"Quarantine: restored {result.QuarantineRestored}, skipped {result.QuarantineSkipped}.",
+            $"Rekisteri: palautettu {result.RegistryImported}, epäonnistui {result.RegistryFailed}. " +
+            $"Karanteeni: palautettu {result.QuarantineRestored}, ohitettu {result.QuarantineSkipped}.");
         if (result.Messages.Count > 0) text += "\n\n" + string.Join("\n", result.Messages.Take(5));
-        await _dialogs.InfoAsync("Palautus valmis", text);
+        await _dialogs.InfoAsync(Loc.T("Restore complete", "Palautus valmis"), text);
 
         if (SelectedModule is { Id: "registry" } module)
             await ScanModulesAsync(new[] { module });
@@ -447,8 +558,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            _log.Error($"Ohjelmalistan luku epäonnistui: {ex}");
-            await _dialogs.InfoAsync("Ohjelmalistaa ei voitu lukea", ex.Message);
+            _log.Error(Loc.T($"Reading the program list failed: {ex}", $"Ohjelmalistan luku epäonnistui: {ex}"));
+            await _dialogs.InfoAsync(Loc.T("Could not read the program list", "Ohjelmalistaa ei voitu lukea"), ex.Message);
         }
         finally
         {
@@ -500,14 +611,18 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         var program = selected.Program;
         var name = program.Name;
-        if (!await _dialogs.ConfirmAsync("Poista ohjelma",
-                $"Käynnistetäänkö ohjelman '{name}' oma poisto-ohjelma? Sen jälkeen jäänteet etsitään automaattisesti.",
-                "Käynnistä"))
+        if (!await _dialogs.ConfirmAsync(Loc.T("Uninstall program", "Poista ohjelma"),
+                Loc.T(
+                    $"Run the uninstaller of '{name}'? Leftovers are searched for automatically afterwards.",
+                    $"Käynnistetäänkö ohjelman '{name}' oma poisto-ohjelma? Sen jälkeen jäänteet etsitään automaattisesti."),
+                Loc.T("Run", "Käynnistä")))
             return;
 
         UninstallRunResult result;
-        var cts = BeginBusy($"Odotetaan poisto-ohjelmaa: {name}");
-        ProgressMessage = "Poisto-ohjelma on käynnissä. Peruuta lopettaa vain odotuksen.";
+        var cts = BeginBusy(Loc.T($"Waiting for uninstaller: {name}", $"Odotetaan poisto-ohjelmaa: {name}"));
+        ProgressMessage = Loc.T(
+            "The uninstaller is running. Cancel only stops the waiting.",
+            "Poisto-ohjelma on käynnissä. Peruuta lopettaa vain odotuksen.");
         try
         {
             result = await module.RunUninstallerAsync(program, quiet: false, CreateContext(dryRun: true, cts), cts.Token);
@@ -515,16 +630,18 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException)
         {
             EndBusy();
-            _log.Warning($"Poisto-ohjelman odotus lopetettu: {name}");
-            await _dialogs.InfoAsync("Odotus lopetettu",
-                "Poisto-ohjelmaa ei keskeytetty. Voit etsiä jäänteet myöhemmin painikkeella Etsi jäänteet.");
+            _log.Warning(Loc.T($"Stopped waiting for uninstaller: {name}", $"Poisto-ohjelman odotus lopetettu: {name}"));
+            await _dialogs.InfoAsync(Loc.T("Waiting stopped", "Odotus lopetettu"), Loc.T(
+                "The uninstaller was not interrupted. You can search for leftovers later with the Find leftovers button.",
+                "Poisto-ohjelmaa ei keskeytetty. Voit etsiä jäänteet myöhemmin painikkeella Etsi jäänteet."));
             return;
         }
         catch (Exception ex)
         {
             EndBusy();
-            _log.Error($"Poisto-ohjelman ajo epäonnistui: {ex}");
-            await _dialogs.InfoAsync("Poisto-ohjelma ei käynnistynyt", ex.Message + "\n\nVoit silti etsiä jäänteet.");
+            _log.Error(Loc.T($"Running the uninstaller failed: {ex}", $"Poisto-ohjelman ajo epäonnistui: {ex}"));
+            await _dialogs.InfoAsync(Loc.T("Uninstaller did not start", "Poisto-ohjelma ei käynnistynyt"),
+                ex.Message + Loc.T("\n\nYou can still search for leftovers.", "\n\nVoit silti etsiä jäänteet."));
             return;
         }
         finally
@@ -534,7 +651,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (result.Error is not null)
         {
-            await _dialogs.InfoAsync("Poisto-ohjelma ei käynnistynyt", result.Error + "\n\nVoit silti etsiä jäänteet.");
+            await _dialogs.InfoAsync(Loc.T("Uninstaller did not start", "Poisto-ohjelma ei käynnistynyt"),
+                result.Error + Loc.T("\n\nYou can still search for leftovers.", "\n\nVoit silti etsiä jäänteet."));
             return;
         }
 
@@ -568,6 +686,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        Loc.Changed -= OnLanguageChanged;
         _cts?.Cancel();
         _cts?.Dispose();
         _fileLog.Dispose();

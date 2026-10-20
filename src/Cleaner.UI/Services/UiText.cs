@@ -1,0 +1,63 @@
+using Cleaner.Core.Localization;
+using CommunityToolkit.Mvvm.ComponentModel;
+
+namespace Cleaner.UI.Services;
+
+/// <summary>
+/// MainWindow.xaml-tiedoston kiinteät tekstit nykyisellä kielellä. XAML sitoo nämä muodossa
+/// <c>{x:Bind ViewModel.T.X, Mode=OneWay}</c>, ja <see cref="Refresh"/> päivittää kaikki sidonnat kielen vaihtuessa.
+/// </summary>
+public sealed partial class UiText : ObservableObject
+{
+    // Tavallisen käyttäjän ilmoitus
+    public string StandardUserTitle => Loc.T("Standard user", "Tavallinen käyttäjä");
+    public string StandardUserMessage => Loc.T(
+        "System folders (Windows\\Temp, SoftwareDistribution) and HKLM startup entries are skipped without administrator rights.",
+        "Järjestelmäkansiot (Windows\\Temp, SoftwareDistribution) ja HKLM-käynnistyskohteet ohitetaan ilman järjestelmänvalvojan oikeuksia.");
+    public string RestartElevated => Loc.T("Restart as administrator", "Käynnistä uudelleen järjestelmänvalvojana");
+
+    // Navigointipaneeli
+    public string PaneTitle => Loc.T("Modules", "Moduulit");
+    public string ScanAll => Loc.T("Scan all", "Skannaa kaikki");
+    public string ScanAllToolTip => Loc.T("Scan all modules included in the default cleanup", "Skannaa kaikki moduulit, jotka kuuluvat oletussiivoukseen");
+
+    // Levytilan analyysi
+    public string FolderHeader => Loc.T("Folder", "Kansio");
+    public string FolderPlaceholder => Loc.T("Empty = all fixed drives", "Tyhjä = kaikki kiinteät asemat");
+    public string Browse => Loc.T("Browse...", "Selaa...");
+    public string Up => Loc.T("Up", "Ylös");
+
+    // Ohjelman poisto
+    public string ProgramSearchPlaceholder => Loc.T("Search programs by name or publisher", "Hae ohjelmaa nimellä tai julkaisijalla");
+    public string SortToolTip => Loc.T("List order", "Listan järjestys");
+    public string SortByName => Loc.T("Name", "Nimi");
+    public string SortByInstallDate => Loc.T("Install date, newest first", "Asennuspäivä, uusin ensin");
+    public string RefreshList => Loc.T("Refresh list", "Päivitä lista");
+    public string UninstallProgram => Loc.T("Uninstall program", "Poista ohjelma");
+    public string FindLeftovers => Loc.T("Find leftovers", "Etsi jäänteet");
+    public string UninstallHelp => Loc.T(
+        "Uninstall program runs the program's own uninstaller and then searches for leftovers. Leftovers are moved to quarantine, and Restore backup... brings them back.",
+        "Poista ohjelma ajaa ohjelman oman poisto-ohjelman ja etsii sen jälkeen jäänteet. Jäänteet siirretään karanteeniin, josta Palauta varmuuskopio... tuo ne takaisin.");
+
+    // Tulokset
+    public string NotesTitle => Loc.T("Warnings", "Huomautukset");
+    public string HighRiskHeader => Loc.T("High-risk items", "Korkean riskin kohteet");
+    public string HighRiskHint => Loc.T(
+        "Never selected by default. Check each item before selecting it.",
+        "Ei koskaan valittuna oletuksena. Tarkista jokainen kohde ennen valintaa.");
+    public string NothingFound => Loc.T("Nothing found.", "Ei löydöksiä.");
+
+    // Alapalkki
+    public string RestoreBackup => Loc.T("Restore backup...", "Palauta varmuuskopio...");
+    public string RestoreBackupToolTip => Loc.T(
+        "Bring back registry backups and quarantined items from an earlier run",
+        "Tuo aiemman ajon rekisterivarmuuskopiot ja karanteeniin siirretyt kohteet takaisin");
+    public string Cancel => Loc.T("Cancel", "Peruuta");
+    public string Scan => Loc.T("Scan", "Skannaa");
+    public string Clean => Loc.T("Clean", "Puhdista");
+    public string Log => Loc.T("Log", "Loki");
+    public string ClearLog => Loc.T("Clear", "Tyhjennä");
+
+    /// <summary>Nostaa PropertyChanged-tapahtuman tyhjällä nimellä: kaikki ominaisuudet luetaan uudelleen.</summary>
+    public void Refresh() => OnPropertyChanged(string.Empty);
+}

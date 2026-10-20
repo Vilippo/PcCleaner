@@ -1,4 +1,5 @@
 using Cleaner.Core.Abstractions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Logging;
 using Cleaner.Modules.DiskUsage;
 using Cleaner.Modules.Files;
@@ -24,14 +25,20 @@ public static class UiModuleFactory
         var filesRules = Path.Combine(rulesDirectory, "files.json");
         if (File.Exists(filesRules))
             modules.Add(FileCleanerModule.FromRuleFile(
-                "files", "Tiedostosiivous", "Väliaikaistiedostot, välimuistit, lokit.", filesRules, _ => true));
+                "files",
+                new LocalizedText("File cleanup", "Tiedostosiivous"),
+                new LocalizedText("Temporary files, caches, logs.", "Väliaikaistiedostot, välimuistit, lokit."),
+                filesRules, _ => true));
         else
-            log.Warning($"Sääntötiedostoa ei löydy: {filesRules}");
+            log.Warning(Loc.T($"Rule file not found: {filesRules}", $"Sääntötiedostoa ei löydy: {filesRules}"));
 
         var browserRules = Path.Combine(rulesDirectory, "browsers.json");
         if (File.Exists(browserRules))
             modules.Add(FileCleanerModule.FromRuleFile(
-                "browsers", "Selainten välimuistit", "Edge, Chrome, Firefox, Brave.", browserRules, _ => true));
+                "browsers",
+                new LocalizedText("Browser caches", "Selainten välimuistit"),
+                "Edge, Chrome, Firefox, Brave.",
+                browserRules, _ => true));
 
         modules.Add(new RecycleBinModule());
         modules.Add(new StartupModule());
