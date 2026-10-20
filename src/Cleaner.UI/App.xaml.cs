@@ -1,5 +1,6 @@
 using Cleaner.Core.Localization;
 using Cleaner.Core.Services;
+using Cleaner.UI.Theming;
 using Microsoft.UI.Xaml;
 
 namespace Cleaner.UI;
@@ -15,8 +16,11 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        // Kieli luetaan ennen ikkunaa. Puuttuva, rikkinäinen tai tuntematon asetus → englanti, tiedostoa ei kirjoiteta.
-        Loc.Current = AppSettings.Load().ResolveLanguage();
+        // Kieli, paletti ja fontti luetaan ennen ikkunaa. Puuttuva, rikkinäinen tai tuntematon asetus → oletus,
+        // tiedostoa ei kirjoiteta.
+        var settings = AppSettings.Load();
+        Loc.Current = settings.ResolveLanguage();
+        Appearance.Apply(Appearance.ResolvePalette(settings.Palette), Appearance.ResolveFont(settings.Font));
         _window = new MainWindow();
         _window.Activate();
     }

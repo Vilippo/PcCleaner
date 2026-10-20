@@ -57,6 +57,24 @@ public sealed partial class UiText : ObservableObject
     public string Clean => Loc.T("Clean", "Puhdista");
     public string Log => Loc.T("Log", "Loki");
     public string ClearLog => Loc.T("Clear", "Tyhjennä");
+    public string Close => Loc.T("Close", "Sulje");
+
+    // Asetussivu
+    public string SettingsTitle => Loc.T("Settings", "Asetukset");
+    public string AppearanceHeader => Loc.T("Appearance", "Ulkoasu");
+    public string PaletteHeader => Loc.T("Color palette", "Väripaletti");
+    public string FontHeader => Loc.T("Font", "Fontti");
+    public string LanguageHeader => Loc.T("Language", "Kieli");
+
+    // Moduulisivu: tyhjä tila, laatat ja merkit
+    public string EmptyStateTitle => Loc.T("Nothing scanned yet", "Ei vielä skannattu");
+    public string EmptyStateBody => Loc.T(
+        "Scan shows what can be removed. Nothing is deleted before you confirm.",
+        "Skannaus näyttää, mitä voi poistaa. Mitään ei poisteta ennen vahvistustasi.");
+    public string FoundLabel => Loc.T("Found", "Löytyi");
+    public string SelectedLabel => Loc.T("Selected", "Valittu");
+    public string AdminBadge => Loc.T("Administrator", "Järjestelmänvalvoja");
+    public string OptInBadge => Loc.T("Manual selection", "Valitaan erikseen");
 
     /// <summary>Nostaa PropertyChanged-tapahtuman tyhjällä nimellä: kaikki ominaisuudet luetaan uudelleen.</summary>
     public void Refresh() => OnPropertyChanged(string.Empty);

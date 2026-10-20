@@ -7,6 +7,7 @@ using Cleaner.Core.Services;
 using Cleaner.Modules.DiskUsage;
 using Cleaner.Modules.Uninstall;
 using Cleaner.UI.Services;
+using Cleaner.UI.Theming;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
@@ -58,7 +59,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             Loc.Current = language;
             try
             {
-                new AppSettings { Language = Loc.ToCode(language) }.Save();
+                // Update säilyttää tiedoston muut asetukset (paletti, fontti).
+                AppSettings.Update(s => s.Language = Loc.ToCode(language));
             }
             catch (Exception ex)
             {
@@ -66,6 +68,74 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             }
         }
     }
+
+    // ---------- Ulkoasu ----------
+
+    /// <summary>Asetussivun palettilista <see cref="Appearance.Palettes"/>-järjestyksessä.</summary>
+    public ObservableCollection<AppearanceOptionViewModel> PaletteOptions { get; } = new();
+
+    /// <summary>Asetussivun fonttilista <see cref="Appearance.Fonts"/>-järjestyksessä.</summary>
+    public ObservableCollection<AppearanceOptionViewModel> FontOptions { get; } = new();
+
+    /// <summary>
+    /// Laukeaa UI-säikeessä, kun paletti tai fontti on vaihdettu ja resurssit korvattu.
+    /// Näkymä luo itsensä uudelleen, jotta uudet {ThemeResource}-arvot tulevat käyttöön.
+    /// </summary>
+    public event EventHandler? AppearanceChanged;
+
+    /// <summary>Nykyisen paletin indeksi. Sama tai listan ulkopuolinen arvo ei tee mitään (valitsimen alkuvalinta).</summary>
+    public int PaletteIndex
+    {
+        get => IndexOf(Appearance.Palettes, p => p.Id == Appearance.CurrentPalette.Id);
+        set
+        {
+            if (value < 0 || value >= Appearance.Palettes.Count || value == PaletteIndex) return;
+            var palette = Appearance.Palettes[value];
+            Appearance.Apply(palette, Appearance.CurrentFont);
+            SaveAppearance(s => s.Palette = palette.Id);
+            OnPropertyChanged();
+            AppearanceChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>Nykyisen fontin indeksi. Sama tai listan ulkopuolinen arvo ei tee mitään (valitsimen alkuvalinta).</summary>
+    public int FontIndex
+    {
+        get => IndexOf(Appearance.Fonts, f => f.Id == Appearance.CurrentFont.Id);
+        set
+        {
+            if (value < 0 || value >= Appearance.Fonts.Count || value == FontIndex) return;
+            var font = Appearance.Fonts[value];
+            Appearance.Apply(Appearance.CurrentPalette, font);
+            SaveAppearance(s => s.Font = font.Id);
+            OnPropertyChanged();
+            AppearanceChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>Ulkoasu vaihtuu tälle istunnolle, vaikka tallennus epäonnistuisi.</summary>
+    private void SaveAppearance(Action<AppSettings> change)
+    {
+        try
+        {
+            AppSettings.Update(change);
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(Loc.T($"Saving the appearance setting failed: {ex.Message}", $"Ulkoasuasetuksen tallennus epäonnistui: {ex.Message}"));
+        }
+    }
+
+    private static int IndexOf<T>(IReadOnlyList<T> list, Func<T, bool> match)
+    {
+        for (var i = 0; i < list.Count; i++)
+            if (match(list[i])) return i;
+        return -1;
+    }
+
+    /// <summary>Asetussivu näkyy sisältöalueella. Valittu moduuli säilyy ennallaan.</summary>
+    [ObservableProperty]
+    public partial bool IsSettingsSelected { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanScanAll))]
@@ -164,6 +234,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         foreach (var module in _engine.Modules)
             Modules.Add(new ModuleViewModel(module));
 
+        foreach (var palette in Appearance.Palettes)
+            PaletteOptions.Add(AppearanceOptionViewModel.ForPalette(palette));
+        foreach (var font in Appearance.Fonts)
+            FontOptions.Add(AppearanceOptionViewModel.ForFont(font));
+
         _log.Info(Loc.T(
             $"PC Cleaner started ({(IsElevated ? "administrator" : "standard user")}). Log: {_fileLog.FilePath}",
             $"PC Cleaner käynnistyi ({(IsElevated ? "järjestelmänvalvoja" : "tavallinen käyttäjä")}). Loki: {_fileLog.FilePath}"));
@@ -190,6 +265,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             module.RefreshLanguage();
         foreach (var program in Programs)
             program.RefreshLanguage();
+        foreach (var option in PaletteOptions.Concat(FontOptions))
+            option.RefreshLanguage();
+        OnPropertyChanged(nameof(PaletteIndex));
+        OnPropertyChanged(nameof(FontIndex));
         LanguageRefreshed?.Invoke(this, EventArgs.Empty);
     }
 

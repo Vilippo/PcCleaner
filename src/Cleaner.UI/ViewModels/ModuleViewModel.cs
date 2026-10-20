@@ -56,6 +56,7 @@ public sealed partial class ModuleViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasResults))]
+    [NotifyPropertyChangedFor(nameof(ShowEmptyState), nameof(ShowTiles))]
     public partial bool HasScanned { get; set; }
 
     [ObservableProperty]
@@ -72,7 +73,10 @@ public sealed partial class ModuleViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _status, value))
+            {
                 OnPropertyChanged(nameof(StatusText));
+                OnPropertyChanged(nameof(ShowEmptyState));
+            }
         }
     }
 
@@ -101,11 +105,11 @@ public sealed partial class ModuleViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectionText))]
+    [NotifyPropertyChangedFor(nameof(SelectionText), nameof(SelectedValue))]
     public partial int SelectedCount { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectionText))]
+    [NotifyPropertyChangedFor(nameof(SelectionText), nameof(SelectedValue))]
     public partial long SelectedBytes { get; set; }
 
     /// <summary>Lasketaan valinnasta nykyisellä kielellä.</summary>
@@ -122,6 +126,22 @@ public sealed partial class ModuleViewModel : ObservableObject
             return Loc.T($"Selected {SelectedCount} items.", $"Valittu {SelectedCount} kohdetta.");
         }
     }
+
+    /// <summary>Löytyi-laatan arvo: koko, kun se on tiedossa, muuten kohdemäärä.</summary>
+    public string FoundValue => _foundBytes > 0
+        ? ByteFormatter.Format(_foundBytes)
+        : _foundCount.ToString("N0", Loc.Culture);
+
+    /// <summary>Valittu-laatan arvo: koko, kun se on tiedossa, muuten valittu määrä.</summary>
+    public string SelectedValue => SelectedBytes > 0
+        ? ByteFormatter.Format(SelectedBytes)
+        : SelectedCount.ToString("N0", Loc.Culture);
+
+    /// <summary>Löytyi- ja Valittu-laatat näkyvät skannauksen jälkeen.</summary>
+    public bool ShowTiles => HasScanned;
+
+    /// <summary>Tyhjä tila ennen ensimmäistä skannausta. Ohjelman poistolla on oma ohjelmalistansa.</summary>
+    public bool ShowEmptyState => !HasScanned && Status == ModuleScanStatus.NotScanned && Id != "uninstall";
 
     public bool HasErrors => ErrorText.Length > 0;
     public bool HasResults => HasScanned && (Categories.Count > 0 || HighRiskCategories.Count > 0);
@@ -165,6 +185,7 @@ public sealed partial class ModuleViewModel : ObservableObject
         Status = result.Count == 0 ? ModuleScanStatus.NoFindings : ModuleScanStatus.Found;
         // Sama tila uudella luvulla ei nosta tapahtumaa SetPropertyssä.
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(FoundValue));
 
         OnPropertyChanged(nameof(HasResults));
         OnPropertyChanged(nameof(HasHighRisk));
@@ -181,6 +202,7 @@ public sealed partial class ModuleViewModel : ObservableObject
         HasScanned = false;
         ErrorText = "";
         Status = ModuleScanStatus.NotScanned;
+        OnPropertyChanged(nameof(FoundValue));
         OnPropertyChanged(nameof(HasResults));
         OnPropertyChanged(nameof(HasHighRisk));
         OnPropertyChanged(nameof(IsEmpty));
@@ -201,6 +223,7 @@ public sealed partial class ModuleViewModel : ObservableObject
         var all = Categories.Concat(HighRiskCategories).ToList();
         SelectedCount = all.Sum(c => c.SelectedCount);
         SelectedBytes = all.Sum(c => c.SelectedBytes);
+        OnPropertyChanged(nameof(SelectedValue));
     }
 
     /// <summary>
@@ -216,6 +239,8 @@ public sealed partial class ModuleViewModel : ObservableObject
         OnPropertyChanged(nameof(OptInHint));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(SelectionText));
+        OnPropertyChanged(nameof(FoundValue));
+        OnPropertyChanged(nameof(SelectedValue));
         foreach (var category in Categories.Concat(HighRiskCategories))
             category.RefreshLanguage();
     }
