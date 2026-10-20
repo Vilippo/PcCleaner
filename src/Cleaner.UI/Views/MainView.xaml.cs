@@ -1,8 +1,9 @@
 using Cleaner.Core.Localization;
+using Cleaner.Core.Models;
 using Cleaner.Core.Services;
 using Cleaner.Modules.DiskUsage;
+using Cleaner.UI.Theming;
 using Cleaner.UI.ViewModels;
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -42,7 +43,11 @@ public sealed partial class MainView : UserControl
 
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         Loaded += OnLoaded;
+        // REQ-20: treemapin tausta ja lohkotekstin väri riippuvat Windowsin teemasta.
+        ActualThemeChanged += OnActualThemeChanged;
     }
+
+    private void OnActualThemeChanged(FrameworkElement sender, object args) => DrawTreemap();
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -58,6 +63,7 @@ public sealed partial class MainView : UserControl
     {
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         Loaded -= OnLoaded;
+        ActualThemeChanged -= OnActualThemeChanged;
         Nav.Loaded -= Nav_Loaded;
         Nav.SelectionChanged -= Nav_SelectionChanged;
         TreemapCanvas.Children.Clear();
@@ -90,6 +96,17 @@ public sealed partial class MainView : UserControl
 
     // x:Bind: moduulisivu näkyy, kun asetussivu ei ole valittuna (x:Bind kutsuu instanssimetodia).
     private Visibility Collapse(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
+
+    // x:Bind (REQ-15): tyhjä tila näkyy vain, kun moduulia ei ole skannattu eikä sovellus ole kiireinen.
+    // Molemmat parametrit ovat sidontapolkuja, joten arvo päivittyy kumman tahansa muuttuessa.
+    private Visibility EmptyStateVisibility(bool showEmptyState, bool isIdle) =>
+        showEmptyState && isIdle ? Visibility.Visible : Visibility.Collapsed;
+
+    // x:Bind (REQ-13, REQ-16): riskimerkki, kortin raita ja riskiteksti ovat kolmena kiinteävärisenä elementtinä,
+    // joista yksi näkyy. Staattisina, jotta DataTemplate voi kutsua niitä polulla local:MainView.IsLow(Risk).
+    public static Visibility IsLow(RiskLevel risk) => risk == RiskLevel.Low ? Visibility.Visible : Visibility.Collapsed;
+    public static Visibility IsMedium(RiskLevel risk) => risk == RiskLevel.Medium ? Visibility.Visible : Visibility.Collapsed;
+    public static Visibility IsHigh(RiskLevel risk) => risk == RiskLevel.High ? Visibility.Visible : Visibility.Collapsed;
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -156,12 +173,50 @@ public sealed partial class MainView : UserControl
     private readonly Stack<DirectoryNode> _treemapStack = new();
     private DirectoryNode? _treemapCurrent;
 
-    private static readonly Color[] Palette =
+    // Lohkon alpha: kansiot 170, kansion omat tiedostot ja "(muut)" 90.
+    private const byte FolderAlpha = 170;
+    private const byte FilesAlpha = 90;
+
+    private static readonly Color LabelLight = Color.FromArgb(255, 0xFF, 0xFF, 0xFF);
+    private static readonly Color LabelDark = Color.FromArgb(255, 0x1A, 0x1A, 0x1A);
+
+    /// <summary>
+    /// Treemapin taustaväri piirtohetken teeman mukaan. Luetaan paletista eikä Application.Current.Resources-
+    /// sanakirjasta, joka antaisi hakuhetken teeman arvon ja jäätyisi siihen.
+    /// </summary>
+    private Color TreemapBackground() => ActualTheme == ElementTheme.Light
+        ? Appearance.CurrentPalette.Light.ContentBackground
+        : Appearance.CurrentPalette.Dark.ContentBackground;
+
+    /// <summary>Näkyvä väri, kun <paramref name="fg"/> piirretään alphalla <paramref name="alpha"/> värin <paramref name="bg"/> päälle: c = a·fg + (1 − a)·bg.</summary>
+    internal static Color Composite(Color fg, byte alpha, Color bg)
     {
-        Color.FromArgb(255, 66, 133, 244), Color.FromArgb(255, 52, 168, 83), Color.FromArgb(255, 251, 188, 4),
-        Color.FromArgb(255, 234, 67, 53), Color.FromArgb(255, 155, 89, 182), Color.FromArgb(255, 26, 188, 156),
-        Color.FromArgb(255, 230, 126, 34), Color.FromArgb(255, 127, 140, 141),
-    };
+        var a = alpha / 255.0;
+        byte Mix(byte f, byte b) => (byte)Math.Round(a * f + (1 - a) * b);
+        return Color.FromArgb(255, Mix(fg.R, bg.R), Mix(fg.G, bg.G), Mix(fg.B, bg.B));
+    }
+
+    /// <summary>WCAG-suhteellinen luminanssi: sRGB-linearisoitu 0.2126 R' + 0.7152 G' + 0.0722 B'.</summary>
+    internal static double Luminance(Color c)
+    {
+        static double Linear(byte channel)
+        {
+            var s = channel / 255.0;
+            return s <= 0.04045 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * Linear(c.R) + 0.7152 * Linear(c.G) + 0.0722 * Linear(c.B);
+    }
+
+    /// <summary>WCAG-kontrastisuhde (L_vaaleampi + 0.05) / (L_tummempi + 0.05).</summary>
+    internal static double Contrast(double l1, double l2) =>
+        (Math.Max(l1, l2) + 0.05) / (Math.Min(l1, l2) + 0.05);
+
+    /// <summary>Lohkotekstin väri: #FFFFFF tai #1A1A1A, kumpi antaa suuremman kontrastin näkyvään väriin (REQ-20).</summary>
+    internal static Color LabelColorFor(Color visible)
+    {
+        var l = Luminance(visible);
+        return Contrast(l, Luminance(LabelLight)) >= Contrast(l, Luminance(LabelDark)) ? LabelLight : LabelDark;
+    }
 
     private void TreemapCanvas_SizeChanged(object sender, SizeChangedEventArgs e) => DrawTreemap();
 
@@ -200,19 +255,25 @@ public sealed partial class MainView : UserControl
 
         var rects = Treemap.Squarify(blocks.Select(b => (double)b.Bytes).ToList(), 0, 0, width, height);
 
+        // REQ-20: paletin kategoriavärit, lohkon reuna taustan värinen, tekstin väri kontrastin mukaan.
+        var palette = Appearance.CurrentPalette.Treemap;
+        var background = TreemapBackground();
+        var borderBrush = new SolidColorBrush(background);
+
         for (int i = 0; i < rects.Count; i++)
         {
             var rect = rects[i];
             var block = blocks[i];
             if (rect.Width < 1 || rect.Height < 1) continue;
 
-            var color = Palette[i % Palette.Length];
+            var color = palette[i % palette.Count];
+            var alpha = block.Node is null ? FilesAlpha : FolderAlpha;
             var border = new Border
             {
                 Width = rect.Width,
                 Height = rect.Height,
-                Background = new SolidColorBrush(Color.FromArgb(block.Node is null ? (byte)90 : (byte)170, color.R, color.G, color.B)),
-                BorderBrush = new SolidColorBrush(Colors.Black),
+                Background = new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B)),
+                BorderBrush = borderBrush,
                 BorderThickness = new Thickness(1),
                 Tag = block.Node
             };
@@ -226,7 +287,7 @@ public sealed partial class MainView : UserControl
                     Margin = new Thickness(4, 2, 4, 2),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     TextWrapping = TextWrapping.NoWrap,
-                    Foreground = new SolidColorBrush(Colors.White)
+                    Foreground = new SolidColorBrush(LabelColorFor(Composite(color, alpha, background)))
                 };
             }
 
