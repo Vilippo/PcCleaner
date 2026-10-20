@@ -5,8 +5,12 @@ using Xunit;
 namespace Cleaner.Tests;
 
 /// <summary>Puhtaan logiikan testit käsin rakennetuilla näytteillä. Ei oikeita prosesseja.</summary>
+[Collection(Collection)]
 public sealed class ProcessClassifierTests
 {
+    /// <summary>ProcessGuard.WindowsDirectory on staattinen: sitä käyttävät testiluokat eivät saa ajaa rinnakkain.</summary>
+    public const string Collection = "ProcessGuard";
+
     private static readonly DateTimeOffset Now = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
     private const int OwnPid = 999;
     private const int OwnParentPid = 998;

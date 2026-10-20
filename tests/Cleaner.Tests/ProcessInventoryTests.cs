@@ -18,8 +18,8 @@ public sealed class ProcessInventoryTests
 
     private static void KillQuietly(Process process)
     {
-        // Koko puu: cmd:n lapsena pyörivä ping.exe ei saa jäädä orvoksi.
-        try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+        // Koko puu: cmd:n lapsena pyörivä ping.exe ei saa jäädä orvoksi, vaikka cmd olisi jo lopetettu.
+        try { process.Kill(entireProcessTree: true); } catch { }
         process.Dispose();
     }
 

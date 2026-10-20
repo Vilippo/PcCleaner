@@ -12,6 +12,7 @@ namespace Cleaner.Tests;
 /// ovat suojattuja eikä niitä listata. Jokainen testi saa oman kopion ja prosessin. Ajetaan vain Windowsissa.
 /// </summary>
 [SupportedOSPlatform("windows")]
+[Collection(ProcessClassifierTests.Collection)]   // ProcessGuard.WindowsDirectory on staattinen
 public sealed class ProcessesModuleTests : IDisposable
 {
     private readonly string _tempDir = Path.Combine(Path.GetTempPath(), "pccleaner-tests", Guid.NewGuid().ToString("N"));
@@ -37,8 +38,8 @@ public sealed class ProcessesModuleTests : IDisposable
     {
         if (_process is not null)
         {
-            // Koko puu: cmd:n lapsena pyörivä ping.exe ei saa jäädä orvoksi.
-            try { if (!_process.HasExited) _process.Kill(entireProcessTree: true); } catch { }
+            // Koko puu: cmd:n lapsena pyörivä ping.exe ei saa jäädä orvoksi, vaikka moduuli olisi jo lopettanut cmd:n.
+            try { _process.Kill(entireProcessTree: true); } catch { }
             try { _process.WaitForExit(2000); } catch { }
             _process.Dispose();
         }
