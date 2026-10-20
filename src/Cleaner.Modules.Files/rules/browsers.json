@@ -1,13 +1,17 @@
 {
-  // Selainten välimuistit. Jokainen sääntö ohitetaan, jos selain on käynnissä.
-  // Vain välimuisti – ei evästeitä, historiaa tai salasanoja.
+  // Browser caches. Each rule is skipped if the browser is running.
+  // Cache only. No cookies, history or passwords.
+  // name and description are in English. The optional nameFi and descriptionFi fields hold
+  // the Finnish texts; if they are missing, the English text is used in both languages.
   "schemaVersion": 1,
   "rules": [
     {
       "id": "edge-cache",
-      "name": "Microsoft Edge -välimuisti",
-      "category": "Selaimet",
-      "description": "Sivujen välimuisti. Sivut latautuvat ensimmäisellä kerralla hitaammin.",
+      "name": "Microsoft Edge cache",
+      "nameFi": "Microsoft Edge -välimuisti",
+      "category": "Browsers",
+      "description": "Page cache. Pages load more slowly the first time.",
+      "descriptionFi": "Sivujen välimuisti. Sivut latautuvat ensimmäisellä kerralla hitaammin.",
       "paths": [
         "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Cache",
         "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Code Cache",
@@ -19,9 +23,11 @@
     },
     {
       "id": "chrome-cache",
-      "name": "Google Chrome -välimuisti",
-      "category": "Selaimet",
-      "description": "Sivujen välimuisti.",
+      "name": "Google Chrome cache",
+      "nameFi": "Google Chrome -välimuisti",
+      "category": "Browsers",
+      "description": "Page cache.",
+      "descriptionFi": "Sivujen välimuisti.",
       "paths": [
         "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Cache",
         "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Code Cache",
@@ -33,9 +39,11 @@
     },
     {
       "id": "firefox-cache",
-      "name": "Mozilla Firefox -välimuisti",
-      "category": "Selaimet",
-      "description": "Sivujen välimuisti.",
+      "name": "Mozilla Firefox cache",
+      "nameFi": "Mozilla Firefox -välimuisti",
+      "category": "Browsers",
+      "description": "Page cache.",
+      "descriptionFi": "Sivujen välimuisti.",
       "paths": [
         "%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\*\\cache2"
       ],
@@ -45,9 +53,11 @@
     },
     {
       "id": "brave-cache",
-      "name": "Brave-välimuisti",
-      "category": "Selaimet",
-      "description": "Sivujen välimuisti.",
+      "name": "Brave cache",
+      "nameFi": "Brave-välimuisti",
+      "category": "Browsers",
+      "description": "Page cache.",
+      "descriptionFi": "Sivujen välimuisti.",
       "paths": [
         "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Cache",
         "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Code Cache"

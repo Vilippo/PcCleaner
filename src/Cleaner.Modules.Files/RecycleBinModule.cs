@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Cleaner.Core.Abstractions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
 
@@ -14,8 +15,8 @@ namespace Cleaner.Modules.Files;
 public sealed class RecycleBinModule : ICleanerModule
 {
     public string Id => "recyclebin";
-    public string DisplayName => "Roskakori";
-    public string Description => "Tyhjentää roskakorin kaikilta asemilta.";
+    public string DisplayName => Loc.T("Recycle Bin", "Roskakori");
+    public string Description => Loc.T("Empties the Recycle Bin on all drives.", "Tyhjentää roskakorin kaikilta asemilta.");
     public RiskLevel Risk => RiskLevel.Low;
     public bool RequiresAdmin => false;
 
@@ -30,7 +31,9 @@ public sealed class RecycleBinModule : ICleanerModule
 
         if (hr != 0)
         {
-            result.Errors.Add($"Roskakorin kysely epäonnistui (HRESULT 0x{hr:X8})");
+            result.Errors.Add(Loc.T(
+                $"Recycle Bin query failed (HRESULT 0x{hr:X8})",
+                $"Roskakorin kysely epäonnistui (HRESULT 0x{hr:X8})"));
             return Task.FromResult(result);
         }
 
@@ -39,14 +42,18 @@ public sealed class RecycleBinModule : ICleanerModule
             result.Items.Add(new CleanItem(
                 Id: ItemId,
                 ModuleId: Id,
-                Category: "Roskakori",
-                Path: "Roskakori (kaikki asemat)",
+                Category: Loc.T("Recycle Bin", "Roskakori"),
+                Path: Loc.T("Recycle Bin (all drives)", "Roskakori (kaikki asemat)"),
                 SizeBytes: info.i64Size,
-                Description: $"{info.i64NumItems} kohdetta roskakorissa",
+                Description: Loc.T(
+                    $"{info.i64NumItems} items in the Recycle Bin",
+                    $"{info.i64NumItems} kohdetta roskakorissa"),
                 Risk: RiskLevel.Low));
         }
 
-        context.Logger.Info($"Roskakori: {info.i64NumItems} kohdetta, {ByteFormatter.Format(info.i64Size)}");
+        context.Logger.Info(Loc.T(
+            $"Recycle Bin: {info.i64NumItems} items, {ByteFormatter.Format(info.i64Size)}",
+            $"Roskakori: {info.i64NumItems} kohdetta, {ByteFormatter.Format(info.i64Size)}"));
         return Task.FromResult(result);
     }
 
@@ -58,7 +65,7 @@ public sealed class RecycleBinModule : ICleanerModule
 
         if (context.DryRun)
         {
-            context.Logger.Info("[KUIVA] Roskakori tyhjennettäisiin.");
+            context.Logger.Info(Loc.T("[DRY RUN] Recycle Bin would be emptied.", "[KUIVA] Roskakori tyhjennettäisiin."));
             result.Removed.Add(item);
             return Task.FromResult(result);
         }
@@ -70,12 +77,14 @@ public sealed class RecycleBinModule : ICleanerModule
         if (hr == 0)
         {
             result.Removed.Add(item);
-            context.Logger.Info("Roskakori tyhjennetty.");
+            context.Logger.Info(Loc.T("Recycle Bin emptied.", "Roskakori tyhjennetty."));
         }
         else
         {
             result.Skipped.Add((item, $"HRESULT 0x{hr:X8}"));
-            context.Logger.Warning($"Roskakorin tyhjennys epäonnistui: 0x{hr:X8}");
+            context.Logger.Warning(Loc.T(
+                $"Emptying the Recycle Bin failed: 0x{hr:X8}",
+                $"Roskakorin tyhjennys epäonnistui: 0x{hr:X8}"));
         }
 
         return Task.FromResult(result);

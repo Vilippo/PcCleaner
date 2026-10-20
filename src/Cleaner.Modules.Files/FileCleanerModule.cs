@@ -1,4 +1,5 @@
 using Cleaner.Core.Abstractions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 using Cleaner.Core.Rules;
 using Cleaner.Core.Services;
@@ -14,20 +15,23 @@ public sealed class FileCleanerModule : ICleanerModule
 {
     private readonly IReadOnlyList<CleanRule> _rules;
 
+    private readonly LocalizedText _displayName;
+    private readonly LocalizedText _description;
+
     public string Id { get; }
-    public string DisplayName { get; }
-    public string Description { get; }
+    public string DisplayName => _displayName.ToString();
+    public string Description => _description.ToString();
 
     public RiskLevel Risk => _rules.Count == 0 ? RiskLevel.Low : _rules.Max(r => r.Risk);
     public bool RequiresAdmin => _rules.Any(r => r.RequiresAdmin);
 
     public IReadOnlyList<CleanRule> Rules => _rules;
 
-    public FileCleanerModule(string id, string displayName, string description, IEnumerable<CleanRule> rules)
+    public FileCleanerModule(string id, LocalizedText displayName, LocalizedText description, IEnumerable<CleanRule> rules)
     {
         Id = id;
-        DisplayName = displayName;
-        Description = description;
+        _displayName = displayName;
+        _description = description;
         _rules = rules.ToList();
     }
 
@@ -35,7 +39,7 @@ public sealed class FileCleanerModule : ICleanerModule
     /// Luo moduulin suoraan sääntötiedostosta. Oletuksena mukaan tulevat vain säännöt,
     /// joilla <see cref="CleanRule.EnabledByDefault"/> on tosi; <paramref name="filter"/> korvaa tämän.
     /// </summary>
-    public static FileCleanerModule FromRuleFile(string id, string displayName, string description, string ruleFilePath,
+    public static FileCleanerModule FromRuleFile(string id, LocalizedText displayName, LocalizedText description, string ruleFilePath,
         Func<CleanRule, bool>? filter = null)
     {
         var set = RuleLoader.LoadFromFile(ruleFilePath);
@@ -59,19 +63,23 @@ public sealed class FileCleanerModule : ICleanerModule
         {
             ct.ThrowIfCancellationRequested();
             var rule = _rules[i];
-            context.Report((int)(100.0 * i / _rules.Count), rule.Name);
+            context.Report((int)(100.0 * i / _rules.Count), rule.DisplayName);
 
             if (rule.SkipIfProcessRunning.Count > 0 &&
                 ProcessChecker.IsAnyRunning(rule.SkipIfProcessRunning, out var running))
             {
-                var msg = $"{rule.Name}: ohitettu, koska '{running}' on käynnissä. Sulje ohjelma ja skannaa uudelleen.";
+                var msg = Loc.T(
+                    $"{rule.DisplayName}: skipped because '{running}' is running. Close the program and scan again.",
+                    $"{rule.DisplayName}: ohitettu, koska '{running}' on käynnissä. Sulje ohjelma ja skannaa uudelleen.");
                 context.Logger.Warning(msg);
                 result.Errors.Add(msg);
                 continue;
             }
 
             if (rule.RequiresAdmin && !context.IsElevated)
-                context.Logger.Debug($"{rule.Name}: tarvitsee admin-oikeudet, yritetään silti.");
+                context.Logger.Debug(Loc.T(
+                    $"{rule.DisplayName}: requires administrator rights, trying anyway.",
+                    $"{rule.DisplayName}: tarvitsee admin-oikeudet, yritetään silti."));
 
             foreach (var dir in rule.Paths.SelectMany(PathExpander.Expand).Distinct(StringComparer.OrdinalIgnoreCase))
             {
@@ -80,8 +88,10 @@ public sealed class FileCleanerModule : ICleanerModule
             }
         }
 
-        context.Report(100, "Valmis");
-        context.Logger.Info($"{DisplayName}: löytyi {result.Count} kohdetta, {ByteFormatter.Format(result.TotalBytes)}");
+        context.Report(100, Loc.T("Done", "Valmis"));
+        context.Logger.Info(Loc.T(
+            $"{DisplayName}: found {result.Count} items, {ByteFormatter.Format(result.TotalBytes)}",
+            $"{DisplayName}: löytyi {result.Count} kohdetta, {ByteFormatter.Format(result.TotalBytes)}"));
         return result;
     }
 
@@ -107,7 +117,9 @@ public sealed class FileCleanerModule : ICleanerModule
             }
             catch (Exception ex)
             {
-                var msg = $"{rule.Name}: ei voitu lukea {dir}: {ex.Message}";
+                var msg = Loc.T(
+                    $"{rule.DisplayName}: could not read {dir}: {ex.Message}",
+                    $"{rule.DisplayName}: ei voitu lukea {dir}: {ex.Message}");
                 context.Logger.Warning(msg);
                 result.Errors.Add(msg);
                 continue;
@@ -133,10 +145,10 @@ public sealed class FileCleanerModule : ICleanerModule
                 result.Items.Add(new CleanItem(
                     Id: file,
                     ModuleId: Id,
-                    Category: rule.Name,
+                    Category: rule.DisplayName,
                     Path: file,
                     SizeBytes: info.Length,
-                    Description: rule.Description,
+                    Description: rule.DisplayDescription,
                     Risk: rule.Risk));
             }
         }
@@ -160,7 +172,7 @@ public sealed class FileCleanerModule : ICleanerModule
 
             if (!string.Equals(item.ModuleId, Id, StringComparison.OrdinalIgnoreCase))
             {
-                result.Skipped.Add((item, "Kohde ei kuulu tälle moduulille"));
+                result.Skipped.Add((item, Loc.T("Item does not belong to this module", "Kohde ei kuulu tälle moduulille")));
                 continue;
             }
 
@@ -203,8 +215,10 @@ public sealed class FileCleanerModule : ICleanerModule
         foreach (var dir in candidates.OrderByDescending(d => d.Length))
             deleter.TryDeleteEmptyDirectory(dir);
 
-        context.Report(100, "Valmis");
-        context.Logger.Info($"{DisplayName}: {(context.DryRun ? "poistettaisiin" : "poistettiin")} {result.Removed.Count} kohdetta ({ByteFormatter.Format(result.FreedBytes)}), ohitettu {result.Skipped.Count}");
+        context.Report(100, Loc.T("Done", "Valmis"));
+        context.Logger.Info(Loc.T(
+            $"{DisplayName}: {(context.DryRun ? "would remove" : "removed")} {result.Removed.Count} items ({ByteFormatter.Format(result.FreedBytes)}), skipped {result.Skipped.Count}",
+            $"{DisplayName}: {(context.DryRun ? "poistettaisiin" : "poistettiin")} {result.Removed.Count} kohdetta ({ByteFormatter.Format(result.FreedBytes)}), ohitettu {result.Skipped.Count}"));
         return result;
     }
 }

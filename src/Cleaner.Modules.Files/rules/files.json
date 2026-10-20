@@ -1,23 +1,29 @@
 {
-  // Kommentit ovat sallittuja tässä tiedostossa.
-  // Polut tukevat ympäristömuuttujia (%TEMP%) ja yhtä jokeria (*) kansiotasolla.
-  // MinAgeHours: poistetaan vain tiedostot, joita ei ole muokattu näin moneen tuntiin.
+  // Comments are allowed in this file.
+  // Paths support environment variables (%TEMP%) and one wildcard (*) at the folder level.
+  // MinAgeHours: only files that have not been modified in this many hours are removed.
+  // name and description are in English. The optional nameFi and descriptionFi fields hold
+  // the Finnish texts; if they are missing, the English text is used in both languages.
   "schemaVersion": 1,
   "rules": [
     {
       "id": "user-temp",
-      "name": "Käyttäjän väliaikaistiedostot",
+      "name": "User temporary files",
+      "nameFi": "Käyttäjän väliaikaistiedostot",
       "category": "Windows",
-      "description": "Ohjelmien väliaikaistiedostot. Vanhoja ei tarvita.",
+      "description": "Temporary files created by programs. Old ones are not needed.",
+      "descriptionFi": "Ohjelmien väliaikaistiedostot. Vanhoja ei tarvita.",
       "paths": [ "%TEMP%" ],
       "minAgeHours": 24,
       "risk": "Low"
     },
     {
       "id": "windows-temp",
-      "name": "Windowsin väliaikaistiedostot",
+      "name": "Windows temporary files",
+      "nameFi": "Windowsin väliaikaistiedostot",
       "category": "Windows",
-      "description": "Järjestelmän väliaikaistiedostot.",
+      "description": "System temporary files.",
+      "descriptionFi": "Järjestelmän väliaikaistiedostot.",
       "paths": [ "%WINDIR%\\Temp" ],
       "minAgeHours": 24,
       "risk": "Low",
@@ -25,9 +31,11 @@
     },
     {
       "id": "windows-update-cache",
-      "name": "Windows Update -välimuisti",
+      "name": "Windows Update cache",
+      "nameFi": "Windows Update -välimuisti",
       "category": "Windows",
-      "description": "Ladatut päivityspaketit, jotka on jo asennettu. Windows lataa tarvittaessa uudelleen.",
+      "description": "Downloaded update packages that are already installed. Windows downloads them again if needed.",
+      "descriptionFi": "Ladatut päivityspaketit, jotka on jo asennettu. Windows lataa tarvittaessa uudelleen.",
       "paths": [ "%WINDIR%\\SoftwareDistribution\\Download" ],
       "minAgeHours": 240,
       "risk": "Low",
@@ -35,9 +43,11 @@
     },
     {
       "id": "delivery-optimization",
-      "name": "Delivery Optimization -välimuisti",
+      "name": "Delivery Optimization cache",
+      "nameFi": "Delivery Optimization -välimuisti",
       "category": "Windows",
-      "description": "Päivitysten jakovälimuisti.",
+      "description": "Cache for sharing updates.",
+      "descriptionFi": "Päivitysten jakovälimuisti.",
       "paths": [ "%WINDIR%\\SoftwareDistribution\\DeliveryOptimization" ],
       "minAgeHours": 240,
       "risk": "Low",
@@ -45,9 +55,11 @@
     },
     {
       "id": "thumbnail-cache",
-      "name": "Pikkukuvavälimuisti",
+      "name": "Thumbnail cache",
+      "nameFi": "Pikkukuvavälimuisti",
       "category": "Windows",
-      "description": "Resurssienhallinnan pikkukuvat. Windows luo ne uudelleen.",
+      "description": "File Explorer thumbnails. Windows recreates them.",
+      "descriptionFi": "Resurssienhallinnan pikkukuvat. Windows luo ne uudelleen.",
       "paths": [ "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer" ],
       "patterns": [ "thumbcache_*.db", "iconcache_*.db" ],
       "recursive": false,
@@ -57,9 +69,11 @@
     },
     {
       "id": "windows-logs",
-      "name": "Windowsin lokitiedostot",
+      "name": "Windows log files",
+      "nameFi": "Windowsin lokitiedostot",
       "category": "Windows",
-      "description": "Vanhat .log-tiedostot Windows-kansiossa.",
+      "description": "Old .log files in the Windows folder.",
+      "descriptionFi": "Vanhat .log-tiedostot Windows-kansiossa.",
       "paths": [ "%WINDIR%\\Logs" ],
       "patterns": [ "*.log", "*.etl" ],
       "minAgeHours": 168,
@@ -68,9 +82,11 @@
     },
     {
       "id": "memory-dumps",
-      "name": "Muistivedokset",
+      "name": "Memory dumps",
+      "nameFi": "Muistivedokset",
       "category": "Windows",
-      "description": "Kaatumisten muistivedokset. Hyödyllisiä vain vianetsinnässä.",
+      "description": "Crash memory dumps. Useful only for troubleshooting.",
+      "descriptionFi": "Kaatumisten muistivedokset. Hyödyllisiä vain vianetsinnässä.",
       "paths": [ "%WINDIR%\\Minidump", "%LOCALAPPDATA%\\CrashDumps" ],
       "patterns": [ "*.dmp" ],
       "minAgeHours": 0,
@@ -79,9 +95,11 @@
     },
     {
       "id": "prefetch",
-      "name": "Prefetch-tiedostot",
+      "name": "Prefetch files",
+      "nameFi": "Prefetch-tiedostot",
       "category": "Windows",
-      "description": "Käynnistyksen nopeutusdata. Poisto hidastaa ohjelmien avaamista hetkellisesti – siksi ei oletuksena.",
+      "description": "Startup speed-up data. Removing it temporarily slows down opening programs, so it is not selected by default.",
+      "descriptionFi": "Käynnistyksen nopeutusdata. Poisto hidastaa ohjelmien avaamista hetkellisesti – siksi ei oletuksena.",
       "paths": [ "%WINDIR%\\Prefetch" ],
       "patterns": [ "*.pf" ],
       "minAgeHours": 720,
@@ -91,9 +109,11 @@
     },
     {
       "id": "windows-old",
-      "name": "Edellinen Windows-asennus (Windows.old)",
+      "name": "Previous Windows installation (Windows.old)",
+      "nameFi": "Edellinen Windows-asennus (Windows.old)",
       "category": "Windows",
-      "description": "Edellisen version varmuuskopio. Poiston jälkeen päivitystä ei voi peruuttaa.",
+      "description": "Backup of the previous version. After removal, the update cannot be rolled back.",
+      "descriptionFi": "Edellisen version varmuuskopio. Poiston jälkeen päivitystä ei voi peruuttaa.",
       "paths": [ "%SYSTEMDRIVE%\\Windows.old" ],
       "minAgeHours": 0,
       "risk": "High",
