@@ -111,9 +111,10 @@ minuutteja; rajaa `--path`-valinnalla.
 Prosessit (`processes`) listaa käyttäjän istunnon prosessit, joiden exe ei ole Windows-kansiossa, kuudessa kategoriassa
 (avoimet ohjelmat, puuttuva ohjelmatiedosto, orvot apuprosessit, tunnetut, joutilaat ja aktiiviset taustaprosessit).
 Skannaus mittaa suorittimen käyttöä 3 s. Lopetus tarkistaa tunnisteen käynnistysajan, joten kierrätettyä PID:tä ei lopeteta,
-ja jokainen lopetus kirjataan lokiin nimellä, PID:llä ja polulla. Varoitus: CLI:n `clean` ei suodata esivalinnan tai riskin
-mukaan. `--apply` ilman tarkkaa `--item`-tunnistetta (tai pelkällä etuliitteellä `"processes:"`) lopettaa kaikki listatut
-prosessit, myös avoimet ohjelmat.
+ja jokainen lopetus kirjataan lokiin nimellä, PID:llä ja polulla. PcCleanerin oma prosessi ja sen kaikki esivanhemmat
+(esimerkiksi pääte ja Windows Terminal, joista komento ajettiin) ovat suojattuja: niitä ei listata eikä lopeteta.
+Varoitus: CLI:n `clean` ei suodata esivalinnan tai riskin mukaan. `--apply` ilman tarkkaa `--item`-tunnistetta (tai pelkällä
+etuliitteellä `"processes:"`) lopettaa kaikki listatut prosessit, myös avoimet ohjelmat.
 
 Käynnistysohjelmia ei poisteta, vaan ne poistetaan käytöstä samalla tavalla kuin Tehtävienhallinnassa
 (`StartupApproved`-avain, Store-sovelluksilla StartupTask-tila). Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä.
