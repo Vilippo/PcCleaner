@@ -537,7 +537,7 @@ Yksi tehtävä: T1 luo Ai-projektin, sen rajapinnat ja puhtaan logiikan sekä as
 Yksi tehtävä: T3 toteuttaa SDK-kutsut T1:n rajapintaan (kääntää saman solution-puun).
 
 ### T3: AnthropicBackend
-- Status: pending
+- Status: done 441f56d
 - Model: opus
 - Requirements: REQ-9, REQ-10
 - Constraints/edge: CON-1, CON-2, CON-5, CON-6, EDGE-5, EDGE-6
