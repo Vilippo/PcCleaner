@@ -44,7 +44,6 @@ public sealed partial class MainWindow : Window, IDialogService
         var maximize = RestorePlacement();
 
         BuildView();
-        AppWindow.Changed += OnAppWindowChanged;
         Closed += (_, _) =>
         {
             SavePlacement();
@@ -71,9 +70,6 @@ public sealed partial class MainWindow : Window, IDialogService
 
     private const int MinWidth = 960;
     private const int MinHeight = 640;
-
-    /// <summary>Viimeisin palautettu (ei maksimoitu eikä pienennetty) sijainti ja koko; maksimoidulle tallennetaan tämä.</summary>
-    private RectInt32 _normalBounds;
 
     /// <summary>
     /// Palauttaa edellisen istunnon sijainnin ja koon settings.json-tiedostosta, jos se osuu jollekin nykyiselle
@@ -110,43 +106,29 @@ public sealed partial class MainWindow : Window, IDialogService
             AppWindow.Resize(new SizeInt32(1200, 820));
             saved = null;
         }
-        _normalBounds = CurrentBounds();
-        _maximized = saved?.Maximized == true;
-        return _maximized;
+        return saved?.Maximized == true;
     }
 
-    /// <summary>Oliko ikkuna viimeksi maksimoitu tai palautettu; pienennys ei muuta tätä, joten tehtäväpalkista suljettu säilyttää tilansa.</summary>
-    private bool _maximized;
-
-    private RectInt32 CurrentBounds() =>
-        new(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
-
-    /// <summary>Seuraa palautetun ikkunan sijaintia ja kokoa; maksimoitu ja pienennetty tila eivät muuta sitä.</summary>
-    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
-    {
-        if (sender.Presenter is not OverlappedPresenter presenter) return;
-        if (presenter.State == OverlappedPresenterState.Maximized) _maximized = true;
-        else if (presenter.State == OverlappedPresenterState.Restored)
-        {
-            _maximized = false;
-            if (args.DidPositionChange || args.DidSizeChange) _normalBounds = CurrentBounds();
-        }
-    }
-
-    /// <summary>Tallentaa sijainnin ja koon sulkemisessa. Epäonnistunut tallennus ei saa estää sulkemista.</summary>
+    /// <summary>
+    /// Tallentaa sulkemisessa palautussijainnin: maksimoidulla, pienennetyllä ja Aero Snapilla napsautetulla
+    /// ikkunalla se on tilaa edeltävä koko (<see cref="NativeWindowPlacement"/>). Epäonnistunut tallennus ei saa
+    /// estää sulkemista.
+    /// </summary>
     private void SavePlacement()
     {
         try
         {
-            var maximized = _maximized;
-            var bounds = _normalBounds;
+            var hwnd = Microsoft.UI.Win32Interop.GetWindowFromWindowId(AppWindow.Id);
+            var placement = NativeWindowPlacement.Read(hwnd) ?? (
+                AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height,
+                AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized });
             AppSettings.Update(s => s.Window = new WindowPlacement
             {
-                X = bounds.X,
-                Y = bounds.Y,
-                Width = bounds.Width,
-                Height = bounds.Height,
-                Maximized = maximized
+                X = placement.X,
+                Y = placement.Y,
+                Width = placement.Width,
+                Height = placement.Height,
+                Maximized = placement.Maximized
             });
         }
         catch
