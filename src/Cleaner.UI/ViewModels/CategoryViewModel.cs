@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Cleaner.Ai;
 using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
@@ -76,6 +77,38 @@ public sealed partial class CategoryViewModel : ObservableObject
         OnPropertyChanged(nameof(RiskText));
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(HiddenText));
+        OnPropertyChanged(nameof(VerdictText));
+        foreach (var item in Items)
+            item.RefreshLanguage();
+    }
+
+    // ---------- Avustajan merkki (REQ-17) ----------
+
+    /// <summary>Avustajan arvio kategoriasta, muuten null.</summary>
+    public AiVerdict? Verdict { get; private set; }
+
+    /// <summary>Avustajan perustelu; näytetään merkin ToolTipissä.</summary>
+    public string VerdictReason { get; private set; } = "";
+
+    /// <summary>Merkin teksti nykyisellä kielellä.</summary>
+    public string VerdictText => ItemViewModel.VerdictTextFor(Verdict);
+
+    public bool HasVerdict => Verdict is not null;
+    public bool IsSafeVerdict => Verdict == AiVerdict.Safe;
+    public bool IsCautionVerdict => Verdict == AiVerdict.Caution;
+    public bool IsKeepVerdict => Verdict == AiVerdict.Keep;
+
+    public void SetVerdict(AiVerdict? verdict, string reason)
+    {
+        Verdict = verdict;
+        VerdictReason = verdict is null ? "" : reason;
+        OnPropertyChanged(nameof(Verdict));
+        OnPropertyChanged(nameof(VerdictReason));
+        OnPropertyChanged(nameof(VerdictText));
+        OnPropertyChanged(nameof(HasVerdict));
+        OnPropertyChanged(nameof(IsSafeVerdict));
+        OnPropertyChanged(nameof(IsCautionVerdict));
+        OnPropertyChanged(nameof(IsKeepVerdict));
     }
 
     private void OnItemChanged(object? sender, PropertyChangedEventArgs e)
@@ -108,6 +141,37 @@ public sealed partial class CategoryViewModel : ObservableObject
             OnPropertyChanged(nameof(IsChecked));
             SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    /// <summary>
+    /// Asettaa jokaisen kohteen valinnan <paramref name="target"/>-funktion mukaan ja nostaa kategorian tapahtumat
+    /// kerran lopuksi (ei kerran per kohde: 14 000 kohteen kategoriassa summat laskettaisiin muuten jokaisesta).
+    /// Palauttaa valittujen ja valinnasta poistettujen määrät.
+    /// </summary>
+    public (int Selected, int Deselected) ApplySelection(Func<ItemViewModel, bool> target)
+    {
+        int selected = 0, deselected = 0;
+        _suppress = true;
+        try
+        {
+            foreach (var item in Items)
+            {
+                var value = target(item);
+                if (value == item.IsSelected) continue;
+                item.IsSelected = value;
+                if (value) selected++; else deselected++;
+            }
+        }
+        finally
+        {
+            _suppress = false;
+        }
+        if (selected + deselected > 0)
+        {
+            OnPropertyChanged(nameof(IsChecked));
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+        return (selected, deselected);
     }
 
     public int SelectedCount => Items.Count(i => i.IsSelected);

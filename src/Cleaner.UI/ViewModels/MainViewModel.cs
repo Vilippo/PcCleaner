@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Cleaner.Ai;
 using Cleaner.Core.Engine;
 using Cleaner.Core.Localization;
 using Cleaner.Core.Logging;
@@ -146,7 +147,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsIdle), nameof(CanScanAll))]
     [NotifyCanExecuteChangedFor(nameof(ScanCommand), nameof(CleanCommand), nameof(ScanAllCommand), nameof(CancelCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefreshProgramsCommand), nameof(UninstallProgramCommand), nameof(ScanLeftoversCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AutoCleanCommand))]
     public partial bool IsBusy { get; set; }
+
+    /// <summary>Avustajan komennot ovat toisessa oliossa, joten NotifyCanExecuteChangedFor ei yllä niihin.</summary>
+    partial void OnIsBusyChanged(bool value) => Ai.OnMainBusyChanged();
+
+    /// <summary>Tekoälyavustajan paneeli (REQ-12).</summary>
+    public AiAssistantViewModel Ai { get; }
 
     [ObservableProperty]
     public partial int ProgressPercent { get; set; }
@@ -228,6 +236,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _uiLog = new UiLogger(dispatcher, LogLevel.Info);
         _log = new CompositeLogger(_uiLog, _fileLog);
 
+        // Ei API-kutsua käynnistyksessä: avain tarkistetaan ympäristöstä ja asiakas luodaan ensimmäisellä kutsulla.
+        Ai = new AiAssistantViewModel(this, _log, dispatcher, () => new AnthropicBackend(),
+            AnthropicBackend.IsConfigured, AppSettings.Load());
+
         var rulesDir = Path.Combine(AppContext.BaseDirectory, "rules");
         _engine = new CleanerEngine(UiModuleFactory.CreateAll(rulesDir, _log));
 
@@ -269,6 +281,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             option.RefreshLanguage();
         OnPropertyChanged(nameof(PaletteIndex));
         OnPropertyChanged(nameof(FontIndex));
+        Ai.RefreshLanguage();
         LanguageRefreshed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -341,6 +354,24 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var cts = BeginBusy(Loc.T("Scanning", "Skannataan"));
         try
         {
+            await ScanModulesCoreAsync(targets, cts);
+        }
+        finally
+        {
+            EndBusy();
+        }
+    }
+
+    /// <summary>
+    /// Skannaa kohteet järjestyksessä ilman BeginBusy/EndBusy-kutsuja (automaattinen siivous ajaa useamman vaiheen
+    /// saman kiireisen tilan alla). Palauttaa true vain, kun kaikki kohteet skannattiin loppuun; peruutus ja virhe
+    /// palauttavat false. Peruutetun skannauksen jäljelle jääneet moduulit säilyttävät vanhan tuloksen, joten
+    /// peruutus todetaan paluuarvosta eikä HasScanned-tilasta.
+    /// </summary>
+    private async Task<bool> ScanModulesCoreAsync(IReadOnlyList<ModuleViewModel> targets, CancellationTokenSource cts)
+    {
+        try
+        {
             foreach (var target in targets)
             {
                 cts.Token.ThrowIfCancellationRequested();
@@ -378,21 +409,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                     TreemapRoot = DirectoryNode.Combine(scanned.LastTrees, Loc.T("All drives", "Kaikki asemat"));
                 }
             }
+            return true;
         }
         catch (OperationCanceledException)
         {
             _log.Warning(Loc.T("Scan canceled.", "Skannaus peruutettu."));
             foreach (var target in targets.Where(t => !t.HasScanned))
                 target.Status = ModuleScanStatus.ScanCanceled;
+            return false;
         }
         catch (Exception ex)
         {
             _log.Error(Loc.T($"Scan failed: {ex}", $"Skannaus epäonnistui: {ex}"));
             await _dialogs.InfoAsync(Loc.T("Scan failed", "Skannaus epäonnistui"), ex.Message);
-        }
-        finally
-        {
-            EndBusy();
+            return false;
         }
     }
 
@@ -446,17 +476,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             : isProcesses ? $"The dry run would end {dryRemoved} processes"
             : $"The dry run would delete {dryRemoved} items";
         var summary = Loc.T(dryEn, $"Kuivassa ajossa {verb} {dryRemoved} kohdetta") + drySize + ".";
-        if (drySkipped.Count > 0)
-        {
-            var reasons = drySkipped.GroupBy(s => s.Reason)
-                .OrderByDescending(g => g.Count())
-                .Take(4)
-                .Select(g => Loc.T($"  • {g.Count()} items: {g.Key}", $"  • {g.Count()} kpl: {g.Key}"));
-            summary += Loc.T($"\n\n{drySkipped.Count} items would be skipped:\n{string.Join("\n", reasons)}",
-                             $"\n\nOhitettaisiin {drySkipped.Count} kohdetta:\n{string.Join("\n", reasons)}");
-        }
-        if (dryErrors.Count > 0)
-            summary += Loc.T($"\n\nErrors:\n{string.Join("\n", dryErrors.Take(4))}", $"\n\nVirheet:\n{string.Join("\n", dryErrors.Take(4))}");
+        summary += SkippedAndErrorsText(drySkipped, dryErrors);
 
         if (dryRemoved == 0)
         {
@@ -543,6 +563,154 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         // Tulos vanheni: skannataan moduuli uudelleen.
         await ScanModulesAsync(new[] { module });
+    }
+
+    /// <summary>Kuivan ajon ohitetut (enintään 4 yleisintä syytä) ja virheet (enintään 4) vahvistusdialogiin.</summary>
+    private static string SkippedAndErrorsText(IReadOnlyList<(CleanItem Item, string Reason)> skipped, IReadOnlyList<string> errors)
+    {
+        var text = "";
+        if (skipped.Count > 0)
+        {
+            var reasons = skipped.GroupBy(s => s.Reason)
+                .OrderByDescending(g => g.Count())
+                .Take(4)
+                .Select(g => Loc.T($"  • {g.Count()} items: {g.Key}", $"  • {g.Count()} kpl: {g.Key}"));
+            text += Loc.T($"\n\n{skipped.Count} items would be skipped:\n{string.Join("\n", reasons)}",
+                          $"\n\nOhitettaisiin {skipped.Count} kohdetta:\n{string.Join("\n", reasons)}");
+        }
+        if (errors.Count > 0)
+            text += Loc.T($"\n\nErrors:\n{string.Join("\n", errors.Take(4))}", $"\n\nVirheet:\n{string.Join("\n", errors.Take(4))}");
+        return text;
+    }
+
+    // ---------- Automaattinen siivous (REQ-19) ----------
+
+    private bool CanAutoClean() => !IsBusy && !Ai.IsThinking && Ai.IsAvailable && Ai.AutoMode;
+
+    /// <summary>
+    /// Skannaa oletusmoduulit, pyytää arvion jokaisesta moduulista, jolla on kohteita, soveltaa Auto-tilan valinnat,
+    /// ajaa kuivan ajon ja näyttää yhden vahvistusdialogin ennen oikeaa ajoa (CON-4). Vaiheet 1–3 ajetaan yhden
+    /// kiireisen tilan ja yhden CancellationTokenSourcen alla, joten alapalkin Peruuta keskeyttää minkä tahansa niistä.
+    /// Opt-in-moduulit eivät ole mukana, ja High-riskin kohde ei ole koskaan valittuna (VerdictApplier.AutoSelection).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanAutoClean))]
+    private async Task AutoCleanAsync()
+    {
+        var targets = Modules.Where(m => m.SelectedByDefault).ToList();
+        var reviewed = new List<(ModuleViewModel Module, AiReview Review)>();
+        List<CleanItem> items;
+        IReadOnlyList<CleanResult>? dry = null;
+
+        var cts = BeginBusy(Loc.T("Automatic cleanup", "Automaattinen siivous"));
+        try
+        {
+            // 1) Skannaus
+            if (!await ScanModulesCoreAsync(targets, cts)) return;
+
+            // 2) Arviot; Auto-tila soveltaa valinnat ReviewModuleAsync-kutsussa.
+            foreach (var module in targets.Where(m => m.HasResults))
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                BusyTitle = Loc.T($"Review: {module.DisplayName}", $"Arvio: {module.DisplayName}");
+                var review = await Ai.ReviewModuleAsync(module, cts.Token);
+                if (review is null) return;   // virhe tai peruutus näkyy paneelissa
+                if (!Ai.AutoMode)
+                {
+                    // Auto-tila kytkettiin pois kesken: valintoja ei sovellettu, joten ei jatketa puhdistukseen.
+                    _log.Warning(Loc.T("Automatic cleanup stopped: auto mode was turned off.",
+                                       "Automaattinen siivous keskeytettiin: Auto-tila kytkettiin pois."));
+                    return;
+                }
+                reviewed.Add((module, review));
+            }
+
+            // 3) Kuiva ajo
+            // High-riskin kohde ei ole koskaan mukana, vaikka käyttäjä olisi rastinut sen kesken ajon.
+            items = targets.SelectMany(m => m.SelectedItems()).Where(i => i.Risk != RiskLevel.High).ToList();
+            if (items.Count > 0)
+            {
+                BusyTitle = Loc.T("Dry run: automatic cleanup", "Kuiva ajo: automaattinen siivous");
+                try
+                {
+                    dry = await _engine.CleanAsync(items, CreateContext(dryRun: true, cts), cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    _log.Warning(Loc.T("Dry run canceled.", "Kuiva ajo peruutettu."));
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _log.Warning(Loc.T("Automatic cleanup canceled.", "Automaattinen siivous peruutettu."));
+            return;
+        }
+        finally
+        {
+            EndBusy();
+        }
+
+        if (dry is null)
+        {
+            await _dialogs.InfoAsync(Loc.T("Nothing to do", "Ei mitään tehtävää"),
+                Loc.T("The assistant did not select anything to delete.", "Avustaja ei valinnut mitään poistettavaksi."));
+            return;
+        }
+
+        var dryRemoved = dry.Sum(r => r.Removed.Count);
+        var dryBytes = dry.Sum(r => r.FreedBytes);
+        var details = SkippedAndErrorsText(dry.SelectMany(r => r.Skipped).ToList(), dry.SelectMany(r => r.Errors).ToList());
+        var dryText = Loc.T($"The dry run would delete {dryRemoved} items ({ByteFormatter.Format(dryBytes)}).",
+                            $"Kuivassa ajossa poistetaan {dryRemoved} kohdetta ({ByteFormatter.Format(dryBytes)}).");
+
+        if (dryRemoved == 0)
+        {
+            await _dialogs.InfoAsync(Loc.T("Nothing to do", "Ei mitään tehtävää"), dryText + details);
+            return;
+        }
+
+        // 4) Yksi vahvistus: avustajan yhteenvedot ja kuivan ajon määrät.
+        var summaries = string.Join("\n\n", reviewed.Select(r => $"{r.Module.DisplayName}: {r.Review.Summary.Trim()}"));
+        var confirmText = (summaries.Length > 0 ? summaries + "\n\n" : "") + dryText + details + "\n\n" +
+                          Loc.T("Files do not go to the Recycle Bin. All deletions are written to the log.",
+                                "Tiedostot eivät mene roskakoriin. Kaikki poistot kirjataan lokiin.");
+        if (!await _dialogs.ConfirmAsync(Loc.T("Automatic cleanup", "Automaattinen siivous"), confirmText,
+                Loc.T("Delete permanently", "Poista pysyvästi")))
+            return;
+
+        // 5) Oikea ajo, tulos ja uusi skannaus
+        IReadOnlyList<CleanResult> real;
+        cts = BeginBusy(Loc.T("Cleaning: automatic cleanup", "Puhdistetaan: automaattinen siivous"));
+        try
+        {
+            real = await _engine.CleanAsync(items, CreateContext(dryRun: false, cts), cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _log.Warning(Loc.T(
+                "Cleaning canceled midway. Some items were already processed, see the log.",
+                "Puhdistus peruutettu kesken. Osa kohteista on jo käsitelty, katso loki."));
+            await _dialogs.InfoAsync(Loc.T("Canceled", "Peruutettu"), Loc.T(
+                "Cleaning was interrupted. Items already removed are listed in the log.",
+                "Puhdistus keskeytettiin. Jo poistetut kohteet näkyvät lokissa."));
+            await ScanModulesAsync(targets);
+            return;
+        }
+        finally
+        {
+            EndBusy();
+        }
+
+        var removed = real.Sum(r => r.Removed.Count);
+        var freed = real.Sum(r => r.FreedBytes);
+        var skipped = real.Sum(r => r.Skipped.Count);
+        var resultText = Loc.T($"Deleted {removed} items", $"Poistettu {removed} kohdetta") +
+                         (freed > 0 ? Loc.T($", freed {ByteFormatter.Format(freed)}", $", vapautettu {ByteFormatter.Format(freed)}") : "") +
+                         (skipped > 0 ? Loc.T($". Skipped {skipped} (see the log).", $". Ohitettu {skipped} (katso loki).") : ".");
+        await _dialogs.InfoAsync(Loc.T("Done", "Valmis"), resultText);
+
+        await ScanModulesAsync(targets);
     }
 
     private bool CanCancel() => IsBusy;
@@ -751,6 +919,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         IsRegistrySelected = newValue?.Id == "registry";
         IsDiskUsageSelected = newValue?.Id == "diskusage";
         IsUninstallSelected = newValue?.Id == "uninstall";
+        Ai.OnModuleStateChanged();
 
         // Ohjelmalista luetaan vasta, kun sivu avataan ensimmäisen kerran.
         if (IsUninstallSelected && _allPrograms.Count == 0)
@@ -761,11 +930,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         if (e.PropertyName is nameof(ModuleViewModel.SelectedCount) or nameof(ModuleViewModel.HasScanned))
             CleanCommand.NotifyCanExecuteChanged();
+        if (e.PropertyName is nameof(ModuleViewModel.SelectedCount) or nameof(ModuleViewModel.HasScanned) or nameof(ModuleViewModel.HasReview))
+            Ai.OnModuleStateChanged();
     }
 
     public void Dispose()
     {
         Loc.Changed -= OnLanguageChanged;
+        Ai.CancelCommand.Execute(null);
         _cts?.Cancel();
         _cts?.Dispose();
         _fileLog.Dispose();

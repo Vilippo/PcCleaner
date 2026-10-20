@@ -41,6 +41,7 @@
     <ProjectReference Include="..\Cleaner.Modules.Registry\Cleaner.Modules.Registry.csproj" />
     <ProjectReference Include="..\Cleaner.Modules.Uninstall\Cleaner.Modules.Uninstall.csproj" />
     <ProjectReference Include="..\Cleaner.Modules.Processes\Cleaner.Modules.Processes.csproj" />
+    <ProjectReference Include="..\Cleaner.Ai\Cleaner.Ai.csproj" />
   </ItemGroup>
 
   <ItemGroup>

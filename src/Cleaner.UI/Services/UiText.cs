@@ -75,6 +75,26 @@ public sealed partial class UiText : ObservableObject
     public string AdminBadge => Loc.T("Administrator", "Järjestelmänvalvoja");
     public string OptInBadge => Loc.T("Manual selection", "Valitaan erikseen");
 
+    // Tekoälyavustaja: paneeli ja asetussivun osio
+    public string AiTitle => Loc.T("AI assistant", "Tekoälyavustaja");
+    public string AiAutoMode => Loc.T("Auto mode", "Auto-tila");
+    public string AiAutoModeHint => Loc.T(
+        "The assistant selects items itself and Automatic cleanup runs scan, review and cleanup with one confirmation. High-risk items and opt-in modules are never included.",
+        "Avustaja valitsee kohteet itse, ja Automaattinen siivous skannaa, arvioi ja puhdistaa yhdellä vahvistuksella. Korkean riskin kohteet ja erikseen valittavat moduulit eivät ole koskaan mukana.");
+    public string AiReview => Loc.T("Review results", "Tarkista tulokset");
+    public string AiHealth => Loc.T("PC health", "Koneen kunto");
+    public string AiAutoClean => Loc.T("Automatic cleanup", "Automaattinen siivous");
+    public string AiDeselectFlagged => Loc.T("Deselect flagged", "Poista varoitetut valinnasta");
+    public string AiReset => Loc.T("New conversation", "Uusi keskustelu");
+    public string AiAskPlaceholder => Loc.T("Ask the assistant", "Kysy avustajalta");
+    public string AiSend => Loc.T("Send", "Lähetä");
+    public string AiThinking => Loc.T("Thinking...", "Ajattelee...");
+    public string AiSettingsHeader => Loc.T("AI assistant", "Tekoälyavustaja");
+    public string AiModelLabel => Loc.T("Model", "Malli");
+    public string AiPrivacyNote => Loc.T(
+        "Paths are sent with the user name hidden. Large lists are summarized.",
+        "Polut lähetetään käyttäjänimi piilotettuna. Suuret listat tiivistetään.");
+
     /// <summary>Nostaa PropertyChanged-tapahtuman tyhjällä nimellä: kaikki ominaisuudet luetaan uudelleen.</summary>
     public void Refresh() => OnPropertyChanged(string.Empty);
 }

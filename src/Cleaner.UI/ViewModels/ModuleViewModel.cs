@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Cleaner.Ai;
 using Cleaner.Core.Abstractions;
 using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
@@ -158,6 +159,8 @@ public sealed partial class ModuleViewModel : ObservableObject
     /// <summary>Korvaa edellisen tuloksen. Oletusvalinta kohteittain: riski alle High ja (kohteen Preselected ?? moduulin SelectedByDefault).</summary>
     public void LoadScan(ScanResult result)
     {
+        ScanGeneration++;
+        ClearReview();
         foreach (var c in Categories.Concat(HighRiskCategories))
             c.SelectionChanged -= OnCategorySelectionChanged;
         Categories.Clear();
@@ -195,6 +198,8 @@ public sealed partial class ModuleViewModel : ObservableObject
 
     public void ClearScan()
     {
+        ScanGeneration++;
+        ClearReview();
         foreach (var c in Categories.Concat(HighRiskCategories))
             c.SelectionChanged -= OnCategorySelectionChanged;
         Categories.Clear();
@@ -215,6 +220,115 @@ public sealed partial class ModuleViewModel : ObservableObject
             .Where(i => i.IsSelected)
             .Select(i => i.Item)
             .ToList();
+
+    // ---------- Avustajan arvio (REQ-17, REQ-18, EDGE-11) ----------
+
+    /// <summary>Voimassa oleva arvio tämän skannauksen tuloksista, muuten null.</summary>
+    public AiReview? Review { get; private set; }
+
+    public bool HasReview => Review is not null;
+
+    /// <summary>
+    /// Kasvaa jokaisessa <see cref="LoadScan"/>- ja <see cref="ClearScan"/>-kutsussa. Arvio sovelletaan vain, jos
+    /// luku on sama kuin arviota pyydettäessä (tulokset eivät vaihtuneet kesken).
+    /// </summary>
+    public int ScanGeneration { get; private set; }
+
+    private IEnumerable<CategoryViewModel> AllCategories => Categories.Concat(HighRiskCategories);
+
+    /// <summary>
+    /// Vie arvion merkeiksi: kategoria saa kategorian arvion, kohde vain oman arvionsa (ei periytyvää), jotta
+    /// kohteen merkki kertoo, mistä avustaja sanoi jotain erityistä.
+    /// </summary>
+    public void ApplyReview(AiReview review)
+    {
+        ClearReview();
+        Review = review;
+
+        var categoryVerdicts = new Dictionary<string, AiCategoryVerdict>(StringComparer.Ordinal);
+        foreach (var c in review.Categories) categoryVerdicts.TryAdd(c.Category, c);
+        var itemVerdicts = new Dictionary<string, AiItemVerdict>(StringComparer.Ordinal);
+        foreach (var i in review.Items) itemVerdicts.TryAdd(i.ItemId, i);
+
+        foreach (var category in AllCategories)
+        {
+            if (categoryVerdicts.TryGetValue(category.Name, out var cv)) category.SetVerdict(cv.Verdict, cv.Reason);
+            if (itemVerdicts.Count == 0) continue;
+            foreach (var item in category.Items)
+                if (itemVerdicts.TryGetValue(item.Item.Id, out var iv)) item.SetVerdict(iv.Verdict, iv.Reason);
+        }
+        OnPropertyChanged(nameof(Review));
+        OnPropertyChanged(nameof(HasReview));
+    }
+
+    /// <summary>Poistaa arvion ja merkit. Kutsutaan uudesta skannauksesta ja tyhjennyksestä (EDGE-2).</summary>
+    public void ClearReview()
+    {
+        if (Review is null) return;
+        Review = null;
+        foreach (var category in AllCategories)
+        {
+            if (category.HasVerdict) category.SetVerdict(null, "");
+            foreach (var item in category.Items)
+                if (item.HasVerdict) item.SetVerdict(null, "");
+        }
+        OnPropertyChanged(nameof(Review));
+        OnPropertyChanged(nameof(HasReview));
+    }
+
+    /// <summary>
+    /// Onko jokin valittu kohde arviolla Caution tai Keep (kategoriasta periytyvä mukaan lukien). Ajetaan jokaisesta
+    /// valinnan muutoksesta, joten arviot haetaan sanakirjoista eikä <see cref="VerdictApplier.Resolve"/>-kutsulla
+    /// (lineaarinen haku × 14 000 kohdetta). Sama sääntö: kohteen oma arvio voittaa, sitten kategoria, ensimmäinen voittaa.
+    /// </summary>
+    public bool HasFlaggedSelection()
+    {
+        if (Review is not { } review) return false;
+        var items = new Dictionary<string, AiVerdict>(StringComparer.Ordinal);
+        foreach (var v in review.Items) items.TryAdd(v.ItemId, v.Verdict);
+        var categories = new Dictionary<string, AiVerdict>(StringComparer.Ordinal);
+        foreach (var c in review.Categories) categories.TryAdd(c.Category, c.Verdict);
+
+        foreach (var category in AllCategories)
+        {
+            var categoryVerdict = categories.TryGetValue(category.Name, out var cv) ? cv : (AiVerdict?)null;
+            foreach (var item in category.Items)
+            {
+                if (!item.IsSelected) continue;
+                var verdict = items.TryGetValue(item.Item.Id, out var iv) ? iv : categoryVerdict;
+                if (verdict is AiVerdict.Caution or AiVerdict.Keep) return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>Poistaa valinnan jokaiselta kohteelta, jonka arvio on Caution tai Keep (myös piilotetut yli 500). Palauttaa määrän.</summary>
+    public int DeselectFlagged()
+    {
+        if (Review is not { } review) return 0;
+        var count = 0;
+        foreach (var category in AllCategories)
+            count += category.ApplySelection(i => i.IsSelected && !IsFlagged(review, i)).Deselected;
+        return count;
+    }
+
+    /// <summary>Auto-tilan valinta <see cref="VerdictApplier.AutoSelection"/>-säännöllä jokaiselle kohteelle. Palauttaa muutosten määrät.</summary>
+    public (int Selected, int Deselected) ApplyAutoSelection()
+    {
+        if (Review is not { } review) return (0, 0);
+        int selected = 0, deselected = 0;
+        foreach (var category in AllCategories)
+        {
+            var (s, d) = category.ApplySelection(i =>
+                VerdictApplier.AutoSelection(VerdictApplier.Resolve(review, i.Item), i.Risk, i.IsSelected) ?? i.IsSelected);
+            selected += s;
+            deselected += d;
+        }
+        return (selected, deselected);
+    }
+
+    private static bool IsFlagged(AiReview review, ItemViewModel item) =>
+        VerdictApplier.Resolve(review, item.Item) is AiVerdict.Caution or AiVerdict.Keep;
 
     private void OnCategorySelectionChanged(object? sender, EventArgs e) => UpdateSelection();
 
