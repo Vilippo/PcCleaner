@@ -157,6 +157,7 @@ Projekti `src/Cleaner.Modules.Startup`. Lähteet (`StartupSource.Defaults()`):
 | `folder-user` | `shell:startup` | `HKCU\...\StartupApproved\StartupFolder` | ei |
 | `folder-common` | `shell:common startup` | `HKLM\...\StartupApproved\StartupFolder` | kyllä |
 | `task` | Task Schedulerin juurikansio, kirjautumistriggeri, ei piilotetut | `Enabled = false` | tehtäväkohtainen |
+| `storetask` | `HKCU\...\AppModel\SystemAppData\<pakettiperhe>\<tehtävä>`, DWORD `State` (Store/MSIX StartupTask) | `State = 1` (DisabledByUser) | ei |
 
 Toimenpide on **poista käytöstä**, ei poista: `StartupApproved`-avaimeen kirjoitetaan 12 tavun arvo
 (`03 00 00 00` + FILETIME) täsmälleen kuten Tehtävienhallinta, joten käyttäjä voi palauttaa kohteen sieltä.
@@ -164,7 +165,16 @@ Skannaus palauttaa vain käytössä olevat kohteet. `CleanItem.Id = startup:<lä
 rekisteri-, tiedosto- tai tehtäväpolku, `Description` on komento (.lnk-kohde selvitetty), `SizeBytes = 0`.
 `SelectedByDefault = false`: moduuli ajetaan vain, kun käyttäjä valitsee sen; CLI:ssä `--module startup` ja
 yksittäiset kohteet `--item`-valinnalla. COM (Task Scheduler, WScript.Shell) käytetään `dynamic`-tyypillä
-ilman interop-kokoonpanoja. Ei vielä tuettu: pakattujen sovellusten (MSIX) StartupTask-kohteet.
+ilman interop-kokoonpanoja.
+
+Store/MSIX-sovellusten StartupTask-kohteet (`StoreStartupTaskSource`): skannaus listaa tehtävät, joiden `State` on
+2 (Enabled) tai 4 (EnabledByPolicy), kategoriassa "Store-sovellukset (StartupTask)". Tunnisteen nimiosa on
+`<pakettiperhe>|<tehtävä>`, esim. `startup:storetask:Microsoft.YourPhone_8wekyb3d8bbwe|YourPhone.Start`. Käytöstä
+poisto kirjoittaa `State = 1` täsmälleen kuten Tehtävienhallinta; tila 4 ohitetaan syyllä "Käytäntö pakottaa käyttöön".
+Näyttönimi luetaan `AppModel\Repository\Packages\<täysnimi>\DisplayName`-arvosta (perhe `Nimi_JulkaisijaId` →
+täysnimi `Nimi_*_JulkaisijaId`); `ms-resource:`-viittaus ratkaistaan `SHLoadIndirectString`-kutsulla muodossa
+`@{<täysnimi>?ms-resource://<Nimi>/Resources/<resurssi>}`, ja jos se ei onnistu, nimeksi jää paketin nimiosa.
+`StoreStartupTaskSource.Enable` palauttaa tilan 2 (ei vielä UI:ssa).
 
 ### 6.2 Levytilan analyysi (`diskusage`) – toteutettu
 

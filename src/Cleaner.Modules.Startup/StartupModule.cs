@@ -6,10 +6,11 @@ using Microsoft.Win32;
 namespace Cleaner.Modules.Startup;
 
 /// <summary>
-/// Käynnistysohjelmat: Run-avaimet, käynnistyskansiot ja kirjautumistriggeriset ajoitetut tehtävät.
-/// Toimenpide on käytöstä poisto, ei poisto: rekisteri- ja kansiokohteet merkitään Explorerin
-/// StartupApproved-avaimeen täsmälleen kuten Tehtävienhallinta tekee, joten käyttäjä voi palauttaa
-/// ne sieltä. Ajoitetut tehtävät saavat Enabled = false. Mitään ei poisteta levyltä eikä rekisteristä.
+/// Käynnistysohjelmat: Run-avaimet, käynnistyskansiot, kirjautumistriggeriset ajoitetut tehtävät ja
+/// pakattujen sovellusten (Store/MSIX) StartupTask-kohteet. Toimenpide on käytöstä poisto, ei poisto:
+/// rekisteri- ja kansiokohteet merkitään Explorerin StartupApproved-avaimeen täsmälleen kuten
+/// Tehtävienhallinta tekee, joten käyttäjä voi palauttaa ne sieltä. Ajoitetut tehtävät saavat
+/// Enabled = false, StartupTask-kohteet tilan DisabledByUser. Mitään ei poisteta levyltä eikä rekisteristä.
 ///
 /// Skannaus palauttaa vain käytössä olevat kohteet, koska vain niille on jotain tehtävää.
 /// </summary>
@@ -31,14 +32,16 @@ public sealed class StartupModule : ICleanerModule
 
     private readonly Dictionary<string, StartupSource> _sources;
     private readonly bool _includeScheduledTasks;
+    private readonly StoreStartupTaskSource? _storeTasks;
 
-    public StartupModule() : this(StartupSource.Defaults(), includeScheduledTasks: true) { }
+    public StartupModule() : this(StartupSource.Defaults(), includeScheduledTasks: true, StoreStartupTaskSource.Default) { }
 
-    /// <summary>Testattavuutta varten: omat lähteet ja mahdollisuus jättää Task Scheduler pois.</summary>
-    public StartupModule(IEnumerable<StartupSource> sources, bool includeScheduledTasks)
+    /// <summary>Testattavuutta varten: omat lähteet, mahdollisuus jättää Task Scheduler pois ja oma StartupTask-lähde (null = ei lähdettä).</summary>
+    public StartupModule(IEnumerable<StartupSource> sources, bool includeScheduledTasks, StoreStartupTaskSource? storeTasks = null)
     {
         _sources = sources.ToDictionary(s => s.Key, StringComparer.OrdinalIgnoreCase);
         _includeScheduledTasks = includeScheduledTasks;
+        _storeTasks = storeTasks;
     }
 
     public IReadOnlyCollection<StartupSource> Sources => _sources.Values;
@@ -52,7 +55,7 @@ public sealed class StartupModule : ICleanerModule
     {
         var result = new ScanResult { ModuleId = Id };
         int step = 0;
-        int total = _sources.Count + (_includeScheduledTasks ? 1 : 0);
+        int total = _sources.Count + (_includeScheduledTasks ? 1 : 0) + (_storeTasks is not null ? 1 : 0);
 
         foreach (var source in _sources.Values)
         {
@@ -110,6 +113,34 @@ public sealed class StartupModule : ICleanerModule
             catch (Exception ex)
             {
                 var msg = $"{TaskCategory}: lukeminen epäonnistui: {ex.Message}";
+                context.Logger.Warning(msg);
+                result.Errors.Add(msg);
+            }
+            step++;
+        }
+
+        if (_storeTasks is not null)
+        {
+            ct.ThrowIfCancellationRequested();
+            context.Report((int)(100.0 * step / total), StoreStartupTaskSource.Category);
+
+            try
+            {
+                foreach (var task in _storeTasks.ListEnabled())
+                {
+                    result.Items.Add(new CleanItem(
+                        Id: MakeItemId(StoreStartupTaskSource.Key, task.Name),
+                        ModuleId: Id,
+                        Category: StoreStartupTaskSource.Category,
+                        Path: _storeTasks.RegistryPath(task.PackageFamily, task.TaskId),
+                        SizeBytes: 0,
+                        Description: $"{task.DisplayName} ({task.PackageFamily}, tehtävä {task.TaskId})",
+                        Risk: RiskLevel.Medium));
+                }
+            }
+            catch (Exception ex)
+            {
+                var msg = $"{StoreStartupTaskSource.Category}: lukeminen epäonnistui: {ex.Message}";
                 context.Logger.Warning(msg);
                 result.Errors.Add(msg);
             }
@@ -197,8 +228,9 @@ public sealed class StartupModule : ICleanerModule
                 continue;
             }
 
-            var ok = sourceKey.Equals(TaskSourceKey, StringComparison.OrdinalIgnoreCase)
-                ? TryDisableTask(name, context, out var reason)
+            string reason;
+            var ok = sourceKey.Equals(TaskSourceKey, StringComparison.OrdinalIgnoreCase) ? TryDisableTask(name, context, out reason)
+                : sourceKey.Equals(StoreStartupTaskSource.Key, StringComparison.OrdinalIgnoreCase) ? TryDisableStoreTask(name, context, out reason)
                 : TryDisableEntry(sourceKey, name, now, context, out reason);
 
             if (ok) result.Removed.Add(item);
@@ -286,6 +318,61 @@ public sealed class StartupModule : ICleanerModule
         catch (UnauthorizedAccessException)
         {
             reason = "Ei oikeuksia (tehtävä vaatii järjestelmänvalvojan)";
+        }
+        catch (Exception ex)
+        {
+            reason = ex.Message;
+        }
+        return false;
+    }
+
+    private bool TryDisableStoreTask(string name, CleanerContext context, out string reason)
+    {
+        if (_storeTasks is null)
+        {
+            reason = "StartupTask-lähde ei ole käytössä";
+            return false;
+        }
+        if (!StoreStartupTaskSource.TryParseName(name, out var family, out var taskId))
+        {
+            reason = "Virheellinen tunniste";
+            return false;
+        }
+
+        var state = _storeTasks.GetState(family, taskId);
+        if (state is null)
+        {
+            reason = "Kohdetta ei enää ole";
+            return false;
+        }
+        if (state == StoreStartupTaskSource.TaskState.EnabledByPolicy)
+        {
+            reason = "Käytäntö pakottaa käyttöön";
+            return false;
+        }
+        if (state != StoreStartupTaskSource.TaskState.Enabled)
+        {
+            reason = "On jo pois käytöstä";
+            return false;
+        }
+
+        if (context.DryRun)
+        {
+            context.Logger.Debug($"[KUIVA] Poistettaisiin käytöstä StartupTask: {family} / {taskId}");
+            reason = "";
+            return true;
+        }
+
+        try
+        {
+            _storeTasks.Disable(family, taskId);
+            context.Logger.Info($"Poistettu käytöstä StartupTask: {family} / {taskId}");
+            reason = "";
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            reason = "Ei oikeuksia";
         }
         catch (Exception ex)
         {

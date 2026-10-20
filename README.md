@@ -11,7 +11,7 @@ PcCleaner.sln
 │   │   └── Services/               PathGuard, SafeFileDeleter, PathExpander, ProcessChecker, ElevationHelper,
 │   │                               Quarantine, BackupSessions, Registry/ (RegistryBackup, RegistryGuard, RegistryPaths)
 │   ├── Cleaner.Modules.Files/      Tiedostosiivous + selainvälimuistit (rules/files.json, rules/browsers.json) + roskakori
-│   ├── Cleaner.Modules.Startup/    Käynnistysohjelmat: Run-avaimet, käynnistyskansiot, Task Scheduler
+│   ├── Cleaner.Modules.Startup/    Käynnistysohjelmat: Run-avaimet, käynnistyskansiot, Task Scheduler, Store StartupTask
 │   ├── Cleaner.Modules.DiskUsage/  Levytilan analyysi (vain luku) + treemap-algoritmi
 │   ├── Cleaner.Modules.Registry/   Rekisterin puhdistus: orvot Uninstall-, tiedostopääte-, ProgId-, MUICache- ja MRU-merkinnät
 │   ├── Cleaner.Modules.Uninstall/  Ohjelman poisto: poisto-ohjelman ajo, jäännöshaku, karanteeni
@@ -106,7 +106,7 @@ ainoastaan `--item`-valinnalla rajatut tiedostot, ei koskaan kansioita. Koko ase
 minuutteja; rajaa `--path`-valinnalla.
 
 Käynnistysohjelmia ei poisteta, vaan ne poistetaan käytöstä samalla tavalla kuin Tehtävienhallinnassa
-(`StartupApproved`-avain). Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä.
+(`StartupApproved`-avain, Store-sovelluksilla StartupTask-tila). Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä.
 
 Komentorivillä järjestelmäkansiot (`Windows\Temp`, `SoftwareDistribution`) vaativat, että PowerShell on
 käynnistetty järjestelmänvalvojana. Ilman sitä ne vain ohitetaan.

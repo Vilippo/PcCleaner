@@ -104,7 +104,8 @@ Uuden moduulin rekisteröinti: `src/Cleaner.Cli/ModuleFactory.cs` → `CreateAll
 
 ## Startup-moduulin tunnisteet (UI tarvitsee)
 
-`CleanItem.Id` = `startup:<lähde>:<nimi>`, lähteet `hkcu-run`, `hklm-run`, `hklm-run32`, `folder-user`, `folder-common`, `task`.
+`CleanItem.Id` = `startup:<lähde>:<nimi>`, lähteet `hkcu-run`, `hklm-run`, `hklm-run32`, `folder-user`, `folder-common`, `task`,
+`storetask` (nimi `<pakettiperhe>|<tehtävä>`, lisätty 20.10.2026, kategoria "Store-sovellukset (StartupTask)").
 `Path` on rekisteripolku (`HKCU\Software\...\Run\Nimi`), tiedostopolku tai tehtävän polku (`\Nimi`); `Description` on komento;
 `SizeBytes = 0`. Skannaus palauttaa vain käytössä olevat kohteet. Käytöstäpoisto kirjoittaa `StartupApproved`-avaimeen
 samassa hivessä (`Run`, `Run32`, `StartupFolder`), tehtäville `Enabled = false`. HKLM-lähteet ohitetaan syyllä
@@ -227,7 +228,7 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
 - `PathExpander` tukee vain yhtä `*`-jokeria kansiotasolla. Riittää nykyisille säännöille.
 - `RecycleBinModule` on merkitty `[SupportedOSPlatform("windows")]` ja rekisteröidään vain Windowsissa; ei testattu oikealla roskakorilla.
 - `FileLogger` kirjoittaa `%LOCALAPPDATA%\PcCleaner\logs\cleaner-<aika>-<pid>.log` ja siivoaa käynnistyessä vanhat (50 uusinta säilyy, yli 30 pv vanhat pois).
-- Startup ei näe pakattujen sovellusten (Store/MSIX) `StartupTask`-kohteita, jotka Tehtävienhallinta näyttää. Ne ovat avaimessa `HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData\<paketti>\<tehtävä>\State`. Lisää lähteenä myöhemmin, jos tarvitaan.
+- Startup: Store/MSIX `StartupTask`-kohteet luetaan avaimesta `HKCU\...\AppModel\SystemAppData\<pakettiperhe>\<tehtävä>`, jossa `State` on DWORD-arvo (ei aliavain, kuten aiemmin luultiin). Käyttäjän koneella 20.10.2026 seitsemän tehtävää, joista yksi käytössä (Intel Graphics Command Center, tila 2). Käytöstä poisto kirjoittaa 1, `--apply` ei vielä ajettu oikealle kohteelle. Näyttönimen ms-resource-ratkaisu toimii vain asennetuille paketeille.
 - Startup: `StartupApproved\Run32`-avaimen käyttö Wow6432Node-kohteille on Tehtävienhallinnan käytäntö, mutta sitä ei ole todennettu tällä koneella (ei 32-bittisiä Run-kohteita).
 - Startup: ajoitetun tehtävän `Enabled = false` ilman adminia onnistuu vain käyttäjän omille tehtäville; muut päätyvät `Skipped`-listalle syyllä "Ei oikeuksia".
 - DiskUsage: top-N-kansiot ovat sisäkkäisiä ketjuja (du-tyyli). Jos halutaan "missä tiedostot oikeasti ovat", lisää vaihtoehtoinen järjestys `OwnBytes`-kentän mukaan; `DirectoryNode` sisältää sen jo.
