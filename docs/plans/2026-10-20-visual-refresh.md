@@ -476,7 +476,7 @@ T2:n buildissa, mikä on vaaratonta (kopiointi). Foreman ajaa aallon lopuksi: po
 Yksi tehtävä: T5 muokkaa MainViewModel-, ModuleViewModel- ja UiText-tiedostoja, joihin wave 4 ja 5 nojaavat.
 
 ### T5: ViewModelit ja käynnistys: ulkoasun valinta, asetussivun tila, laattojen arvot
-- Status: pending
+- Status: done d8bc31b
 - Model: opus
 - Requirements: REQ-5, REQ-6, REQ-10, REQ-14, REQ-21
 - Constraints/edge: EDGE-1, EDGE-3, EDGE-6
@@ -761,7 +761,7 @@ muutokset eivät näy siinä. Note: T7 jatkaa T6:n (wave 4) luomia tiedostoja.
   jokin tarvittava ominaisuus puuttuu, laske se x:Bind-funktiolla code-behindissä.
 
 ### T8: Dokumentaatio
-- Status: pending
+- Status: done 7ddb234
 - Model: opus
 - Requirements: REQ-22
 - Files: README.md, README.fi.md, docs/ARCHITECTURE.md, HANDOFF.md
