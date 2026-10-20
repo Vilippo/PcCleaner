@@ -313,7 +313,7 @@ Käyttöliittymä
 Yksi tehtävä: T1 luo Ai-projektin, sen rajapinnat ja puhtaan logiikan sekä asetuskentät, joihin kaikki muut nojaavat.
 
 ### T1: Cleaner.Ai-projekti, mallit, digestit, kehotteet, jäsennin ja asetuskentät
-- Status: pending
+- Status: done 6477be4
 - Model: fable
 - Requirements: REQ-1 (ilman UI-csproj-viittausta, se on T4:ssä), REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-11
 - Constraints/edge: CON-1, CON-2, CON-3, CON-5, CON-7, EDGE-3, EDGE-4, EDGE-5, EDGE-7, EDGE-13
