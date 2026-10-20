@@ -1,4 +1,5 @@
 using Cleaner.Core.Abstractions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
 
@@ -18,18 +19,19 @@ namespace Cleaner.Modules.DiskUsage;
 public sealed class DiskUsageModule : ICleanerModule
 {
     public string Id => "diskusage";
-    public string DisplayName => "Levytilan analyysi";
-    public string Description => "Etsii suurimmat kansiot ja tiedostot. Ei poista mitään automaattisesti.";
+    public string DisplayName => Loc.T("Disk usage", "Levytilan analyysi");
+    public string Description => Loc.T("Finds the largest folders and files. Does not delete anything automatically.",
+        "Etsii suurimmat kansiot ja tiedostot. Ei poista mitään automaattisesti.");
     public RiskLevel Risk => RiskLevel.High;
     public bool RequiresAdmin => false;
 
     /// <summary>Analyysi on hidas eikä siivoa mitään; ajetaan vain pyydettäessä.</summary>
     public bool SelectedByDefault => false;
 
-    public const string FolderCategory = "Suurimmat kansiot";
+    public static string FolderCategory => Loc.T("Largest folders", "Suurimmat kansiot");
     /// <summary>Kansiot vain omien tiedostojen koon mukaan: kertoo, missä tiedostot oikeasti ovat.</summary>
-    public const string OwnFolderCategory = "Kansiot omien tiedostojen mukaan";
-    public const string FileCategory = "Suurimmat tiedostot";
+    public static string OwnFolderCategory => Loc.T("Folders by own files", "Kansiot omien tiedostojen mukaan");
+    public static string FileCategory => Loc.T("Largest files", "Suurimmat tiedostot");
     private const string DirPrefix = "diskusage:dir:";
     private const string OwnDirPrefix = "diskusage:owndir:";
     private const string FilePrefix = "diskusage:file:";
@@ -72,7 +74,7 @@ public sealed class DiskUsageModule : ICleanerModule
         var roots = Options.Roots.Where(Directory.Exists).ToList();
         foreach (var missing in Options.Roots.Except(roots, StringComparer.OrdinalIgnoreCase))
         {
-            var msg = $"Kansiota ei ole: {missing}";
+            var msg = Loc.T($"Folder does not exist: {missing}", $"Kansiota ei ole: {missing}");
             context.Logger.Warning(msg);
             result.Errors.Add(msg);
         }
@@ -140,7 +142,8 @@ public sealed class DiskUsageModule : ICleanerModule
         foreach (var (root, node) in folders)
         {
             var share = root.TotalBytes > 0 ? (double)node.TotalBytes / root.TotalBytes : 0;
-            var desc = $"{node.FileCount} tiedostoa, {share:P0} juuresta {root.Path}" + (node.HadErrors ? ", osa alikansioista ei luettavissa" : "");
+            var desc = string.Format(Loc.Culture, Loc.T("{0} files, {1:P0} of root {2}", "{0} tiedostoa, {1:P0} juuresta {2}"), node.FileCount, share, root.Path)
+                + (node.HadErrors ? Loc.T(", some subfolders could not be read", ", osa alikansioista ei luettavissa") : "");
             result.Items.Add(new CleanItem(DirPrefix + node.Path, Id, FolderCategory, node.Path, node.TotalBytes, desc, RiskLevel.High));
         }
 
@@ -156,7 +159,8 @@ public sealed class DiskUsageModule : ICleanerModule
         foreach (var node in ownFolders)
         {
             var ownFiles = node.FileCount - node.Children.Sum(c => c.FileCount);
-            var desc = $"omia tiedostoja {ByteFormatter.Format(node.OwnBytes)} ({ownFiles} kpl), alipuu yhteensä {ByteFormatter.Format(node.TotalBytes)}";
+            var desc = string.Format(Loc.Culture, Loc.T("own files {0} ({1} items), subtree total {2}", "omia tiedostoja {0} ({1} kpl), alipuu yhteensä {2}"),
+                ByteFormatter.Format(node.OwnBytes), ownFiles, ByteFormatter.Format(node.TotalBytes));
             result.Items.Add(new CleanItem(OwnDirPrefix + node.Path, Id, OwnFolderCategory, node.Path, node.OwnBytes, desc, RiskLevel.High));
         }
 
@@ -166,12 +170,13 @@ public sealed class DiskUsageModule : ICleanerModule
 
         foreach (var file in files)
             result.Items.Add(new CleanItem(FilePrefix + file.Path, Id, FileCategory, file.Path, file.Bytes,
-                $"Muokattu {file.LastWriteUtc.ToLocalTime():yyyy-MM-dd}", RiskLevel.High));
+                string.Format(Loc.Culture, Loc.T("Modified {0:yyyy-MM-dd}", "Muokattu {0:yyyy-MM-dd}"), file.LastWriteUtc.ToLocalTime()), RiskLevel.High));
 
-        context.Report(100, "Valmis");
+        context.Report(100, Loc.T("Done", "Valmis"));
         var totalBytes = trees.Sum(t => t.TotalBytes);
         var totalFiles = trees.Sum(t => t.FileCount);
-        context.Logger.Info($"{DisplayName}: {roots.Count} juurta, {totalFiles} tiedostoa, {ByteFormatter.Format(totalBytes)}");
+        context.Logger.Info(string.Format(Loc.Culture, Loc.T("{0}: {1} roots, {2} files, {3}", "{0}: {1} juurta, {2} tiedostoa, {3}"),
+            DisplayName, roots.Count, totalFiles, ByteFormatter.Format(totalBytes)));
         return result;
     }
 
@@ -264,19 +269,20 @@ public sealed class DiskUsageModule : ICleanerModule
 
             if (!string.Equals(item.ModuleId, Id, StringComparison.OrdinalIgnoreCase))
             {
-                result.Skipped.Add((item, "Kohde ei kuulu tälle moduulille"));
+                result.Skipped.Add((item, Loc.T("Item does not belong to this module", "Kohde ei kuulu tälle moduulille")));
                 continue;
             }
 
             if (item.Id.StartsWith(DirPrefix, StringComparison.Ordinal) || item.Id.StartsWith(OwnDirPrefix, StringComparison.Ordinal))
             {
-                result.Skipped.Add((item, "Kansioita ei poisteta tästä moduulista. Poista sisältö itse Resurssienhallinnassa."));
+                result.Skipped.Add((item, Loc.T("Folders are not deleted by this module. Delete the contents yourself in File Explorer.",
+                    "Kansioita ei poisteta tästä moduulista. Poista sisältö itse Resurssienhallinnassa.")));
                 continue;
             }
 
             if (!item.Id.StartsWith(FilePrefix, StringComparison.Ordinal))
             {
-                result.Skipped.Add((item, "Virheellinen tunniste"));
+                result.Skipped.Add((item, Loc.T("Invalid item id", "Virheellinen tunniste")));
                 continue;
             }
 
@@ -286,8 +292,12 @@ public sealed class DiskUsageModule : ICleanerModule
                 result.Skipped.Add((item, reason));
         }
 
-        context.Report(100, "Valmis");
-        context.Logger.Info($"{DisplayName}: {(context.DryRun ? "poistettaisiin" : "poistettiin")} {result.Removed.Count} tiedostoa ({ByteFormatter.Format(result.FreedBytes)}), ohitettu {result.Skipped.Count}");
+        context.Report(100, Loc.T("Done", "Valmis"));
+        context.Logger.Info(string.Format(Loc.Culture,
+            Loc.T("{0}: {1} {2} files ({3}), skipped {4}", "{0}: {1} {2} tiedostoa ({3}), ohitettu {4}"),
+            DisplayName,
+            context.DryRun ? Loc.T("would delete", "poistettaisiin") : Loc.T("deleted", "poistettiin"),
+            result.Removed.Count, ByteFormatter.Format(result.FreedBytes), result.Skipped.Count));
         return result;
     }
 }
