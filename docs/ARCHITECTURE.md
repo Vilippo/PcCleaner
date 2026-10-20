@@ -184,11 +184,14 @@ Projekti `src/Cleaner.Modules.DiskUsage`. `ScanAsync` rakentaa kansiopuun (`Dire
 peräkkäin. Reparse pointteja ei seurata; piilotetut ja järjestelmätiedostot lasketaan. Lukuvirhe merkitsee
 solmun `HadErrors`-lipun eikä kaada skannausta. Puu jää `DiskUsageModule.LastTrees`-ominaisuuteen treemapia varten.
 
-Tulos: top-N suurimmat kansiot (juuria lukuun ottamatta, koko alipuun mukaan) ja top-N suurimmat tiedostot
-`CleanItem`-listana, `Id = diskusage:dir:<polku>` / `diskusage:file:<polku>`, `Risk = High`,
-`SelectedByDefault = false`. Oletusjuuret ovat kaikki kiinteät asemat; CLI:ssä `--path` ja `--top`.
+Tulos kolmena kategoriana: "Suurimmat kansiot" (top-N juuria lukuun ottamatta, koko alipuun mukaan,
+`Id = diskusage:dir:<polku>`), "Kansiot omien tiedostojen mukaan" (top-N `OwnBytes`-kentän mukaan, juuri mukana,
+`Id = diskusage:owndir:<polku>`, `SizeBytes` = omat tavut, kuvaus "omia tiedostoja X (n kpl), alipuu yhteensä Y") ja
+"Suurimmat tiedostot" (top-N, `Id = diskusage:file:<polku>`). Kaikki `Risk = High`, `SelectedByDefault = false`.
+Alipuun mukainen lista täyttyy sisäkkäisistä ketjuista (AppData, AppData\Local, ...); omien tiedostojen lista kertoo,
+missä tiedostot oikeasti ovat. Sama kansio voi olla molemmissa eri tunnisteella. Oletusjuuret ovat kaikki kiinteät asemat; CLI:ssä `--path` ja `--top`.
 
-`CleanAsync` poistaa vain tiedostokohteita `SafeFileDeleter`-luokan kautta. Kansiokohteet ohitetaan aina
+`CleanAsync` poistaa vain tiedostokohteita `SafeFileDeleter`-luokan kautta. Kansiokohteet (`dir` ja `owndir`) ohitetaan aina
 (`Skipped`), koska suurimman kansion rekursiivinen poisto on juuri se vahinko, jota ohjelma ei saa tehdä.
 Treemap-näkymä WinUI:hin vaiheessa 2.
 

@@ -5,7 +5,8 @@ using Cleaner.Core.Services;
 namespace Cleaner.Modules.DiskUsage;
 
 /// <summary>
-/// Levytilan analyysi: rakentaa kansiopuun kokoineen ja raportoi suurimmat kansiot ja tiedostot.
+/// Levytilan analyysi: rakentaa kansiopuun kokoineen ja raportoi suurimmat kansiot (alipuun mukaan ja
+/// omien tiedostojen mukaan) sekä suurimmat tiedostot.
 /// Ylätason kansiot käsitellään rinnakkain, niiden alipuut peräkkäin. Reparse pointteja
 /// (junction, symlink) ei seurata, jotta sama data ei tule laskettua kahdesti eikä puu kierrä.
 ///
@@ -26,8 +27,11 @@ public sealed class DiskUsageModule : ICleanerModule
     public bool SelectedByDefault => false;
 
     public const string FolderCategory = "Suurimmat kansiot";
+    /// <summary>Kansiot vain omien tiedostojen koon mukaan: kertoo, missä tiedostot oikeasti ovat.</summary>
+    public const string OwnFolderCategory = "Kansiot omien tiedostojen mukaan";
     public const string FileCategory = "Suurimmat tiedostot";
     private const string DirPrefix = "diskusage:dir:";
+    private const string OwnDirPrefix = "diskusage:owndir:";
     private const string FilePrefix = "diskusage:file:";
 
     private static readonly EnumerationOptions EnumOptions = new()
@@ -140,6 +144,22 @@ public sealed class DiskUsageModule : ICleanerModule
             result.Items.Add(new CleanItem(DirPrefix + node.Path, Id, FolderCategory, node.Path, node.TotalBytes, desc, RiskLevel.High));
         }
 
+        // Kansiot omien tiedostojen mukaan: alipuun koko ei vaikuta, joten sisäkkäiset ketjut eivät täytä listaa.
+        // Juuri on mukana, koska sen omat tiedostot (esim. C:\pagefile.sys) ovat usein suurimpia.
+        var ownFolders = trees
+            .SelectMany(root => root.Descendants())
+            .Where(n => n.OwnBytes > 0)
+            .OrderByDescending(n => n.OwnBytes)
+            .ThenBy(n => n.Path, StringComparer.OrdinalIgnoreCase)
+            .Take(Options.TopFolders);
+
+        foreach (var node in ownFolders)
+        {
+            var ownFiles = node.FileCount - node.Children.Sum(c => c.FileCount);
+            var desc = $"omia tiedostoja {ByteFormatter.Format(node.OwnBytes)} ({ownFiles} kpl), alipuu yhteensä {ByteFormatter.Format(node.TotalBytes)}";
+            result.Items.Add(new CleanItem(OwnDirPrefix + node.Path, Id, OwnFolderCategory, node.Path, node.OwnBytes, desc, RiskLevel.High));
+        }
+
         var files = fileSinks.SelectMany(s => s)
             .OrderByDescending(f => f.Bytes)
             .Take(Options.TopFiles);
@@ -248,7 +268,7 @@ public sealed class DiskUsageModule : ICleanerModule
                 continue;
             }
 
-            if (item.Id.StartsWith(DirPrefix, StringComparison.Ordinal))
+            if (item.Id.StartsWith(DirPrefix, StringComparison.Ordinal) || item.Id.StartsWith(OwnDirPrefix, StringComparison.Ordinal))
             {
                 result.Skipped.Add((item, "Kansioita ei poisteta tästä moduulista. Poista sisältö itse Resurssienhallinnassa."));
                 continue;

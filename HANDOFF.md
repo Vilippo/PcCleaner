@@ -114,9 +114,10 @@ samassa hivessä (`Run`, `Run32`, `StartupFolder`), tehtäville `Enabled = false
 
 ## DiskUsage-moduulin tunnisteet (UI tarvitsee)
 
-`CleanItem.Id` = `diskusage:dir:<polku>` tai `diskusage:file:<polku>`; kategoriat `Suurimmat kansiot` ja
-`Suurimmat tiedostot`; `SizeBytes` = alipuun tai tiedoston koko; `Description` = tiedostomäärä ja osuus juuresta
-(kansio) tai muokkauspäivä (tiedosto). Kansiokohteet ovat sisäkkäisiä (AppData, AppData\Local, ...), joten niiden
+`CleanItem.Id` = `diskusage:dir:<polku>`, `diskusage:owndir:<polku>` tai `diskusage:file:<polku>`; kategoriat
+`Suurimmat kansiot`, `Kansiot omien tiedostojen mukaan` (lisätty 20.10.2026, `OwnBytes`-järjestys, juuri mukana) ja
+`Suurimmat tiedostot`; `SizeBytes` = alipuun, omien tiedostojen tai tiedoston koko; `Description` = tiedostomäärä ja
+osuus juuresta (dir), "omia tiedostoja X (n kpl), alipuu yhteensä Y" (owndir) tai muokkauspäivä (tiedosto). Kansiokohteet ovat sisäkkäisiä (AppData, AppData\Local, ...), joten niiden
 summa ei tarkoita mitään; CLI ei näytä sitä. Koko puu on `DiskUsageModule.LastTrees` (yksi `DirectoryNode` per juuri)
 treemapia varten. Mittaus 19.10.2026 tavallisena käyttäjänä: `C:\Users\ville` 2,14 milj. tiedostoa, 474 Gt, 65 s kylmänä;
 koko `C:\` 2,83 milj. tiedostoa, 1,52 Tt, 44 s heti perään (välimuisti lämmin). Kuiva `clean --item "diskusage:file:"`
@@ -241,7 +242,7 @@ kategorian valinta toimi koska getter ei palauta null-arvoa. UI-näkymämalleill
 - Startup: Store/MSIX `StartupTask`-kohteet luetaan avaimesta `HKCU\...\AppModel\SystemAppData\<pakettiperhe>\<tehtävä>`, jossa `State` on DWORD-arvo (ei aliavain, kuten aiemmin luultiin). Käyttäjän koneella 20.10.2026 seitsemän tehtävää, joista yksi käytössä (Intel Graphics Command Center, tila 2). Käytöstä poisto kirjoittaa 1, `--apply` ei vielä ajettu oikealle kohteelle. Näyttönimen ms-resource-ratkaisu toimii vain asennetuille paketeille.
 - Startup: `StartupApproved\Run32`-avaimen käyttö Wow6432Node-kohteille on Tehtävienhallinnan käytäntö, mutta sitä ei ole todennettu tällä koneella (ei 32-bittisiä Run-kohteita).
 - Startup: ajoitetun tehtävän `Enabled = false` ilman adminia onnistuu vain käyttäjän omille tehtäville; muut päätyvät `Skipped`-listalle syyllä "Ei oikeuksia".
-- DiskUsage: top-N-kansiot ovat sisäkkäisiä ketjuja (du-tyyli). Jos halutaan "missä tiedostot oikeasti ovat", lisää vaihtoehtoinen järjestys `OwnBytes`-kentän mukaan; `DirectoryNode` sisältää sen jo.
+- DiskUsage: "Suurimmat kansiot" on sisäkkäisiä ketjuja (du-tyyli); "Kansiot omien tiedostojen mukaan" (20.10.2026) kertoo, missä tiedostot oikeasti ovat. Kumpaakaan ei poisteta.
 - DiskUsage: skannauksessa `IgnoreInaccessible = true`, joten tavallisena käyttäjänä osa `C:\Windows`- ja muiden käyttäjien kansioista jää laskematta. `HadErrors`-lippu näkyy kuvauksessa "osa alikansioista ei luettavissa".
 - Registry: MUICache-avain viedään kokonaan (yksi .reg, voi olla satoja kilotavuja) ennen ensimmäistä arvon poistoa; sama avain vain kerran per ajo. Palautus tuo koko avaimen takaisin, myös sen jälkeen lisätyt arvot säilyvät (reg import ei poista).
 - Registry: `reg export`/`reg import` -tulosteet ovat lokalisoituja; virheviesti välitetään sellaisenaan.

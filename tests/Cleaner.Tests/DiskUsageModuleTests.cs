@@ -1,4 +1,5 @@
 using Cleaner.Core.Models;
+using Cleaner.Core.Services;
 using Cleaner.Modules.DiskUsage;
 using Xunit;
 
@@ -71,6 +72,34 @@ public sealed class DiskUsageModuleTests : IDisposable
     }
 
     [Fact]
+    public async Task Scan_reports_folders_by_own_bytes_including_root_without_subtree_chains()
+    {
+        Seed();
+        var module = CreateModule(top: 3);
+
+        var result = await module.ScanAsync(new CleanerContext { Logger = new TestLogger() });
+        var own = result.Items.Where(i => i.Category == DiskUsageModule.OwnFolderCategory).ToList();
+
+        // Omat tavut: b 1000, a 300 (one+two), a\sub 300, root 10. Tasapeli ratkeaa polun mukaan.
+        Assert.Equal(3, own.Count);
+        Assert.EndsWith("b", own[0].Path);
+        Assert.Equal(1000, own[0].SizeBytes);
+        Assert.EndsWith("a", own[1].Path);
+        Assert.Equal(300, own[1].SizeBytes);
+        Assert.EndsWith("sub", own[2].Path);
+        Assert.Equal(300, own[2].SizeBytes);
+        Assert.All(own, i => Assert.StartsWith("diskusage:owndir:", i.Id));
+        Assert.Contains($"omia tiedostoja {ByteFormatter.Format(300)} (2 kpl), alipuu yhteensä {ByteFormatter.Format(600)}", own[1].Description);
+
+        var all = await CreateModule(top: 10).ScanAsync(new CleanerContext { Logger = new TestLogger() });
+        Assert.Contains(all.Items, i => i.Category == DiskUsageModule.OwnFolderCategory && i.Path == _root && i.SizeBytes == 10);
+
+        var clean = await module.CleanAsync(own, new CleanerContext { Logger = new TestLogger(), DryRun = false });
+        Assert.Empty(clean.Removed);
+        Assert.All(clean.Skipped, s => Assert.Contains("Kansioita ei poisteta", s.Reason));
+    }
+
+    [Fact]
     public async Task Scan_reports_largest_folders_and_files_in_order_excluding_root()
     {
         Seed();
@@ -133,7 +162,7 @@ public sealed class DiskUsageModuleTests : IDisposable
 
         Assert.True(clean.WasDryRun);
         Assert.Equal(3, clean.Removed.Count);           // tiedostot "poistettaisiin"
-        Assert.Equal(3, clean.Skipped.Count);           // kansiot ohitetaan aina
+        Assert.Equal(6, clean.Skipped.Count);           // kansiot ohitetaan aina: 3 alipuun mukaan + 3 omien tiedostojen mukaan
         Assert.True(File.Exists(Path.Combine(_root, "b", "big.bin")));
         Assert.True(Directory.Exists(Path.Combine(_root, "b")));
     }
