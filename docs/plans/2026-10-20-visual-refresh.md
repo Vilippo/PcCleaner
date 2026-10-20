@@ -677,7 +677,7 @@ dokumentteja. Tiedostot eivät leikkaa, ja T8:n Verify on rajattu omiin tiedosto
 muutokset eivät näy siinä. Note: T7 jatkaa T6:n (wave 4) luomia tiedostoja.
 
 ### T7: Moduulisivun ja alapalkin uusi asettelu
-- Status: pending
+- Status: done 80ab543
 - Model: fable
 - Requirements: REQ-13, REQ-14, REQ-15, REQ-16, REQ-17, REQ-20
 - Constraints/edge: CON-4, EDGE-5
