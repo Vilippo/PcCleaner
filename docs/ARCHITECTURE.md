@@ -316,7 +316,9 @@ ja lopetus päättää käyttäjän valitsemat. Levyltä ei poisteta mitään. `
 Suoritinaika luetaan kahdesti 3 s välein. Prosessi on joutilas vain, jos molemmat näytteet onnistuivat ja aika ei muuttunut.
 
 Suojatut prosessit (`ProcessGuard`) jätetään kokonaan pois listasta. Syyt:
-- "Oma prosessi": PcCleanerin oma prosessi ja sen vanhempi.
+- "Oma prosessi": PcCleanerin oma prosessi ja sen kaikki esivanhemmat (vanhempi, isovanhempi jne., esimerkiksi pääte,
+  josta CLI ajettiin). Ketju seurataan `ParentPid`-kenttää pitkin vain, kun esivanhempi käynnistyi aikaisintaan lapsensa
+  kanssa; kierrätetty PID katkaisee ketjun. Jo päättynyt vanhempi suojataan `OwnParentPid`-tunnisteella.
 - "Järjestelmäprosessi": PID 0–4 (System Idle ja System).
 - "Toinen istunto tai palvelu": istunto eri kuin käyttäjän.
 - "Tietoja ei voitu lukea": exe-polku tai käynnistysaika jäi lukematta.

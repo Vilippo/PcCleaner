@@ -65,6 +65,59 @@ public sealed class ProcessClassifierTests
     }
 
     [Fact]
+    public void Guard_protects_whole_ancestor_chain_of_own_process()
+    {
+        // OwnPid -> vanhempi -> isovanhempi -> isoisovanhempi, jokainen käynnistynyt ennen lastaan.
+        var snap = Snap(
+            Info(OwnPid, OwnParentPid, "me", AppExe, T(1)),
+            Info(OwnParentPid, 900, "parent", AppExe, T(2)),
+            Info(900, 800, "grand", AppExe, T(3)),
+            Info(800, 1, "great", AppExe, T(4)),
+            Info(13, 800, "sibling", AppExe, T(1)));
+
+        Assert.Equal(new[] { 800, 900, OwnParentPid }, snap.OwnAncestorPids.OrderBy(p => p));
+        Assert.Equal("Oma prosessi", ProcessGuard.Protects(Info(900, 800, "grand", AppExe, T(3)), snap));
+        Assert.Equal("Oma prosessi", ProcessGuard.Protects(Info(800, 1, "great", AppExe, T(4)), snap));
+        Assert.Null(ProcessGuard.Protects(Info(13, 800, "sibling", AppExe, T(1)), snap));
+
+        var only = Assert.Single(ProcessClassifier.Classify(snap, NoRules));
+        Assert.Equal(13, only.Root.Pid);
+    }
+
+    [Fact]
+    public void Guard_stops_ancestor_chain_at_recycled_pid()
+    {
+        // Isovanhemman PID 900 on kierrätetty: nykyinen 900 käynnistyi vanhemman jälkeen, joten ketju katkeaa siihen.
+        var snap = Snap(
+            Info(OwnPid, OwnParentPid, "me", AppExe, T(1)),
+            Info(OwnParentPid, 900, "parent", AppExe, T(5)),
+            Info(900, 800, "recycled", AppExe, T(2)),
+            Info(800, 1, "great", AppExe, T(10)));
+
+        Assert.Equal(new[] { OwnParentPid }, snap.OwnAncestorPids);
+        Assert.Null(ProcessGuard.Protects(Info(900, 800, "recycled", AppExe, T(2)), snap));
+        Assert.Null(ProcessGuard.Protects(Info(800, 1, "great", AppExe, T(10)), snap));
+    }
+
+    [Fact]
+    public void Guard_ancestor_chain_survives_cycle_and_missing_own_process()
+    {
+        // Sykli 900 <-> 800 yhtä suurilla käynnistysajoilla päättyy käyntimerkintään.
+        var cyclic = Snap(
+            Info(OwnPid, OwnParentPid, "me", AppExe, T(1)),
+            Info(OwnParentPid, 900, "parent", AppExe, T(2)),
+            Info(900, 800, "a", AppExe, T(3)),
+            Info(800, 900, "b", AppExe, T(3)));
+        Assert.Equal(new[] { 800, 900, OwnParentPid }, cyclic.OwnAncestorPids.OrderBy(p => p));
+
+        // Oma prosessi puuttuu näytteestä (väärennetyt testinäytteet): ketju on tyhjä, OwnParentPid suojaa silti.
+        var withoutSelf = Snap(Info(OwnParentPid, 900, "parent", AppExe, T(2)), Info(900, 1, "grand", AppExe, T(3)));
+        Assert.Empty(withoutSelf.OwnAncestorPids);
+        Assert.Equal("Oma prosessi", ProcessGuard.Protects(Info(OwnParentPid, 900, "parent", AppExe, T(2)), withoutSelf));
+        Assert.Null(ProcessGuard.Protects(Info(900, 1, "grand", AppExe, T(3)), withoutSelf));
+    }
+
+    [Fact]
     public void Protected_processes_are_not_listed()
     {
         var snap = Snap(

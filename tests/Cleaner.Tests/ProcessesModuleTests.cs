@@ -134,6 +134,30 @@ public sealed class ProcessesModuleTests : IDisposable
     }
 
     [Fact]
+    public async Task Scan_does_not_list_any_ancestor_of_own_process()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        // Ketju lasketaan tässä itsenäisesti näytteen ParentPid-tiedoista: testhost -> dotnet (vstest) -> dotnet (test) -> pääte.
+        var snapshot = new ProcessInventory().Capture(TimeSpan.Zero, default);
+        var byPid = snapshot.Processes.ToDictionary(p => p.Pid);
+        var ancestors = new List<int>();
+        var current = byPid[Environment.ProcessId];
+        while (byPid.TryGetValue(current.ParentPid, out var parent) && parent.StartFileTime <= current.StartFileTime && !ancestors.Contains(parent.Pid))
+        {
+            ancestors.Add(parent.Pid);
+            current = parent;
+        }
+        Assert.NotEmpty(ancestors);
+
+        var scan = await CreateModule().ScanAsync(Context(dryRun: true));
+
+        foreach (var pid in ancestors)
+            Assert.DoesNotContain(scan.Items, i => i.Id.StartsWith($"processes:{pid}:", StringComparison.Ordinal));
+        Assert.DoesNotContain(scan.Items, i => i.Id.StartsWith($"processes:{snapshot.OwnParentPid}:", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Scan_warns_when_rules_file_missing()
     {
         if (!OperatingSystem.IsWindows()) return;

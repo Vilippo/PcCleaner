@@ -12,7 +12,9 @@ public static class ProcessGuard
     /// <summary>Syy suomeksi tai null, kun prosessia saa listata ja lopettaa.</summary>
     public static string? Protects(ProcessInfo info, ProcessSnapshot snapshot)
     {
-        if (info.Pid == snapshot.OwnPid || info.Pid == snapshot.OwnParentPid)
+        // OwnParentPid kattaa myös jo päättyneen vanhemman; OwnAncestorPids koko elossa olevan ketjun (pääte, jonka
+        // sisältä PcCleaner ajettiin, ei saa päätyä listalle).
+        if (info.Pid == snapshot.OwnPid || info.Pid == snapshot.OwnParentPid || snapshot.OwnAncestorPids.Contains(info.Pid))
             return "Oma prosessi";
         if (info.Pid <= 4)
             return "Järjestelmäprosessi";

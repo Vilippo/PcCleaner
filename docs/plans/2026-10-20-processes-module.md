@@ -49,7 +49,9 @@ Skannaus ja luokittelu
   prosessin `PROCESS_TERMINATE`-oikeudella (0x0001) ja tallentaa tuloksen kenttään `CanTerminate`; korotetut ja
   suojatut prosessit saavat `false`, kun ohjelma ajetaan tavallisena käyttäjänä.
 - REQ-4: `ProcessGuard.Protects(info, snapshot)` palauttaa syyn (ei null) prosessille, joka on jokin seuraavista:
-  oma prosessi tai oman prosessin vanhempi; PID 0 tai 4; `SessionId` eri kuin oma istunto; `ExePath` null tai
+  oma prosessi, oman prosessin vanhempi (`OwnParentPid`, myös jo päättynyt) tai mikä tahansa oman prosessin elossa oleva
+  esivanhempi (`snapshot.OwnAncestorPids`: `ParentPid`-ketju `OwnPid`:stä ylöspäin, vain kun esivanhemman `StartFileTime`
+  on enintään lapsen, sykli katkaistaan käyntimerkinnällä); PID 0 tai 4; `SessionId` eri kuin oma istunto; `ExePath` null tai
   `StartFileTime` 0; `ExePath` on `Environment.GetFolderPath(SpecialFolder.Windows)`-kansion alla (kirjainkoko ei
   merkitse); `IsCritical = true`; `CanTerminate = false`. Suojattuja prosesseja ei listata skannauksessa, ja `CleanAsync`
   tarkistaa saman ennen lopetusta (REQ-15).
@@ -339,8 +341,8 @@ Yksi tehtävä: T1 luo projektin, mallit ja puhtaan logiikan, joihin kaikki muut
   `Id` ei saa olla tyhjä eikä toistua, `Name` ei tyhjä, `Match` vähintään yksi ei-tyhjä kuvio. Virhe →
   `InvalidDataException`, jonka viesti nimeää lähteen ja säännön.
 
-  `ProcessGuard.Protects` palauttaa syyn, jos jokin pätee: `info.Pid == snapshot.OwnPid` tai `== snapshot.OwnParentPid`
-  ("Oma prosessi"); `Pid <= 4` ("Järjestelmäprosessi"); `SessionId != snapshot.CurrentSessionId` ("Toinen istunto tai palvelu");
+  `ProcessGuard.Protects` palauttaa syyn, jos jokin pätee: `info.Pid == snapshot.OwnPid`, `== snapshot.OwnParentPid`
+  tai `snapshot.OwnAncestorPids.Contains(info.Pid)` ("Oma prosessi"; esivanhempijoukko lasketaan laiskasti kerran per näyte); `Pid <= 4` ("Järjestelmäprosessi"); `SessionId != snapshot.CurrentSessionId` ("Toinen istunto tai palvelu");
   `ExePath` null tai `StartFileTime == 0` ("Tietoja ei voitu lukea"); `ExePath` alkaa polulla
   `Environment.GetFolderPath(Environment.SpecialFolder.Windows)` + kansioerotin, kirjainkoko ei merkitse ("Windows-kansion prosessi");
   `IsCritical` ("Kriittinen prosessi"); `!CanTerminate` ("Ei oikeuksia lopettaa"). Muuten null. Windows-kansion polku luetaan kerran staattiseen kenttään; testattavuuden
