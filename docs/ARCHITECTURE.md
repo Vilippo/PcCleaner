@@ -1,6 +1,6 @@
 # PC Cleaner – tekninen määrittely
 
-Versio 0.4 · 20.10.2026
+Versio 0.5 · 20.10.2026
 
 Lisenssi: MIT, ks. `LICENSE` repon juuressa.
 
@@ -31,6 +31,8 @@ Ominaisuudet kehitysjärjestyksessä. Kaikki ovat toteutettu ja käytössä sek�
 │  Käyttöliittymät: Cleaner.Cli  ·  Cleaner.UI    │   tietävät moduuleista vain
 │  (kummallakin oma ModuleFactory)                │   ModuleFactoryn kautta
 ├─────────────────────────────────────────────────┤
+│  Cleaner.Ai (vain UI viittaa, CLI ei)           │   tekoälyavustaja, NuGet Anthropic
+├─────────────────────────────────────────────────┤
 │  Cleaner.Core.Engine.CleanerEngine              │   reitittää kutsut moduuleille
 ├─────────────────────────────────────────────────┤
 │  ICleanerModule-toteutukset                     │   yksi projekti per aihe
@@ -43,7 +45,8 @@ Ominaisuudet kehitysjärjestyksessä. Kaikki ovat toteutettu ja käytössä sek�
 ```
 
 Riippuvuussääntö: nuolet osoittavat vain alaspäin. Moduuli ei saa viitata toiseen
-moduuliin eikä käyttöliittymään. Core ei saa viitata mihinkään.
+moduuliin eikä käyttöliittymään. Core ei saa viitata mihinkään. `Cleaner.Ai` viittaa vain Coreen ja
+NuGet-pakettiin `Anthropic` 12.58.0. `Cleaner.UI` viittaa siihen, `Cleaner.Cli` ja moduulit eivät.
 
 ## 3. Keskeiset rajapinnat
 
@@ -461,7 +464,7 @@ Turvamekanismit:
   `FontOptions`), valinta on `PaletteIndex`/`FontIndex`. Valitsimet ovat pois käytöstä kiireisenä (`IsIdle`). Kielen
   vaihto päivittää sivun tekstit ilman uudelleenluontia.
 - `settings.json` (`%LOCALAPPDATA%\PcCleaner\settings.json`, `AppSettings`): kentät `language`, `palette` (oletus
-  `mint`) ja `font` (oletus `bahnschrift`). Puuttuva tai null-kenttä antaa oletuksen, joten vanha `{ "language": "fi" }`
+  `mint`) ja `font` (oletus `bahnschrift`) sekä avustajan `aiModel` ja `aiAutoMode` (luku 7.2). Puuttuva tai null-kenttä antaa oletuksen, joten vanha `{ "language": "fi" }`
   kelpaa. Core ei validoi arvoja. Tuntemattoman arvon (esim. `"palette": "neon"`) UI ratkaisee oletukseksi, eikä
   tiedostoa kirjoiteta käynnistyksessä. `App.OnLaunched` kutsuu `Appearance.Apply` ennen ikkunan luontia. Muutos
   tallennetaan `AppSettings.Update`-kutsulla, joka lataa tiedoston, muuttaa yhden kentän ja tallentaa, joten muut
@@ -482,6 +485,125 @@ Turvamekanismit:
   ja sulkee sen. Paneelissa on otsikko, sulkemisnappi, lokirivit Mono-fontilla 12 px, Tyhjennä-nappi ja
   lokitiedoston polku.
 
+### 7.2 Tekoälyavustaja
+
+- Projekti `src/Cleaner.Ai` (net8.0, nimiavaruus `Cleaner.Ai`) viittaa vain `Cleaner.Core`-projektiin ja
+  NuGet-pakettiin `Anthropic` 12.58.0. `Cleaner.UI` ja testiprojekti viittaavat siihen, CLI ei. Luokat:
+  `PathSanitizer`, `ScanDigest` (`DigestOptions`), `HealthDigest`, `SystemFactsCollector` (`SystemFacts`, `DriveFacts`),
+  `AiFormat`, `AiPrompts`, `AiReviewSchema`, `AiReviewParser`, `VerdictApplier`, `AiAssistant` (`AiAssistantOptions`),
+  `IAiBackend` ja sen toteutus `AnthropicBackend`, `AiException` (`AiErrorKind`) sekä mallit tiedostossa `AiModels.cs`.
+  UI:ssa `AiAssistantViewModel` (`MainViewModel.Ai`) ja `AiMessageViewModel`. Vain `AiAssistant` kutsuu
+  `IAiBackend`-metodeja.
+- API-avain: `AnthropicBackend` luo `AnthropicClient`-olion ilman parametreja, joten SDK lukee avaimen
+  ympäristömuuttujasta `ANTHROPIC_API_KEY`. Avainta ei kirjoiteta asetuksiin, lokiin eikä paneeliin.
+  `AnthropicBackend.IsConfigured` on tosi, kun muuttuja ei ole tyhjä. UI lukee sen kerran käynnistyksessä
+  (`AiAssistantViewModel.IsAvailable`), joten avaimen asettamisen jälkeen sovellus käynnistetään uudelleen. Asiakas
+  ja `AiAssistant` luodaan vasta ensimmäisessä kutsussa; käynnistys ei tee API-kutsua.
+- Malli: `settings.json`-kenttä `aiModel` (oletus `claude-opus-5-5`, null antaa oletuksen). UI lukee sen
+  käynnistyksessä, eikä sille ole valitsinta. Arvio käyttää `Messages.Create`-kutsua JSON-skeemalla
+  (`OutputConfig.Format`, `AiReviewSchema.Json`), effort High ja `max_tokens` 16 000. Koneen kunto ja kysymykset
+  käyttävät `CreateStreaming`-kutsua, effort Medium ja 8 000. Thinking-parametria ei lähetetä. Token-määrät kirjataan
+  lokiin Debug-tasolla, paneelissa niitä ei näytetä.
+- Mitä lähetetään: järjestelmäkehote (`AiPrompts.System`, englanniksi tai suomeksi `Loc.Current`-kielen mukaan), koko
+  keskusteluhistoria ja uusi käyttäjäviesti, joka on yksi seuraavista:
+  - Arvio: `AiPrompts.ReviewInstruction` ja `ScanDigest.Text` valitun moduulin kaikista kohteista, myös
+    High-lohkosta. Jokaisella kategorialla on otsikkorivi (nimi, korkein riski, kohdemäärä, yhteiskoko, valittujen
+    määrä). Kohderivit ovat koon mukaan suurin ensin: avain `i<n>` (juokseva), `[x]` tai `[ ]`, koko, siistitty polku
+    ja siistitty kuvaus katkaistuna 120 merkkiin. Rajat (`DigestOptions`): kategoria, jossa on enintään 40 kohdetta,
+    listataan kokonaan; suuremmasta listataan 20 suurinta ja rivi `(+N more, not listed)`. Koko tekstissä on
+    enintään 400 kohderiviä. Kiintiön loputtua kategoria katkaistaan, ja loput kategoriat saavat vain otsikkorivin ja
+    rivin `(items not listed)`. Koot muotoilee `AiFormat.Bytes` (B, KB, MB, GB, TB, yksi desimaali,
+    `InvariantCulture`), ei `ByteFormatter`, joten teksti ei riipu käyttöliittymän kielestä. Opt-in-moduuleilla
+    (`SelectedByDefault == false`) koon tilalla on `size not summed (nested items)`. Digest rakennetaan
+    `Task.Run`-kutsussa.
+  - Koneen kunto: `AiPrompts.HealthInstruction` ja `HealthDigest`-teksti: käyttöjärjestelmän versio, suoritinytimet,
+    muisti yhteensä ja vapaana (`GlobalMemoryStatusEx`), käyntiaika, onko prosessi korotettu, jokainen kiinteä asema
+    (nimi, nimiö, koko, vapaana, prosentti) ja jokaisesta moduulista `not scanned` tai kohdemäärä, yhteiskoko ja
+    enintään 5 suurinta kategoriaa (nimi, määrä, koko). Tiedot kerää `SystemFactsCollector.Collect()`, joka ei
+    heitä. Skannauksia ei käynnistetä. Tekstissä ei ole polkuja.
+  - Kysymys: käyttäjän kirjoittama teksti sellaisenaan, siistimättä.
+  - `PathSanitizer.ForCurrentUser()` siistii digestin polut ja kuvaukset kirjainkoosta riippumatta: nykyisen profiilin
+    polku korvataan merkinnällä `%USERPROFILE%`, kun sitä ei seuraa kirjain, numero, `_`, `-` tai `.` (siksi
+    `C:\Users\ville` ei osu polkuun `C:\Users\villeneuve`), ja muualla esiintyvä `\Users\<käyttäjänimi>\` muodolla
+    `\Users\%USERNAME%\`. Muiden käyttäjien profiilit eivät muutu. Kehote kertoo mallille, että merkinnät ovat
+    tahallisia.
+- Mitä ei lähetetä: lokitiedostoa, `settings.json`-tiedostoa, API-avainta, tiedostojen sisältöä eikä erikseen
+  luettuja rekisteriarvoja. Rekisterikohteista lähtee sama polku ja kuvaus kuin kortissa, ja kuvauksessa voi olla
+  polku, johon merkintä viittaa (esim. puuttuva exe).
+- Arviot: skeema `AiReviewSchema` (`summary`, `categories[]` ja `items[]`, joissa `category` tai `key`, `verdict` ja
+  `reason`; kaikki pakollisia, `additionalProperties: false`). `verdict` on `safe` (voi poistaa ilman tietojen
+  menetystä), `caution` (luultavasti turvallinen, tarkista) tai `keep` (ei saa poistaa). `AiReviewParser` kuvaa
+  avaimen `i<n>` takaisin `CleanItem.Id`-tunnisteeksi ja pudottaa hiljaa tuntemattoman avaimen, kategorian ja
+  arvion; kahdesti annetusta ensimmäinen voittaa. Rikkinäinen JSON tai puuttuva kenttä on `InvalidResponse`.
+- Periytyminen (`VerdictApplier.Resolve`): kohteen oma arvio voittaa, sitten kategorian arvio, muuten arviota ei ole.
+  Kategorian arvio koskee myös digestistä pois jääneitä kohteita.
+- Merkit: `ModuleViewModel.ApplyReview` antaa kategorialle kategorian arvion ja kohteelle vain sen oman arvion (ei
+  periytyvää), joten kohteen merkki kertoo, mistä avustaja sanoi jotain erityistä. Kortissa kategorian merkki on
+  otsikkorivillä riskitekstin jälkeen ja kohteen merkki koon vasemmalla puolella. Teksti on safe/caution/keep tai
+  turvallinen/varo/säilytä (`VerdictText`), värit `RiskLowTextBrush`, `RiskMediumTextBrush` ja `RiskHighTextBrush`,
+  ja ToolTip näyttää perustelun. `LoadScan` ja `ClearScan` poistavat arvion ja merkit ja kasvattavat
+  `ScanGeneration`-laskuria. Arvio viedään merkeiksi vain, jos laskuri on sama kuin pyyntöä tehtäessä; muuten se
+  näkyy paneelissa pelkkänä tekstinä.
+- Arvion viestit: käyttäjän viesti "Tarkista tulokset: <moduuli>" (digestiä ei näytetä) ja avustajan viesti, jossa on
+  `summary` ja sen alla rivi jokaisesta caution- ja keep-arviosta (arvio, kategoria tai polku, perustelu).
+- "Poista varoitetut valinnasta" (`DeselectFlaggedCommand`) poistaa valinnan jokaiselta kohteelta, jonka `Resolve`
+  antaa caution tai keep, myös 500 näkyvän rivin ulkopuolelta, ja lisää paneeliin rivin "Poistettu valinnasta N
+  kohdetta". Nappi näkyy vain, kun `HasFlagged` on tosi eli valitulla moduulilla on arvio ja vähintään yksi valittu
+  kohde on caution tai keep. Oletuksena avustaja vain neuvoo eikä muuta valintoja.
+- Auto-tila: `settings.json`-kenttä `aiAutoMode` (oletus false). Kytkin "Auto-tila" on paneelissa ja asetussivun
+  osiossa "Tekoälyavustaja", ja molemmat sitovat `Ai.AutoMode`-arvoon. Muutos tallennetaan heti
+  `AppSettings.Update`-kutsulla; epäonnistuminen kirjataan varoituksena eikä estä vaihtoa. Auto-tilassa arvio myös
+  valitsee kohteet (`ModuleViewModel.ApplyAutoSelection`, `VerdictApplier.AutoSelection`): High-riskin kohde ei ole
+  koskaan valittuna, caution ja keep poistavat valinnan, safe valitsee, ja kohde ilman arviota pysyy ennallaan.
+  Paneeliin tulee rivi "Valittu N, poistettu valinnasta M".
+- Automaattinen siivous (`MainViewModel.AutoCleanCommand`, sallittu kun sovellus ei ole kiireinen, avustaja ei
+  ajattele, avain on asetettu ja Auto-tila on päällä). Vaiheet 1–3 ajetaan yhden `BeginBusy`-tilan ja yhden
+  `CancellationTokenSource`-olion alla. Alapalkin ja paneelin Peruuta keskeyttävät ne ilman dialogia ja ilman
+  puhdistusta.
+  1. Skannaa kaikki `SelectedByDefault`-moduulit kuten "Skannaa kaikki".
+  2. Pyytää arvion jokaisesta moduulista, jolla on kohteita (`BusyTitle` "Arvio: <moduuli>"), ja soveltaa Auto-tilan
+     valinnat. Virhe tai peruutus lopettaa ajon, samoin Auto-tilan kytkeminen pois kesken ajon.
+  3. Ajaa kuivan ajon näiden moduulien valituille kohteille. High-riskin kohteet suodatetaan pois, vaikka käyttäjä
+     olisi rastinut ne kesken ajon.
+  4. Näyttää yhden vahvistusdialogin "Automaattinen siivous": jokaisen arvioidun moduulin `summary`, kuivan ajon
+     kohdemäärä ja koko, ohitetut syineen (enintään 4 yleisintä syytä), virheet (enintään 4) ja rivi "Tiedostot
+     eivät mene roskakoriin". Painike on "Poista pysyvästi".
+  5. Ajaa oikean ajon, näyttää tulosdialogin ja skannaa moduulit uudelleen.
+
+  Kun valittuja kohteita ei ole tai kuiva ajo ei poistaisi mitään, näytetään "Ei mitään tehtävää". Opt-in-moduulit
+  (käynnistysohjelmat, levytilan analyysi, rekisteri, ohjelman poisto, prosessit) eivät ole koskaan mukana.
+  Tavallinen Puhdista-ketju (kuiva ajo, yhteenveto, vahvistus) on ennallaan myös Auto-tilassa.
+- Virheet: `AnthropicBackend` kääri SDK:n poikkeukset `AiException`-olioiksi (alkuperäinen on `InnerException`): 401
+  `Unauthorized`, 429 `RateLimited`, muu 4xx `BadRequest`, 5xx ja suoratoiston virhetapahtuma (`AnthropicSseException`)
+  `Server`, `AnthropicIOException` `Network`, `AnthropicInvalidDataException` `InvalidResponse`, muut `Other`. SDK:n
+  aikakatkaisu (peruutus, jota käyttäjä ei pyytänyt) on `Network`. `stop_reason` `refusal` on `Refused` ja kantaa
+  luokan (`StopDetails.Category`). Paneeli näyttää virheen omana viestinään lokalisoidulla tekstillä tyypin mukaan,
+  ja loki saa varoituksen. Peruutus jättää jo saadun tekstin ja lisää "(peruutettu)". `max_tokens` lisää rivin
+  "(vastaus katkesi)"; katkennut arvio-JSON on `InvalidResponse`.
+- Historia (`AiAssistant.History`) on vain muistissa eikä tallennu levylle. Jokainen kutsu lähettää koko historian.
+  Rajat `MaxHistory` 20 viestiä ja `MaxHistoryChars` 120 000 merkkiä. Ylityksessä vanhimpia käyttäjän ja avustajan
+  viestipareja poistetaan alusta, mutta uusin pari säilyy aina. Vain uusimman arvion digest on kokonaisena; aiempien
+  arvioiden käyttäjäviesteissä digest korvataan tekstillä `(earlier review of <module>; item list omitted)`. Arviosta
+  tallennetaan raaka JSON, jotta jatkokysymykset näkevät perustelut. Epäonnistunut, peruttu tai jäsentymätön kutsu
+  poistaa oman käyttäjäviestinsä, joten historia pysyy pareina. "Uusi keskustelu" (`ResetCommand`) tyhjentää
+  historian ja viestit mutta ei merkkejä; jos kutsu on silloin kesken, sen myöhästynyttä vastausta ei lisätä
+  historiaan. Kahta kutsua ei ajeta yhtä aikaa (`IsThinking`). Tarkista tulokset, Koneen kunto ja kysymys eivät ole
+  sallittuja skannauksen tai puhdistuksen aikana, mutta avustajan ajatellessa Skannaa ja Puhdista ovat sallittuja.
+- Paneeli (`MainView`): `AiSplitView` (`SplitView`, `PanePlacement=Right`, `DisplayMode=Inline`, `OpenPaneLength=400`,
+  oletuksena kiinni) ympäröi `NavigationView`-elementin `LogSplitView`-sisällön sisällä, joten moduulisivu kapenee
+  paneelin auetessa ja lokipaneeli piirtyy sen päälle. Alapalkin nappi (FontIcon `&#xE99A;`, ToolTip
+  "Tekoälyavustaja") lokinapin vasemmalla puolella avaa ja sulkee paneelin. Paneelissa ylhäältä alas: otsikko ja
+  sulkunappi; InfoBar (`UnavailableText`), kun avainta ei ole; kytkin "Auto-tila"; viestilista (käyttäjän viesti
+  `AppCardHoverBrush`-taustalla ja vasen marginaali 24 px, avustajan viesti `AppCardBackgroundBrush` ja oikea
+  marginaali 24 px, virhe `RiskHighTintBrush`, tiedote ilman taustaa; teksti on valittavissa eikä markdownia
+  renderöidä), joka vierittää uusimman viestin näkyviin; ProgressRing ja Peruuta ajattelun aikana; napit "Tarkista
+  tulokset", "Koneen kunto", "Automaattinen siivous" (vain Auto-tilassa), "Poista varoitetut valinnasta" (vain kun
+  `HasFlagged`) ja "Uusi keskustelu"; alimpana kysymyskenttä (Enter lähettää) ja lähetysnappi. Asetussivun osio
+  näyttää saman kytkimen, tekstin "Malli: <aiModel>", avainvihjeen (`KeyHint`) ja tietosuojahuomautuksen.
+  Viestit, arviot ja Auto-tila ovat ViewModelissa, joten ulkoasun vaihto säilyttää ne; paneeli sulkeutuu kuten
+  lokipaneeli. Kielen vaihto päivittää kiinteät tekstit, `UnavailableText`-tekstin ja merkit, mutta jo kirjoitetut
+  viestit jäävät syntykieleensä.
+
 ## 8. Testaus
 
 - Yksikkötestit (`Cleaner.Tests`, xUnit): `PathGuard`, `RuleLoader`, `FileCleanerModule` oikealla
@@ -501,6 +623,11 @@ Turvamekanismit:
   `UninstallRunnerTests` (komentorivin valinta, MSI, avaimen katoamisen odotus, puuttuva exe, `RunningProcessCheck`) ja `UninstallModuleTests`
   (idempotentti skannaus, kuiva ajo, karanteeni + rekisteri + palautus, väärennetyt tunnisteet). Rekisteritestit
   käyttävät `HKCU\Software\PcCleanerTests\<guid>`-avainta, tiedostotestit `%TEMP%\pccleaner-tests\<guid>`-kansiota.
+- Tekoälyavustaja (`Cleaner.Ai`): `PathSanitizerTests`, `ScanDigestTests` (rajat 40/20/400, järjestys, kielestä
+  riippumaton teksti), `HealthDigestTests`, `AiReviewParserTests`, `VerdictApplierTests`, `AiAssistantTests`
+  (väärennetty `IAiBackend`: parit, historian rajat, aiemman digestin korvaus, Reset kesken kutsun) ja
+  `AnthropicBackendTests` (`IsConfigured` ja konstruktori ympäristömuuttujalla, ei verkkokutsuja). Kentät `aiModel`
+  ja `aiAutoMode` testataan `LocalizationTests`-luokassa.
 - UI:lla ei ole yksikkötestejä. Savutesti tehdään UI Automationilla (PowerShell `System.Windows.Automation`:
   Invoke "Scan", Toggle valintaruutu, Invoke "Clean", lue dialogin tekstit, Invoke "Cancel"). Nimet ovat
   oletuskielellä englanniksi; suomeksi ne ovat "Skannaa", "Puhdista" ja "Peruuta".
@@ -538,3 +665,4 @@ Turvamekanismit:
     (`DisableParallelization = true`), asettavat `Language.En` ja palauttavat `Language.Fi` lopuksi.
 - Moduulin `Id` on pieniä kirjaimia ilman välilyöntejä ja ei muutu koskaan julkaisun jälkeen.
 - Levyoperaatiot vain `SafeFileDeleter`- ja `PathExpander`-luokkien kautta.
+- Ulkoiset NuGet-paketit vain `Cleaner.Ai`- ja `Cleaner.UI`-projekteissa. Testiprojekti käyttää lisäksi xUnitia.

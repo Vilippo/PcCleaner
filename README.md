@@ -21,12 +21,13 @@ PcCleaner.sln
 │   ├── Cleaner.Modules.Registry/   Registry cleanup: orphaned Uninstall, file extension, ProgId, MUICache and MRU entries
 │   ├── Cleaner.Modules.Uninstall/  Uninstall programs: runs the uninstaller, finds leftovers, quarantine
 │   ├── Cleaner.Modules.Processes/  Processes: classifies and ends background processes in the user session (rules/processes/known.json)
+│   ├── Cleaner.Ai/                 AI assistant: Claude API (NuGet Anthropic), scan digests, path sanitizer, verdicts
 │   ├── Cleaner.Cli/                Command line: scan, clean, modules, uninstall, restore (ModuleFactory)
 │   └── Cleaner.UI/                 WinUI 3 app PcCleaner.exe: MainWindow, Views/ (MainView), ViewModels/,
 │       │                           Services/ (UiModuleFactory), Theming/ (Appearance: palettes and fonts)
 │       └── Assets/Fonts/           InterVariable.ttf and LICENSE-Inter.txt
 ├── tests/
-│   └── Cleaner.Tests/              xUnit tests (modules, services, quarantine, treemap)
+│   └── Cleaner.Tests/              xUnit tests (modules, services, quarantine, treemap, AI)
 ├── tools/
 │   ├── make-icon.ps1               Generates the palette icons PcCleaner-<palette>.ico and PcCleaner.ico/.png (mint)
 │   └── snap-window.py              Takes a screenshot of the app window with PrintWindow
@@ -169,6 +170,71 @@ The choices are saved to `%LOCALAPPDATA%\PcCleaner\settings.json` in the fields 
 Palette values are `mint`, `indigo`, `steel`, `graphite` and `sun`. Font values are `bahnschrift`, `segoe` and `inter`.
 A missing or unknown value gives the default (`mint`, `bahnschrift`), and the file is not rewritten at startup.
 Saving one setting keeps the other fields.
+
+## AI assistant
+
+The desktop app has an AI assistant that uses the Claude API from Anthropic. The button left of the log button in the
+bottom bar opens it as a 400 px pane on the right, next to the module page. The assistant:
+
+- Reviews the scan results of the selected module ("Review results"). Every category, and items that need a comment,
+  get a verdict `safe`, `caution` or `keep` with a reason. The verdicts appear as badges on the category cards, and
+  the tooltip shows the reason. A category verdict applies to all of its items.
+- Assesses the condition of the computer ("PC health") from system facts and the current scan results.
+- Answers your questions in the same conversation.
+
+By default the assistant only gives advice and does not change the selection. "Deselect flagged" removes the selection
+from every item marked `caution` or `keep`. The conversation is kept in memory only (at most 20 messages), and "New
+conversation" clears it. Answers are written in the app language.
+
+The assistant needs an Anthropic API key in the environment variable `ANTHROPIC_API_KEY`:
+
+```powershell
+setx ANTHROPIC_API_KEY sk-ant-...
+```
+
+You can also set it in Windows under System > About > Advanced system settings > Environment variables. Restart PC Cleaner
+afterwards, because the app reads the variable at startup. Without a key the pane shows a notice and its buttons are
+disabled; the rest of the app works as before. The key is never written to `settings.json`, the log or the pane.
+
+API usage is billed to your Anthropic account according to Anthropic's pricing. Every review, health check and question
+is one API call, and each call sends the whole conversation again.
+
+What is sent to Anthropic:
+
+- Review: the selected module's results as text. Per category the name, risk, item count, total size and number of
+  selected items; per item the size, path, description and whether it is selected. A category with more than 40 items
+  sends its 20 largest, and one review lists at most 400 items. The rest are only counted.
+- PC health: Windows version, CPU cores, memory, uptime, whether the app runs as administrator, fixed drives (name,
+  label, size, free space), and per module the item count, total size and five largest categories. No paths.
+- Your questions as you typed them.
+- In paths and descriptions your user profile path is replaced with `%USERPROFILE%`, and your user name in other
+  `\Users\<name>\` paths with `%USERNAME%`.
+
+Not sent: the log, `settings.json`, the API key, file contents or registry values read separately. Registry items send
+the same path and description that the card shows.
+
+Auto mode lets the assistant change the selection. The "Auto mode" switch is in the pane and on the settings page, and
+it is off by default. In Auto mode a review selects items marked `safe` and deselects items marked `caution` or `keep`.
+The "Automatic cleanup" button then scans the default modules (File cleanup, Browser caches, Recycle Bin), reviews every
+module with results, applies the selections, runs a dry run and shows one confirmation dialog with the assistant's
+summaries, the dry run count and size, and the skipped items. Nothing is deleted before you confirm, and Cancel stops
+any step before the dialog. Limits:
+
+- High-risk items are never selected, even when the assistant marks them `safe`.
+- Opt-in modules (Startup programs, Disk usage, Registry cleanup, Uninstall programs, Processes) are never included.
+- Files do not go to the Recycle Bin. The normal Clean button keeps its two confirmations.
+
+Settings in `settings.json`:
+
+```json
+{
+  "aiModel": "claude-opus-5-5",
+  "aiAutoMode": false
+}
+```
+
+`aiModel` is the model id as is (default `claude-opus-5-5`). The app has no selector for it, so edit the file and restart.
+`aiAutoMode` is saved by the switch. Missing fields give the defaults.
 
 ## Safety principles
 

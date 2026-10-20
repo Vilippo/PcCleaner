@@ -21,12 +21,13 @@ PcCleaner.sln
 │   ├── Cleaner.Modules.Registry/   Rekisterin puhdistus: orvot Uninstall-, tiedostopääte-, ProgId-, MUICache- ja MRU-merkinnät
 │   ├── Cleaner.Modules.Uninstall/  Ohjelman poisto: poisto-ohjelman ajo, jäännöshaku, karanteeni
 │   ├── Cleaner.Modules.Processes/  Prosessit: käyttäjän istunnon taustaprosessien luokittelu ja lopetus (rules/processes/known.json)
+│   ├── Cleaner.Ai/                 Tekoälyavustaja: Claude API (NuGet Anthropic), skannausdigestit, polkujen siistiminen, arviot
 │   ├── Cleaner.Cli/                Komentorivi: scan, clean, modules, uninstall, restore (ModuleFactory)
 │   └── Cleaner.UI/                 WinUI 3 -sovellus PcCleaner.exe: MainWindow, Views/ (MainView), ViewModels/,
 │       │                           Services/ (UiModuleFactory), Theming/ (Appearance: paletit ja fontit)
 │       └── Assets/Fonts/           InterVariable.ttf ja LICENSE-Inter.txt
 ├── tests/
-│   └── Cleaner.Tests/              xUnit-testit (moduulit, palvelut, karanteeni, treemap)
+│   └── Cleaner.Tests/              xUnit-testit (moduulit, palvelut, karanteeni, treemap, tekoäly)
 ├── tools/
 │   ├── make-icon.ps1               Generoi palettikohtaiset kuvakkeet PcCleaner-<paletti>.ico ja PcCleaner.ico/.png (mint)
 │   └── snap-window.py              Ottaa sovellusikkunasta kuvakaappauksen PrintWindow-kutsulla
@@ -169,6 +170,74 @@ Valinnat tallentuvat tiedostoon `%LOCALAPPDATA%\PcCleaner\settings.json` kenttii
 Paletin arvot ovat `mint`, `indigo`, `steel`, `graphite` ja `sun`. Fontin arvot ovat `bahnschrift`, `segoe` ja `inter`.
 Puuttuva tai tuntematon arvo antaa oletuksen (`mint`, `bahnschrift`), eikä sovellus kirjoita tiedostoa käynnistyksessä.
 Yhden asetuksen tallennus säilyttää muut kentät.
+
+## Tekoälyavustaja
+
+Graafisessa sovelluksessa on tekoälyavustaja, joka käyttää Anthropicin Claude API:a. Alapalkin nappi lokinapin
+vasemmalla puolella avaa sen 400 px:n paneeliksi oikealle moduulisivun viereen. Avustaja:
+
+- Arvioi valitun moduulin skannaustulokset ("Tarkista tulokset"). Jokainen kategoria ja kohteet, joista on sanottavaa,
+  saavat arvion turvallinen, varo tai säilytä (`safe`, `caution`, `keep`) perusteluineen. Arviot näkyvät merkkeinä
+  kategoriakorteissa, ja ToolTip näyttää perustelun. Kategorian arvio koskee kaikkia sen kohteita.
+- Arvioi koneen kunnon ("Koneen kunto") järjestelmätietojen ja nykyisten skannaustulosten perusteella.
+- Vastaa kysymyksiin samassa keskustelussa.
+
+Oletuksena avustaja vain neuvoo eikä muuta valintoja. "Poista varoitetut valinnasta" poistaa valinnan jokaiselta
+kohteelta, jonka arvio on varo tai säilytä. Keskustelu on vain muistissa (enintään 20 viestiä), ja "Uusi keskustelu"
+tyhjentää sen. Avustaja vastaa sovelluksen kielellä.
+
+Avustaja tarvitsee Anthropicin API-avaimen ympäristömuuttujaan `ANTHROPIC_API_KEY`:
+
+```powershell
+setx ANTHROPIC_API_KEY sk-ant-...
+```
+
+Muuttujan voi asettaa myös Windowsissa kohdassa Järjestelmä > Tietoja > Järjestelmän lisäasetukset > Ympäristömuuttujat.
+Käynnistä PC Cleaner sen jälkeen uudelleen, koska sovellus lukee muuttujan käynnistyksessä. Ilman avainta paneeli
+näyttää ilmoituksen ja sen napit ovat pois käytöstä; muu sovellus toimii kuten ennenkin. Avainta ei kirjoiteta
+`settings.json`-tiedostoon, lokiin eikä paneeliin.
+
+API-käyttö laskutetaan Anthropic-tililtäsi Anthropicin hinnaston mukaan. Jokainen arvio, kuntotarkistus ja kysymys on
+yksi API-kutsu, ja jokainen kutsu lähettää koko keskustelun uudelleen.
+
+Mitä Anthropicille lähetetään:
+
+- Arvio: valitun moduulin tulokset tekstinä. Kategoriasta nimi, riski, kohdemäärä, yhteiskoko ja valittujen määrä;
+  kohteesta koko, polku, kuvaus ja onko se valittu. Kategoriasta, jossa on yli 40 kohdetta, lähtee 20 suurinta, ja
+  yhdessä arviossa on enintään 400 kohdetta. Loput vain lasketaan.
+- Koneen kunto: Windowsin versio, suoritinytimet, muisti, käyntiaika, onko sovellus järjestelmänvalvojana, kiinteät
+  asemat (nimi, nimiö, koko, vapaa tila) ja jokaisesta moduulista kohdemäärä, yhteiskoko ja viisi suurinta kategoriaa.
+  Ei polkuja.
+- Kysymyksesi sellaisenaan.
+- Poluissa ja kuvauksissa käyttäjäprofiilin polku korvataan merkinnällä `%USERPROFILE%` ja käyttäjänimi muissa
+  `\Users\<nimi>\`-poluissa merkinnällä `%USERNAME%`.
+
+Ei lähetetä: lokia, `settings.json`-tiedostoa, API-avainta, tiedostojen sisältöä eikä erikseen luettuja rekisteriarvoja.
+Rekisterikohteista lähtee sama polku ja kuvaus kuin kortissa näkyy.
+
+Auto-tilassa avustaja saa muuttaa valintoja. Kytkin "Auto-tila" on paneelissa ja asetussivulla, ja se on oletuksena
+pois. Auto-tilassa arvio valitsee turvalliset kohteet ja poistaa valinnan varo- ja säilytä-kohteilta. Nappi
+"Automaattinen siivous" skannaa oletusmoduulit (Tiedostosiivous, Selainten välimuistit, Roskakori), arvioi jokaisen
+moduulin, jolla on tuloksia, soveltaa valinnat, ajaa kuivan ajon ja näyttää yhden vahvistusdialogin, jossa ovat
+avustajan yhteenvedot, kuivan ajon kohdemäärä ja koko sekä ohitetut kohteet. Mitään ei poisteta ennen vahvistusta, ja
+Peruuta pysäyttää minkä tahansa vaiheen ennen dialogia. Rajat:
+
+- Korkean riskin kohteita ei valita koskaan, vaikka avustaja arvioisi ne turvallisiksi.
+- Erikseen valittavat moduulit (Käynnistysohjelmat, Levytilan analyysi, Rekisterin puhdistus, Ohjelman poisto,
+  Prosessit) eivät ole koskaan mukana.
+- Tiedostot eivät mene roskakoriin. Tavallinen Puhdista-nappi kysyy edelleen kahdesti.
+
+Asetukset tiedostossa `settings.json`:
+
+```json
+{
+  "aiModel": "claude-opus-5-5",
+  "aiAutoMode": false
+}
+```
+
+`aiModel` on mallin tunnus sellaisenaan (oletus `claude-opus-5-5`). Sovelluksessa ei ole sille valitsinta, joten muokkaa
+tiedostoa ja käynnistä sovellus uudelleen. `aiAutoMode` tallentuu kytkimestä. Puuttuva kenttä antaa oletuksen.
 
 ## Turvallisuusperiaatteet
 
