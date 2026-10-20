@@ -4,7 +4,8 @@ using Cleaner.Core.Localization;
 namespace Cleaner.Core.Services;
 
 /// <summary>
-/// Käyttäjän asetukset tiedostossa %LOCALAPPDATA%\PcCleaner\settings.json, esim. <c>{ "language": "en" }</c>.
+/// Käyttäjän asetukset tiedostossa %LOCALAPPDATA%\PcCleaner\settings.json, esim.
+/// <c>{ "language": "en", "palette": "mint", "font": "bahnschrift" }</c>.
 /// </summary>
 public sealed class AppSettings
 {
@@ -24,6 +25,12 @@ public sealed class AppSettings
     /// <summary>Kielikoodi "en" tai "fi".</summary>
     public string Language { get; set; } = "en";
 
+    /// <summary>Värimaailman tunnus, oletus "mint". Core ei validoi arvoa; UI ratkaisee tuntemattoman oletukseksi.</summary>
+    public string Palette { get; set; } = "mint";
+
+    /// <summary>Fontin tunnus, oletus "bahnschrift". Core ei validoi arvoa; UI ratkaisee tuntemattoman oletukseksi.</summary>
+    public string Font { get; set; } = "bahnschrift";
+
     /// <summary>%LOCALAPPDATA%\PcCleaner\settings.json</summary>
     public static string DefaultPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PcCleaner", "settings.json");
@@ -38,6 +45,8 @@ public sealed class AppSettings
             var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(file), ReadOptions);
             if (settings is null) return new AppSettings();
             settings.Language ??= "en";   // JSONin "language": null
+            settings.Palette ??= "mint";
+            settings.Font ??= "bahnschrift";
             return settings;
         }
         catch
@@ -54,6 +63,18 @@ public sealed class AppSettings
         var dir = Path.GetDirectoryName(file);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
         File.WriteAllText(file, JsonSerializer.Serialize(this, WriteOptions));
+    }
+
+    /// <summary>
+    /// Lataa tiedoston, soveltaa muutoksen ja tallentaa, joten yhden asetuksen tallennus säilyttää muut.
+    /// Saa heittää IO-poikkeuksen kuten <see cref="Save"/>.
+    /// </summary>
+    public static AppSettings Update(Action<AppSettings> change, string? path = null)
+    {
+        var settings = Load(path);
+        change(settings);
+        settings.Save(path);
+        return settings;
     }
 
     /// <summary>Tunnettu kielikoodi palauttaa sen kielen, muuten <see cref="Localization.Language.En"/>.</summary>

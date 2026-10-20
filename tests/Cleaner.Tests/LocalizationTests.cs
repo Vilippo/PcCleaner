@@ -174,6 +174,91 @@ public sealed class LocalizationTests : IDisposable
     }
 
     [Fact]
+    public void AppSettings_palette_and_font_round_trip()
+    {
+        var path = Path.Combine(_root, "settings.json");
+
+        new AppSettings { Language = "fi", Palette = "indigo", Font = "inter" }.Save(path);
+        var loaded = AppSettings.Load(path);
+
+        Assert.Equal("fi", loaded.Language);
+        Assert.Equal("indigo", loaded.Palette);
+        Assert.Equal("inter", loaded.Font);
+    }
+
+    [Fact]
+    public void AppSettings_old_file_without_palette_and_font_gives_defaults()
+    {
+        Directory.CreateDirectory(_root);
+        var path = Path.Combine(_root, "settings.json");
+        File.WriteAllText(path, "{ \"language\": \"fi\" }");
+
+        var loaded = AppSettings.Load(path);
+
+        Assert.Equal("fi", loaded.Language);
+        Assert.Equal("mint", loaded.Palette);
+        Assert.Equal("bahnschrift", loaded.Font);
+    }
+
+    [Fact]
+    public void AppSettings_null_palette_and_font_give_defaults()
+    {
+        Directory.CreateDirectory(_root);
+        var path = Path.Combine(_root, "settings.json");
+        File.WriteAllText(path, "{ \"language\": \"en\", \"palette\": null, \"font\": null }");
+
+        var loaded = AppSettings.Load(path);
+
+        Assert.Equal("en", loaded.Language);
+        Assert.Equal("mint", loaded.Palette);
+        Assert.Equal("bahnschrift", loaded.Font);
+    }
+
+    [Fact]
+    public void AppSettings_update_keeps_other_fields()
+    {
+        Directory.CreateDirectory(_root);
+        var path = Path.Combine(_root, "settings.json");
+        File.WriteAllText(path, "{ \"language\": \"fi\", \"font\": \"inter\" }");
+
+        AppSettings.Update(s => s.Palette = "steel", path);
+        var loaded = AppSettings.Load(path);
+
+        Assert.Equal("fi", loaded.Language);
+        Assert.Equal("inter", loaded.Font);
+        Assert.Equal("steel", loaded.Palette);
+    }
+
+    [Fact]
+    public void AppSettings_update_creates_missing_file_with_defaults()
+    {
+        var path = Path.Combine(_root, "sub", "settings.json");
+
+        var returned = AppSettings.Update(s => s.Language = "fi", path);
+        var loaded = AppSettings.Load(path);
+
+        Assert.True(File.Exists(path));
+        Assert.Equal("fi", returned.Language);
+        Assert.Equal("fi", loaded.Language);
+        Assert.Equal("mint", loaded.Palette);
+        Assert.Equal("bahnschrift", loaded.Font);
+    }
+
+    [Fact]
+    public void AppSettings_writes_camel_case_keys()
+    {
+        var path = Path.Combine(_root, "settings.json");
+
+        new AppSettings { Palette = "steel", Font = "inter" }.Save(path);
+        var json = File.ReadAllText(path);
+
+        Assert.Contains("\"palette\": \"steel\"", json);
+        Assert.Contains("\"font\": \"inter\"", json);
+        Assert.DoesNotContain("\"Palette\"", json);
+        Assert.DoesNotContain("\"Font\"", json);
+    }
+
+    [Fact]
     public void CleanRule_display_texts_follow_language()
     {
         var rule = Rule(nameFi: "Väliaikaistiedostot", descriptionFi: "Turvallista poistaa.");
