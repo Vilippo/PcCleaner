@@ -578,7 +578,7 @@ Yksi tehtävä: T6 kirjoittaa MainWindow.xaml:n uudelleen ja luo MainView'n; T7 
 joten ne eivät voi olla rinnakkain. Note: T7 (wave 5) muokkaa MainView.xaml/.cs-tiedostojen moduulisivuosaa T6:n jälkeen.
 
 ### T6: Ikkunan kuori: MainView, otsikkopalkki, Mica, uudelleenluonti, asetussivu, lokipaneeli
-- Status: pending
+- Status: done f96a97a
 - Model: fable
 - Requirements: REQ-6, REQ-9, REQ-10, REQ-11, REQ-12, REQ-18, REQ-19
 - Constraints/edge: CON-4, CON-5, EDGE-2, EDGE-3, EDGE-4
