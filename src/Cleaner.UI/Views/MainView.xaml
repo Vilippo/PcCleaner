@@ -77,6 +77,29 @@
                                                FontFamily="{ThemeResource AppBodyFontFamily}"
                                                FontSize="12"
                                                Foreground="{ThemeResource RiskHighTextBrush}" />
+                                    <!-- Avustajan arviomerkki (REQ-17): kolme kiinteäväristä elementtiä, joista enintään yksi näkyy;
+                                         perustelu ToolTipissä. -->
+                                    <TextBlock Text="{x:Bind VerdictText, Mode=OneWay}"
+                                               Visibility="{x:Bind IsSafeVerdict, Mode=OneWay}"
+                                               ToolTipService.ToolTip="{x:Bind VerdictReason, Mode=OneWay}"
+                                               VerticalAlignment="Center"
+                                               FontFamily="{ThemeResource AppBodyFontFamily}"
+                                               FontSize="12"
+                                               Foreground="{ThemeResource RiskLowTextBrush}" />
+                                    <TextBlock Text="{x:Bind VerdictText, Mode=OneWay}"
+                                               Visibility="{x:Bind IsCautionVerdict, Mode=OneWay}"
+                                               ToolTipService.ToolTip="{x:Bind VerdictReason, Mode=OneWay}"
+                                               VerticalAlignment="Center"
+                                               FontFamily="{ThemeResource AppBodyFontFamily}"
+                                               FontSize="12"
+                                               Foreground="{ThemeResource RiskMediumTextBrush}" />
+                                    <TextBlock Text="{x:Bind VerdictText, Mode=OneWay}"
+                                               Visibility="{x:Bind IsKeepVerdict, Mode=OneWay}"
+                                               ToolTipService.ToolTip="{x:Bind VerdictReason, Mode=OneWay}"
+                                               VerticalAlignment="Center"
+                                               FontFamily="{ThemeResource AppBodyFontFamily}"
+                                               FontSize="12"
+                                               Foreground="{ThemeResource RiskHighTextBrush}" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="{x:Bind SummaryText, Mode=OneWay}"
                                            VerticalAlignment="Center"
@@ -94,6 +117,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <CheckBox Grid.Column="0" MinWidth="0" VerticalAlignment="Center"
                                                       IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
@@ -109,7 +133,29 @@
                                                            FontSize="12"
                                                            Foreground="{ThemeResource AppTextSecondaryBrush}" />
                                             </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind SizeText}"
+                                            <!-- Kohteen arviomerkki koon vasemmalla puolella (REQ-17), värit kuten kategorian merkissä. -->
+                                            <TextBlock Grid.Column="2" Text="{x:Bind VerdictText, Mode=OneWay}"
+                                                       Visibility="{x:Bind IsSafeVerdict, Mode=OneWay}"
+                                                       ToolTipService.ToolTip="{x:Bind VerdictReason, Mode=OneWay}"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                                       FontSize="12"
+                                                       Foreground="{ThemeResource RiskLowTextBrush}" />
+                                            <TextBlock Grid.Column="2" Text="{x:Bind VerdictText, Mode=OneWay}"
+                                                       Visibility="{x:Bind IsCautionVerdict, Mode=OneWay}"
+                                                       ToolTipService.ToolTip="{x:Bind VerdictReason, Mode=OneWay}"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                                       FontSize="12"
+                                                       Foreground="{ThemeResource RiskMediumTextBrush}" />
+                                            <TextBlock Grid.Column="2" Text="{x:Bind VerdictText, Mode=OneWay}"
+                                                       Visibility="{x:Bind IsKeepVerdict, Mode=OneWay}"
+                                                       ToolTipService.ToolTip="{x:Bind VerdictReason, Mode=OneWay}"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                                       FontSize="12"
+                                                       Foreground="{ThemeResource RiskHighTextBrush}" />
+                                            <TextBlock Grid.Column="3" Text="{x:Bind SizeText}"
                                                        VerticalAlignment="Center"
                                                        FontFamily="{ThemeResource AppNumberFontFamily}"
                                                        FontSize="12"
@@ -238,6 +284,204 @@
                     </StackPanel>
                 </Grid>
             </SplitView.Pane>
+
+            <!-- Tekoälyavustajan paneeli oikealla (REQ-20): Inline, joten moduulisivu kapenee paneelin auetessa ja lokipaneeli
+                 (Overlay) piirtyy sen päälle. Auki/kiinni-tila on näkymän omaa tilaa ja nollautuu uudelleenluonnissa (EDGE-10);
+                 viestit, arviot ja Auto-tila ovat ViewModelissa (REQ-21). -->
+            <SplitView x:Name="AiSplitView"
+                       PanePlacement="Right"
+                       DisplayMode="Inline"
+                       OpenPaneLength="400"
+                       IsPaneOpen="False"
+                       PaneBackground="{ThemeResource AppContentBackgroundBrush}">
+                <SplitView.Pane>
+                    <Grid Padding="16"
+                          RowSpacing="12"
+                          BorderThickness="1,0,0,0"
+                          BorderBrush="{ThemeResource AppDividerBrush}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{x:Bind ViewModel.T.AiTitle, Mode=OneWay}"
+                                       FontFamily="{ThemeResource AppHeadingFontFamily}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource AppTextPrimaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Click="CloseAi_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    ToolTipService.ToolTip="{x:Bind ViewModel.T.Close, Mode=OneWay}">
+                                <FontIcon Glyph="&#xE711;" FontSize="14" />
+                            </Button>
+                        </Grid>
+
+                        <!-- EDGE-1: ilman API-avainta vihje; komennot eivät ole sallittuja, Auto-tilan kytkin toimii silti.
+                             IsAvailable luetaan kerran käynnistyksessä, joten kertasidonta riittää. -->
+                        <InfoBar Grid.Row="1"
+                                 IsOpen="{x:Bind Not(ViewModel.Ai.IsAvailable)}"
+                                 Severity="Warning"
+                                 IsClosable="False"
+                                 Message="{x:Bind ViewModel.Ai.UnavailableText, Mode=OneWay}" />
+
+                        <StackPanel Grid.Row="2" Spacing="4">
+                            <ToggleSwitch Header="{x:Bind ViewModel.T.AiAutoMode, Mode=OneWay}"
+                                          IsOn="{x:Bind ViewModel.Ai.AutoMode, Mode=TwoWay}"
+                                          OnContent=""
+                                          OffContent="" />
+                            <TextBlock Text="{x:Bind ViewModel.T.AiAutoModeHint, Mode=OneWay}"
+                                       TextWrapping="Wrap"
+                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource AppTextSecondaryBrush}" />
+                        </StackPanel>
+
+                        <!-- Viestilista (CON-8): tavallinen teksti TextBlockissa, rivitys, valittavissa. Rooli määrää taustan ja
+                             marginaalit: neljä Border-elementtiä, joista yksi näkyy. Code-behind vierittää uusimman viestin
+                             näkyviin, kun viesti lisätään tai sen teksti kasvaa. -->
+                        <ListView Grid.Row="3"
+                                  x:Name="AiMessageList"
+                                  ItemsSource="{x:Bind ViewModel.Ai.Messages}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="False">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AiMessageViewModel">
+                                    <Grid>
+                                        <Border Visibility="{x:Bind IsUser}"
+                                                Background="{ThemeResource AppCardHoverBrush}"
+                                                CornerRadius="8"
+                                                Padding="10,8"
+                                                Margin="24,0,0,8">
+                                            <TextBlock Text="{x:Bind Text, Mode=OneWay}"
+                                                       TextWrapping="Wrap"
+                                                       IsTextSelectionEnabled="True"
+                                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                                       FontSize="13"
+                                                       Foreground="{ThemeResource AppTextPrimaryBrush}" />
+                                        </Border>
+                                        <Border Visibility="{x:Bind IsAssistant}"
+                                                Background="{ThemeResource AppCardBackgroundBrush}"
+                                                CornerRadius="8"
+                                                Padding="10,8"
+                                                Margin="0,0,24,8">
+                                            <TextBlock Text="{x:Bind Text, Mode=OneWay}"
+                                                       TextWrapping="Wrap"
+                                                       IsTextSelectionEnabled="True"
+                                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                                       FontSize="13"
+                                                       Foreground="{ThemeResource AppTextPrimaryBrush}" />
+                                        </Border>
+                                        <Border Visibility="{x:Bind IsError}"
+                                                Background="{ThemeResource RiskHighTintBrush}"
+                                                CornerRadius="8"
+                                                Padding="10,8"
+                                                Margin="0,0,0,8">
+                                            <TextBlock Text="{x:Bind Text, Mode=OneWay}"
+                                                       TextWrapping="Wrap"
+                                                       IsTextSelectionEnabled="True"
+                                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                                       FontSize="13"
+                                                       Foreground="{ThemeResource RiskHighTextBrush}" />
+                                        </Border>
+                                        <Border Visibility="{x:Bind IsInfo}"
+                                                CornerRadius="8"
+                                                Padding="10,8"
+                                                Margin="0,0,0,8">
+                                            <TextBlock Text="{x:Bind Text, Mode=OneWay}"
+                                                       TextWrapping="Wrap"
+                                                       IsTextSelectionEnabled="True"
+                                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                                       FontSize="12"
+                                                       Foreground="{ThemeResource AppTextSecondaryBrush}" />
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                            <!-- Venytys koko leveydelle, jotta 24 px marginaalit erottavat käyttäjän ja avustajan viestit. -->
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="MinHeight" Value="0" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                        </ListView>
+
+                        <!-- Ajattelun aikana: ProgressRing ja paneelin Peruuta (keskeyttää myös Automaattisen siivouksen arviovaiheen). -->
+                        <StackPanel Grid.Row="4"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    Visibility="{x:Bind ViewModel.Ai.IsThinking, Mode=OneWay}">
+                            <ProgressRing IsActive="True" Width="16" Height="16" VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind ViewModel.T.AiThinking, Mode=OneWay}"
+                                       VerticalAlignment="Center"
+                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                       FontSize="13"
+                                       Foreground="{ThemeResource AppTextSecondaryBrush}" />
+                            <Button Content="{x:Bind ViewModel.T.Cancel, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.Ai.CancelCommand}" />
+                        </StackPanel>
+
+                        <!-- Napit kolmella rivillä (WinUI:ssa ei ole WrapPanelia): suomenkieliset tekstit eivät mahdu kahdelle
+                             368 px riville. Automaattinen siivous näkyy vain Auto-tilassa, Poista varoitetut valinnasta vain
+                             kun HasFlagged (REQ-18, REQ-20). -->
+                        <StackPanel Grid.Row="5" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="{x:Bind ViewModel.T.AiReview, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.Ai.ReviewCommand}" />
+                                <Button Content="{x:Bind ViewModel.T.AiHealth, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.Ai.HealthCheckCommand}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="{x:Bind ViewModel.T.AiDeselectFlagged, Mode=OneWay}"
+                                        Visibility="{x:Bind ViewModel.Ai.HasFlagged, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.Ai.DeselectFlaggedCommand}" />
+                                <Button Content="{x:Bind ViewModel.T.AiReset, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.Ai.ResetCommand}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8"
+                                        Visibility="{x:Bind ViewModel.Ai.AutoMode, Mode=OneWay}">
+                                <Button Content="{x:Bind ViewModel.T.AiAutoClean, Mode=OneWay}"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        Command="{x:Bind ViewModel.AutoCleanCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Kysymys: Enter lähettää (code-behind), samoin nappi. -->
+                        <Grid Grid.Row="6" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     x:Name="AiQuestionBox"
+                                     Text="{x:Bind ViewModel.Ai.Question, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     PlaceholderText="{x:Bind ViewModel.T.AiAskPlaceholder, Mode=OneWay}"
+                                     KeyDown="AiQuestionBox_KeyDown"
+                                     IsEnabled="{x:Bind ViewModel.Ai.IsAvailable}" />
+                            <Button Grid.Column="1"
+                                    VerticalAlignment="Stretch"
+                                    Command="{x:Bind ViewModel.Ai.AskCommand}"
+                                    ToolTipService.ToolTip="{x:Bind ViewModel.T.AiSend, Mode=OneWay}">
+                                <FontIcon Glyph="&#xE724;" FontSize="14" />
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </SplitView.Pane>
 
             <!-- Navigointipaneeli: 240 px, aina auki, ei toggle-nappia eikä otsikkoa (REQ-19). Paneelin tausta tulee
                  Appearance-sanakirjan NavigationViewDefaultPaneBackground-ohituksesta (AppPaneBackground). -->
@@ -725,10 +969,38 @@
                                 <x:String>English</x:String>
                                 <x:String>Suomi</x:String>
                             </RadioButtons>
+
+                            <!-- Tekoälyavustaja (REQ-20): sama Auto-tila kuin paneelissa, malli settings.json-kentästä aiModel ja
+                                 vihje avaimesta. Avainta ei näytetä (CON-6). Kytkin pois käytöstä kiireisenä kuten muut valitsimet. -->
+                            <TextBlock Text="{x:Bind ViewModel.T.AiSettingsHeader, Mode=OneWay}"
+                                       Margin="0,12,0,0"
+                                       FontFamily="{ThemeResource AppHeadingFontFamily}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource AppTextPrimaryBrush}" />
+                            <ToggleSwitch Header="{x:Bind ViewModel.T.AiAutoMode, Mode=OneWay}"
+                                          IsOn="{x:Bind ViewModel.Ai.AutoMode, Mode=TwoWay}"
+                                          OnContent=""
+                                          OffContent=""
+                                          IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}" />
+                            <TextBlock FontFamily="{ThemeResource AppBodyFontFamily}"
+                                       FontSize="14"
+                                       Foreground="{ThemeResource AppTextPrimaryBrush}"><Run Text="{x:Bind ViewModel.T.AiModelLabel, Mode=OneWay}" /><Run Text=": " /><Run Text="{x:Bind ViewModel.Ai.ModelName}" /></TextBlock>
+                            <TextBlock Text="{x:Bind ViewModel.Ai.KeyHint, Mode=OneWay}"
+                                       TextWrapping="Wrap"
+                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource AppTextSecondaryBrush}" />
+                            <TextBlock Text="{x:Bind ViewModel.T.AiPrivacyNote, Mode=OneWay}"
+                                       TextWrapping="Wrap"
+                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource AppTextSecondaryBrush}" />
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
             </NavigationView>
+            </SplitView>
         </SplitView>
 
         <!-- Alapalkki (REQ-17): 56 px, kiireisenä 4 px ProgressBar yläreunassa koko leveydeltä. Lokinappi avaa paneelin (REQ-18). -->
@@ -759,6 +1031,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
@@ -784,7 +1057,16 @@
                                Foreground="{ThemeResource AppTextSecondaryBrush}" />
                 </StackPanel>
 
+                <!-- Avustajanappi lokinapin vasemmalla avaa ja sulkee avustajapaneelin (REQ-20). -->
                 <Button Grid.Column="1"
+                        Height="32"
+                        Padding="8,0"
+                        VerticalAlignment="Center"
+                        Click="AiButton_Click"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.T.AiTitle, Mode=OneWay}">
+                    <FontIcon Glyph="&#xE99A;" FontSize="16" />
+                </Button>
+                <Button Grid.Column="2"
                         Height="32"
                         Padding="8,0"
                         VerticalAlignment="Center"
@@ -792,23 +1074,23 @@
                         ToolTipService.ToolTip="{x:Bind ViewModel.T.Log, Mode=OneWay}">
                     <FontIcon Glyph="&#xE7C3;" FontSize="16" />
                 </Button>
-                <Button Grid.Column="2" Content="{x:Bind ViewModel.T.RestoreBackup, Mode=OneWay}"
+                <Button Grid.Column="3" Content="{x:Bind ViewModel.T.RestoreBackup, Mode=OneWay}"
                         Height="32"
                         VerticalAlignment="Center"
                         Visibility="{x:Bind ViewModel.ShowRestoreButton, Mode=OneWay}"
                         Command="{x:Bind ViewModel.RestoreBackupCommand}"
                         ToolTipService.ToolTip="{x:Bind ViewModel.T.RestoreBackupToolTip, Mode=OneWay}" />
-                <Button Grid.Column="3" Content="{x:Bind ViewModel.T.Cancel, Mode=OneWay}"
+                <Button Grid.Column="4" Content="{x:Bind ViewModel.T.Cancel, Mode=OneWay}"
                         Height="32"
                         VerticalAlignment="Center"
                         Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                         Command="{x:Bind ViewModel.CancelCommand}" />
-                <Button Grid.Column="4" Content="{x:Bind ViewModel.T.Scan, Mode=OneWay}"
+                <Button Grid.Column="5" Content="{x:Bind ViewModel.T.Scan, Mode=OneWay}"
                         Height="32"
                         MinWidth="120"
                         VerticalAlignment="Center"
                         Command="{x:Bind ViewModel.ScanCommand}" />
-                <Button Grid.Column="5" Content="{x:Bind ViewModel.T.Clean, Mode=OneWay}"
+                <Button Grid.Column="6" Content="{x:Bind ViewModel.T.Clean, Mode=OneWay}"
                         Height="32"
                         MinWidth="120"
                         VerticalAlignment="Center"

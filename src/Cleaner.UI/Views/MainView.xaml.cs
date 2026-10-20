@@ -1,3 +1,5 @@
+using System.Collections.Specialized;
+using System.ComponentModel;
 using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
@@ -7,8 +9,10 @@ using Cleaner.UI.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.System;
 using Windows.UI;
 
 namespace Cleaner.UI.Views;
@@ -17,7 +21,8 @@ namespace Cleaner.UI.Views;
 /// Ikkunan koko sisältö: otsikkopalkki, navigointi, moduulisivu, asetussivu, lokipaneeli ja alapalkki.
 /// MainWindow luo tämän uudelleen ulkoasun vaihdossa (<see cref="MainViewModel.AppearanceChanged"/>), koska
 /// TextBlock-tyylit eivät seuraa resurssisanakirjan vaihtoa. Kaikki säilyvä tila on ViewModelissa (REQ-11);
-/// näkymän omaa tilaa ovat lokipaneelin auki-tila ja treemapin alikansiopino, jotka nollautuvat (EDGE-2).
+/// näkymän omaa tilaa ovat loki- ja avustajapaneelin auki-tila ja treemapin alikansiopino, jotka nollautuvat
+/// (EDGE-2, EDGE-10).
 /// </summary>
 public sealed partial class MainView : UserControl
 {
@@ -43,6 +48,10 @@ public sealed partial class MainView : UserControl
         if (micaAvailable) Root.Background = null;
 
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        // REQ-20: viestilista vierittää uusimman viestin näkyviin. Uudelleenluonnissa (EDGE-10) jo olemassa olevat
+        // viestit tilataan myös, jotta kesken suoratoiston kasvava vastaus vierittää uudessa näkymässä.
+        ViewModel.Ai.Messages.CollectionChanged += OnAiMessagesChanged;
+        foreach (var message in ViewModel.Ai.Messages) TrackAiMessage(message);
         Loaded += OnLoaded;
         // REQ-20: treemapin tausta ja lohkotekstin väri riippuvat Windowsin teemasta.
         ActualThemeChanged += OnActualThemeChanged;
@@ -63,6 +72,9 @@ public sealed partial class MainView : UserControl
     public void Detach()
     {
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        // REQ-21: viestit elävät ViewModelissa, joten kaikki niiden tilaukset irrotetaan.
+        ViewModel.Ai.Messages.CollectionChanged -= OnAiMessagesChanged;
+        UntrackAllAiMessages();
         Loaded -= OnLoaded;
         ActualThemeChanged -= OnActualThemeChanged;
         Nav.Loaded -= Nav_Loaded;
@@ -78,6 +90,7 @@ public sealed partial class MainView : UserControl
         // Nav.SelectionChanged on irrotettu edellä, joten MenuItemsSourcen nollaus ei muuta SelectedModulea.
         Nav.MenuItemsSource = null;
         LogList.ItemsSource = null;
+        AiMessageList.ItemsSource = null;
         ProgramList.ItemsSource = null;
         CategoryList.ItemsSource = null;
         HighRiskList.ItemsSource = null;
@@ -98,6 +111,75 @@ public sealed partial class MainView : UserControl
     private void LogButton_Click(object sender, RoutedEventArgs e) => ToggleLog();
 
     private void CloseLog_Click(object sender, RoutedEventArgs e) => LogSplitView.IsPaneOpen = false;
+
+    // ---------- Tekoälyavustaja (REQ-20) ----------
+
+    private readonly HashSet<AiMessageViewModel> _trackedAiMessages = new();
+
+    /// <summary>Avustajapaneeli auki tai kiinni alapalkin napista.</summary>
+    private void AiButton_Click(object sender, RoutedEventArgs e) => AiSplitView.IsPaneOpen = !AiSplitView.IsPaneOpen;
+
+    private void CloseAi_Click(object sender, RoutedEventArgs e) => AiSplitView.IsPaneOpen = false;
+
+    /// <summary>Enter lähettää kysymyksen; Question on ajan tasalla, koska sidonta päivittyy jokaisella näppäilyllä.</summary>
+    private void AiQuestionBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter) return;
+        if (ViewModel.Ai.AskCommand.CanExecute(null)) ViewModel.Ai.AskCommand.Execute(null);
+        e.Handled = true;
+    }
+
+    // x:Bind: InfoBar näkyy, kun avustaja ei ole käytettävissä (EDGE-1).
+    private bool Not(bool v) => !v;
+
+    /// <summary>
+    /// Viestien tilaukset seuraavat kokoelmaa: lisätty viesti tilataan ja lista vieritetään heti, poistettu irrotetaan.
+    /// Uusi keskustelu tyhjentää kokoelman Reset-toiminnolla, joka ei kerro poistettuja, joten silloin kaikki irrotetaan.
+    /// </summary>
+    private void OnAiMessagesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            UntrackAllAiMessages();
+            foreach (var message in ViewModel.Ai.Messages) TrackAiMessage(message);
+            return;
+        }
+        if (e.OldItems is not null)
+            foreach (AiMessageViewModel message in e.OldItems) UntrackAiMessage(message);
+        if (e.NewItems is not null)
+        {
+            foreach (AiMessageViewModel message in e.NewItems) TrackAiMessage(message);
+            ScrollAiToEnd();
+        }
+    }
+
+    private void TrackAiMessage(AiMessageViewModel message)
+    {
+        if (_trackedAiMessages.Add(message)) message.PropertyChanged += OnAiMessagePropertyChanged;
+    }
+
+    private void UntrackAiMessage(AiMessageViewModel message)
+    {
+        if (_trackedAiMessages.Remove(message)) message.PropertyChanged -= OnAiMessagePropertyChanged;
+    }
+
+    private void UntrackAllAiMessages()
+    {
+        foreach (var message in _trackedAiMessages) message.PropertyChanged -= OnAiMessagePropertyChanged;
+        _trackedAiMessages.Clear();
+    }
+
+    // Suoratoistossa vastauksen teksti kasvaa: uusin viesti pidetään näkyvissä.
+    private void OnAiMessagePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AiMessageViewModel.Text)) ScrollAiToEnd();
+    }
+
+    private void ScrollAiToEnd()
+    {
+        var messages = ViewModel.Ai.Messages;
+        if (messages.Count > 0) AiMessageList.ScrollIntoView(messages[^1]);
+    }
 
     // x:Bind: moduulisivu näkyy, kun asetussivu ei ole valittuna (x:Bind kutsuu instanssimetodia).
     private Visibility Collapse(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
