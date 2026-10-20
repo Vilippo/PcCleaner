@@ -31,6 +31,12 @@ public sealed class AppSettings
     /// <summary>Fontin tunnus, oletus "bahnschrift". Core ei validoi arvoa; UI ratkaisee tuntemattoman oletukseksi.</summary>
     public string Font { get; set; } = "bahnschrift";
 
+    /// <summary>Tekoälyavustajan mallin tunnus sellaisenaan, oletus "claude-opus-5-5". Core ei validoi arvoa.</summary>
+    public string AiModel { get; set; } = "claude-opus-5-5";
+
+    /// <summary>Tekoälyavustajan Auto-tila: avustaja valitsee kohteet itse. Oletus pois.</summary>
+    public bool AiAutoMode { get; set; }
+
     /// <summary>%LOCALAPPDATA%\PcCleaner\settings.json</summary>
     public static string DefaultPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PcCleaner", "settings.json");
@@ -47,6 +53,7 @@ public sealed class AppSettings
             settings.Language ??= "en";   // JSONin "language": null
             settings.Palette ??= "mint";
             settings.Font ??= "bahnschrift";
+            settings.AiModel ??= "claude-opus-5-5";
             return settings;
         }
         catch

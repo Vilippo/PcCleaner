@@ -201,6 +201,35 @@ public sealed class LocalizationTests : IDisposable
     }
 
     [Fact]
+    public void AppSettings_ai_fields_round_trip()
+    {
+        var path = Path.Combine(_root, "settings.json");
+
+        new AppSettings { AiModel = "x", AiAutoMode = true }.Save(path);
+        var loaded = AppSettings.Load(path);
+
+        Assert.Equal("x", loaded.AiModel);
+        Assert.True(loaded.AiAutoMode);
+        var json = File.ReadAllText(path);
+        Assert.Contains("\"aiModel\": \"x\"", json);
+        Assert.Contains("\"aiAutoMode\": true", json);
+
+        File.WriteAllText(path, "{ \"language\": \"fi\" }");
+        var old = AppSettings.Load(path);
+        Assert.Equal("claude-opus-5-5", old.AiModel);
+        Assert.False(old.AiAutoMode);
+
+        File.WriteAllText(path, "{ \"aiModel\": null }");
+        Assert.Equal("claude-opus-5-5", AppSettings.Load(path).AiModel);
+
+        AppSettings.Update(s => s.Palette = "indigo", path);
+        Assert.Equal("claude-opus-5-5", AppSettings.Load(path).AiModel);
+        AppSettings.Update(s => s.AiAutoMode = true, path);
+        AppSettings.Update(s => s.Font = "inter", path);
+        Assert.True(AppSettings.Load(path).AiAutoMode);
+    }
+
+    [Fact]
     public void AppSettings_null_palette_and_font_give_defaults()
     {
         Directory.CreateDirectory(_root);
