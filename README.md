@@ -15,6 +15,7 @@ PcCleaner.sln
 │   ├── Cleaner.Modules.DiskUsage/  Levytilan analyysi (vain luku) + treemap-algoritmi
 │   ├── Cleaner.Modules.Registry/   Rekisterin puhdistus: orvot Uninstall-, tiedostopääte-, ProgId-, MUICache- ja MRU-merkinnät
 │   ├── Cleaner.Modules.Uninstall/  Ohjelman poisto: poisto-ohjelman ajo, jäännöshaku, karanteeni
+│   ├── Cleaner.Modules.Processes/  Prosessit: käyttäjän istunnon taustaprosessien luokittelu ja lopetus (rules/processes/known.json)
 │   ├── Cleaner.Cli/                Komentorivi: scan, clean, modules, uninstall, restore (ModuleFactory)
 │   └── Cleaner.UI/                 WinUI 3 -sovellus PcCleaner.exe: MainWindow, ViewModels/, Services/ (UiModuleFactory)
 ├── tests/
@@ -71,6 +72,8 @@ dotnet run -- clean --module startup --item "startup:hkcu-run:Spotify" --apply  
 dotnet run -- scan --module diskusage --path C:\Users\%USERNAME% --top 10         # suurimmat kansiot ja tiedostot
 dotnet run -- scan --module registry                                             # orvot rekisterimerkinnät (vain luku)
 dotnet run -- clean --module registry --item "registry:mru:" --apply              # tyhjennä MRU-listat, varmuuskopio ensin
+dotnet run -- scan --module processes                                            # käyttäjän istunnon taustaprosessit, luokiteltuina
+dotnet run -- clean --module processes --item "processes:<pid>:<käynnistysaika>" --apply   # lopeta yksi prosessi, kysyy vahvistuksen
 dotnet run -- uninstall                                                           # listaa asennetut ohjelmat nimen mukaan
 dotnet run -- uninstall --sort date                                               # sama, asennuspäivä uusin ensin
 dotnet run -- uninstall --program "7-Zip"                                         # aja poisto-ohjelma, listaa jäänteet kuivana
@@ -104,6 +107,13 @@ CLSID-, Interface-, TypeLib-, Services-, Drivers-, SharedDLLs- ja Fonts-avaimiin
 Levytilan analyysi (`diskusage`) vain listaa suurimmat kansiot ja tiedostot. `--apply` poistaa
 ainoastaan `--item`-valinnalla rajatut tiedostot, ei koskaan kansioita. Koko aseman skannaus kestää
 minuutteja; rajaa `--path`-valinnalla.
+
+Prosessit (`processes`) listaa käyttäjän istunnon prosessit, joiden exe ei ole Windows-kansiossa, kuudessa kategoriassa
+(avoimet ohjelmat, puuttuva ohjelmatiedosto, orvot apuprosessit, tunnetut, joutilaat ja aktiiviset taustaprosessit).
+Skannaus mittaa suorittimen käyttöä 3 s. Lopetus tarkistaa tunnisteen käynnistysajan, joten kierrätettyä PID:tä ei lopeteta,
+ja jokainen lopetus kirjataan lokiin nimellä, PID:llä ja polulla. Varoitus: CLI:n `clean` ei suodata esivalinnan tai riskin
+mukaan. `--apply` ilman tarkkaa `--item`-tunnistetta (tai pelkällä etuliitteellä `"processes:"`) lopettaa kaikki listatut
+prosessit, myös avoimet ohjelmat.
 
 Käynnistysohjelmia ei poisteta, vaan ne poistetaan käytöstä samalla tavalla kuin Tehtävienhallinnassa
 (`StartupApproved`-avain, Store-sovelluksilla StartupTask-tila). Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä.

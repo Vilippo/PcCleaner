@@ -1,6 +1,6 @@
 # PC Cleaner – tekninen määrittely
 
-Versio 0.2 · 20.10.2026
+Versio 0.3 · 20.10.2026
 
 ## 1. Tavoite
 
@@ -20,6 +20,7 @@ Ominaisuudet kehitysjärjestyksessä. Kaikki ovat toteutettu ja käytössä sek�
 | 6 | Levytilan analyysi | `diskusage` | valmis | High (vain luku, ei poista) | 6.2 |
 | 7 | Rekisterin puhdistus | `registry` | valmis, rajattu | High | 6.3 |
 | 8 | Ohjelman poisto | `uninstall` | valmis | High, vaatii adminin | 6.4 |
+| 9 | Prosessit | `processes` | valmis | High (kohteet Medium, avoimet ohjelmat High) | 6.5 |
 
 ## 2. Kerrokset
 
@@ -32,7 +33,7 @@ Ominaisuudet kehitysjärjestyksessä. Kaikki ovat toteutettu ja käytössä sek�
 ├─────────────────────────────────────────────────┤
 │  ICleanerModule-toteutukset                     │   yksi projekti per aihe
 │  Files · Browsers · RecycleBin · Startup ·      │
-│  DiskUsage · Registry · Uninstall               │
+│  DiskUsage · Registry · Uninstall · Processes   │
 ├─────────────────────────────────────────────────┤
 │  Cleaner.Core.Services                          │   jaetut turvapalvelut
 │  PathGuard · SafeFileDeleter · PathExpander ... │
@@ -143,7 +144,7 @@ Kerroksittain, niin että yhden pettäminen ei riitä vahinkoon:
 7. **Loki** jokaisesta poistosta tiedostoon, PID nimessä.
 8. **Roskakori** tyhjennetään `SHEmptyRecycleBin`-rajapinnalla, ei kansiota poistamalla.
 
-## 6. Moduulit 5–8
+## 6. Moduulit 5–9
 
 ### 6.1 Käynnistysohjelmat (`startup`) – toteutettu
 
@@ -304,6 +305,72 @@ Karanteeni ja palautus:
 Mitä ei kosketa: Store/MSIX-sovellukset, ajurit ja palvelut, Windows-komponentit, muiden käyttäjien profiilit,
 peruskansiot ja julkaisijakansiot kohteina, `Microsoft`- ja `Policies`-haarat rekisterijuurten alla (poikkeuksina
 Run-avainten arvot sekä App Paths- ja Classes-juurten suorat lapset).
+
+### 6.5 Prosessit (`processes`) – toteutettu
+
+Projekti `src/Cleaner.Modules.Processes`. Skannaus listaa käyttäjän istunnon prosessit, joiden exe ei ole Windows-kansiossa,
+ja lopetus päättää käyttäjän valitsemat. Levyltä ei poisteta mitään. `Risk = High` (korkein kohdetaso),
+`RequiresAdmin = false`, `SelectedByDefault = false`. Palvelut ja linkitys käynnistysohjelmiin eivät kuulu moduuliin (vaihe 2).
+
+`ScanAsync` raportoi vaiheet "Luetaan prosessit", "Mitataan suorittimen käyttöä (3 s)", "Luokitellaan" ja "Valmis".
+Suoritinaika luetaan kahdesti 3 s välein. Prosessi on joutilas vain, jos molemmat näytteet onnistuivat ja aika ei muuttunut.
+
+Suojatut prosessit (`ProcessGuard`) jätetään kokonaan pois listasta. Syyt:
+- "Oma prosessi": PcCleanerin oma prosessi ja sen vanhempi.
+- "Järjestelmäprosessi": PID 0–4 (System Idle ja System).
+- "Toinen istunto tai palvelu": istunto eri kuin käyttäjän.
+- "Tietoja ei voitu lukea": exe-polku tai käynnistysaika jäi lukematta.
+- "Windows-kansion prosessi": exe on `%WINDIR%`-kansion alla.
+- "Kriittinen prosessi": Windows merkitsee prosessin kriittiseksi.
+- "Ei oikeuksia lopettaa": prosessia ei voi avata lopetusoikeudella.
+
+Sulautus: saman exen (polku, kirjainkoko ei merkitse) lapsiprosessi, joka käynnistyi aikaisintaan vanhempansa kanssa,
+sulautetaan elossa olevan vanhemman riviin. Ketju seurataan ylimpään saman exen vanhempaan. Rivin muisti on ryhmän summa ja
+kuvaus kertoo "N aliprosessia". Vain ryhmän juuri tuottaa `CleanItem`-kohteen.
+
+Kategoriat etusijajärjestyksessä, ensimmäinen osuva voittaa:
+
+| Kategoria | Ehto | Riski | Esivalittu |
+|-----------|------|-------|------------|
+| Avoimet ohjelmat | jollakin ryhmän prosessilla on näkyvä ikkuna; puuttuva exe tai sääntöosuma näkyy vain kuvauksessa | High | ei koskaan |
+| Ohjelmatiedosto puuttuu levyltä | exe-polku tunnetaan, mutta tiedostoa ei ole levyllä | Medium | kyllä |
+| Orvot apuprosessit | vanhempi on päättynyt, tai vanhemman PID:llä elää lasta nuorempi prosessi (PID kierrätetty) | Medium | vain jos joutilas |
+| Tunnetut taustaprosessit | nimi osuu sääntöön tiedostossa `rules/processes/known.json` | säännön riski, oletus Medium | ei |
+| Taustaprosessit, ei käyttöä | suoritinaika ei muuttunut 3 s näytteiden välillä | Medium | ei |
+| Taustaprosessit, aktiivisia | muut | Medium | ei |
+
+Lista järjestetään `ProcessCategory`-järjestyksessä (puuttuva exe, orvot, tunnetut, avoimet ohjelmat, ei käyttöä, aktiiviset)
+ja kategorian sisällä muistin mukaan suurin ensin.
+
+Sääntötiedosto `rules/processes/known.json` (`ProcessRuleLoader`): kentät `id` (pakollinen, yksilöllinen), `name` (pakollinen),
+`match` (vähintään yksi prosessin nimen jokerikuvio, `*` ja `?`, kirjainkoko ei merkitse, `.exe` saa puuttua), `description`
+ja `risk` (oletus Medium). Toimitetut säännöt: `google-crash-handler`, `adobe-ipc-broker`, `adobe-ccx-process`,
+`adobe-collab-sync`, `steam-webhelper` (Low) ja `discord-helper` (Low). Tiedosto on alikansiossa, koska testi
+`Shipped_rule_files_are_valid` lukee `rules\*.json`-juuren tiedostot tiedostosääntöinä.
+
+Tunniste `CleanItem.Id = processes:<pid>:<startFileTime>` (`ProcessItemId`), käynnistysaika on kernelin luontiaika
+FILETIME-muodossa. `Path` on exe-polku, `SizeBytes` on ryhmän yksityinen muisti. `Description` (`ProcessDescription`)
+kertoo järjestyksessä syyn, suorittimen käytön, iän, aliprosessien määrän ja käynnistäjän, esim.
+"Käynnistäjä (PID 1234) on päättynyt · ei suorittimen käyttöä 3 s aikana · käynnistetty 2 h 5 min · 3 aliprosessia".
+
+Lopetus (`CleanAsync`, `ProcessTerminator`) kohde kerrallaan:
+1. Tunniste tarkistetaan. Muun moduulin kohde ohitetaan syyllä "Kohde ei kuulu tälle moduulille", jäsentymätön syyllä
+   "Virheellinen tunniste".
+2. Prosessi haetaan tuoreesta näytteestä. Puuttuva ohitetaan syyllä "Prosessi on jo päättynyt", eri käynnistysaika syyllä
+   "PID on käytetty uudelleen".
+3. `ProcessGuard` ajetaan uudelleen tuoreelle tiedolle, ja suojattu ohitetaan suojauksen syyllä.
+4. Ikkunalliselle prosessille lähetetään `CloseMainWindow` ja odotetaan 5 s. Jos prosessi on yhä käynnissä, `Kill` ja
+   odotus 5 s. Käynnistysaika tarkistetaan vielä juuri ennen lopetusta.
+5. Saman exen jälkeläiset lopetetaan perään lapsista lapsenlapsiin samalla suojaustarkistuksella. Aliprosessin epäonnistuminen kirjataan varoituksena
+   eikä muuta juuren tulosta.
+
+Turvamekanismit:
+- Kuiva ajo ei lopeta mitään. Loki kirjaa "[KUIVA] Lopetettaisiin <nimi> (PID n) <polku>" ja kohde menee `Removed`-listalle.
+- Jokainen lopetus kirjataan lokiin muodossa "Lopetettiin <nimi> (PID n): <polku>", aliprosessit omalla rivillään.
+- PID yksin ei koskaan riitä. Tunnisteen käynnistysaika estää kierrätetyn PID:n lopettamisen sekä skannauksen ja lopetuksen
+  välissä että lopettajassa.
+- Avoimet ohjelmat ovat High-riskin kohteita eikä niitä esivalita koskaan. Moduuli ei ole mukana "skannaa kaikki" -ajossa.
+- Prosessia ei käynnistetä uudelleen. Loki nimillä ja poluilla riittää palautusohjeeksi.
 
 ## 7. WinUI 3 -käyttöliittymä – toteutettu (ensimmäinen versio)
 
