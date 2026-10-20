@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Logging;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
@@ -24,7 +25,8 @@ public static class UninstallCommand
         {
             PrintPrograms(programs);
             Console.WriteLine();
-            Console.WriteLine("Valitse: pccleaner uninstall --program <nimi> [--leftovers-only] [--quiet] [--apply [--all | --item <tunniste>]]");
+            Console.WriteLine(Loc.T("Choose: pccleaner uninstall --program <name> [--leftovers-only] [--quiet] [--apply [--all | --item <id>]]",
+                                    "Valitse: pccleaner uninstall --program <nimi> [--leftovers-only] [--quiet] [--apply [--all | --item <tunniste>]]"));
             return 0;
         }
 
@@ -36,12 +38,12 @@ public static class UninstallCommand
 
         if (matches.Count == 0)
         {
-            Console.Error.WriteLine($"Ohjelmaa ei löydy: {options.Program}");
+            Console.Error.WriteLine(Loc.T($"Program not found: {options.Program}", $"Ohjelmaa ei löydy: {options.Program}"));
             return 2;
         }
         if (matches.Count > 1)
         {
-            Console.WriteLine("Useita osumia:");
+            Console.WriteLine(Loc.T("Multiple matches:", "Useita osumia:"));
             PrintPrograms(matches);
             return 2;
         }
@@ -51,12 +53,13 @@ public static class UninstallCommand
         // Vaihe 1: poisto-ohjelma. Virhe ei pysäytä: jäänteet skannataan silti.
         if (!options.LeftoversOnly)
         {
-            Console.WriteLine($"Käynnistetään poisto-ohjelma: {program.Name}");
+            Console.WriteLine(Loc.T($"Starting uninstaller: {program.Name}", $"Käynnistetään poisto-ohjelma: {program.Name}"));
             var run = await module.RunUninstallerAsync(program, options.Quiet, context, CancellationToken.None);
             Console.WriteLine(run.ExitCode is { } code
-                ? $"  Poisto-ohjelma päättyi koodilla {code} ({run.Elapsed.TotalSeconds:0} s)"
-                : "  Poisto-ohjelma ei käynnistynyt");
-            Console.WriteLine($"  Uninstall-avain poistui: {(run.KeyRemoved ? "kyllä" : "ei")}");
+                ? Loc.T($"  Uninstaller exited with code {code} ({run.Elapsed.TotalSeconds:0} s)",
+                        $"  Poisto-ohjelma päättyi koodilla {code} ({run.Elapsed.TotalSeconds:0} s)")
+                : Loc.T("  Uninstaller did not start", "  Poisto-ohjelma ei käynnistynyt"));
+            Console.WriteLine($"  {Loc.T("Uninstall key removed:", "Uninstall-avain poistui:")} {(run.KeyRemoved ? Loc.T("yes", "kyllä") : Loc.T("no", "ei"))}");
             if (run.Error is not null)
                 Console.WriteLine($"  ! {run.Error}");
             Console.WriteLine();
@@ -77,7 +80,7 @@ public static class UninstallCommand
         Console.WriteLine($"== {module.DisplayName}: {program.Name} ==");
         foreach (var group in scan.Items.GroupBy(i => i.Category).OrderByDescending(g => g.Sum(i => i.SizeBytes)))
         {
-            Console.WriteLine($"  {group.Key,-40} {group.Count(),7} kpl   [{group.First().Risk}]");
+            Console.WriteLine($"  {group.Key,-40} {group.Count(),7} {Loc.T("items", "kpl")}   [{group.First().Risk}]");
             foreach (var item in group)
             {
                 var marker = item.Preselected == true ? "* " : "  ";
@@ -88,14 +91,16 @@ public static class UninstallCommand
         foreach (var err in scan.Errors)
             Console.WriteLine($"  ! {err}");
         if (scan.Count == 0)
-            Console.WriteLine("  (ei jäänteitä)");
+            Console.WriteLine(Loc.T("  (no leftovers)", "  (ei jäänteitä)"));
         else if (!module.TargetKeyRemoved)
-            Console.WriteLine("  Ohjelma on yhä asennettu: mitään ei esivalita. Käytä --item <tunniste> tai --all, jos haluat silti siirtää kohteita.");
+            Console.WriteLine(Loc.T("  The program is still installed: nothing is preselected. Use --item <id> or --all if you still want to move items.",
+                                    "  Ohjelma on yhä asennettu: mitään ei esivalita. Käytä --item <tunniste> tai --all, jos haluat silti siirtää kohteita."));
         Console.WriteLine();
 
         if (!options.Apply)
         {
-            Console.WriteLine("KUIVA AJO: mitään ei siirretä. Lisää --apply siirtääksesi esivalitut (*) karanteeniin, --all kaikki, tai --item <tunniste>.");
+            Console.WriteLine(Loc.T("DRY RUN: nothing is moved. Add --apply to move the preselected (*) items to quarantine, --all to move all, or --item <id>.",
+                                "KUIVA AJO: mitään ei siirretä. Lisää --apply siirtääksesi esivalitut (*) karanteeniin, --all kaikki, tai --item <tunniste>."));
             return 0;
         }
 
@@ -110,7 +115,7 @@ public static class UninstallCommand
 
         if (items.Count == 0)
         {
-            Console.WriteLine("Ei mitään siirrettävää.");
+            Console.WriteLine(Loc.T("Nothing to move.", "Ei mitään siirrettävää."));
             return 0;
         }
 
@@ -119,11 +124,13 @@ public static class UninstallCommand
             var fileCount = items.Count(i => i.Id.StartsWith("uninstall:dir:", StringComparison.Ordinal)
                                           || i.Id.StartsWith("uninstall:file:", StringComparison.Ordinal));
             var registryCount = items.Count - fileCount;
-            Console.Write($"Siirretäänkö {fileCount} kohdetta karanteeniin ja poistetaanko {registryCount} rekisterikohdetta? [k/E] ");
+            Console.Write(Loc.T($"Move {fileCount} items to quarantine and remove {registryCount} registry items? [y/N] ",
+                                $"Siirretäänkö {fileCount} kohdetta karanteeniin ja poistetaanko {registryCount} rekisterikohdetta? [k/E] "));
+            // Molemmilla kielillä hyväksytään y, yes, k ja kyllä; kaikki muu peruuttaa.
             var answer = Console.ReadLine()?.Trim().ToLowerInvariant();
             if (answer is not ("k" or "kyllä" or "y" or "yes"))
             {
-                Console.WriteLine("Peruutettu.");
+                Console.WriteLine(Loc.T("Canceled.", "Peruutettu."));
                 return 1;
             }
         }
@@ -132,32 +139,35 @@ public static class UninstallCommand
         var result = await module.CleanAsync(items, realContext);
 
         foreach (var (item, reason) in result.Skipped.Take(10))
-            Console.WriteLine($"  ohitettu: {item.Path}  ({reason})");
+            Console.WriteLine(Loc.T($"  skipped: {item.Path}  ({reason})", $"  ohitettu: {item.Path}  ({reason})"));
         if (result.Skipped.Count > 10)
-            Console.WriteLine($"  ... ja {result.Skipped.Count - 10} muuta ohitettua (katso loki)");
+            Console.WriteLine(Loc.T($"  ... and {result.Skipped.Count - 10} more skipped (see log)",
+                                    $"  ... ja {result.Skipped.Count - 10} muuta ohitettua (katso loki)"));
         foreach (var err in result.Errors)
             Console.WriteLine($"  ! {err}");
 
         Console.WriteLine();
-        Console.WriteLine($"Käsitelty: {result.Removed.Count}, ohitettu {result.Skipped.Count}");
+        Console.WriteLine(Loc.T($"Processed: {result.Removed.Count}, skipped {result.Skipped.Count}",
+                                $"Käsitelty: {result.Removed.Count}, ohitettu {result.Skipped.Count}"));
         if (module.LastQuarantineDirectory is not null)
-            Console.WriteLine($"Karanteeni: {module.LastQuarantineDirectory}");
+            Console.WriteLine($"{Loc.T("Quarantine:", "Karanteeni:")} {module.LastQuarantineDirectory}");
         if (module.LastBackupTimestamp is not null)
-            Console.WriteLine($"Palautus: pccleaner restore {module.LastBackupTimestamp}");
+            Console.WriteLine($"{Loc.T("Restore:", "Palautus:")} pccleaner restore {module.LastBackupTimestamp}");
 
         return result.Skipped.Count == items.Count ? 1 : 0;
     }
 
     private static void PrintPrograms(IReadOnlyList<InstalledProgram> programs)
     {
-        Console.WriteLine($"{"Nimi",-40} {"Versio",-16} {"Julkaisija",-30} {"Asennettu",-10} {"Koko",10}  Avain");
+        Console.WriteLine($"{Loc.T("Name", "Nimi"),-40} {Loc.T("Version", "Versio"),-16} {Loc.T("Publisher", "Julkaisija"),-30} " +
+                          $"{Loc.T("Installed", "Asennettu"),-10} {Loc.T("Size", "Koko"),10}  {Loc.T("Key", "Avain")}");
         foreach (var p in programs)
         {
             var size = p.EstimatedSizeBytes > 0 ? ByteFormatter.Format(p.EstimatedSizeBytes) : "";
             var date = p.InstallDate?.ToString("yyyy-MM-dd") ?? "";
             Console.WriteLine($"{Fit(p.Name, 40),-40} {Fit(p.Version ?? "", 16),-16} {Fit(p.Publisher ?? "", 30),-30} {date,-10} {size,10}  {p.KeyPath}");
         }
-        Console.WriteLine($"({programs.Count} ohjelmaa)");
+        Console.WriteLine(Loc.T($"({programs.Count} programs)", $"({programs.Count} ohjelmaa)"));
     }
 
     private static string Fit(string s, int max) => s.Length <= max ? s : s[..(max - 3)] + "...";

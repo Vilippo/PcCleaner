@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Cleaner.Core.Abstractions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Logging;
 using Cleaner.Core.Rules;
 using Cleaner.Modules.DiskUsage;
@@ -30,14 +31,15 @@ public static class ModuleFactory
         var filesRules = Path.Combine(rulesDirectory, "files.json");
         if (File.Exists(filesRules))
             modules.Add(FileCleanerModule.FromRuleFile(
-                "files", "Tiedostosiivous", "Väliaikaistiedostot, välimuistit, lokit.", filesRules, filter));
+                "files", new LocalizedText("File cleanup", "Tiedostosiivous"),
+                new LocalizedText("Temporary files, caches, logs.", "Väliaikaistiedostot, välimuistit, lokit."), filesRules, filter));
         else
-            log.Warning($"Sääntötiedostoa ei löydy: {filesRules}");
+            log.Warning(Loc.T($"Rule file not found: {filesRules}", $"Sääntötiedostoa ei löydy: {filesRules}"));
 
         var browserRules = Path.Combine(rulesDirectory, "browsers.json");
         if (File.Exists(browserRules))
             modules.Add(FileCleanerModule.FromRuleFile(
-                "browsers", "Selainten välimuistit", "Edge, Chrome, Firefox, Brave.", browserRules, filter));
+                "browsers", new LocalizedText("Browser caches", "Selainten välimuistit"), "Edge, Chrome, Firefox, Brave.", browserRules, filter));
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
