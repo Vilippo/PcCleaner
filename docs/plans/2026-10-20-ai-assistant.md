@@ -53,8 +53,13 @@ await foreach (RawMessageStreamEvent ev in client.Messages.CreateStreaming(p)) {
     if (ev.TryPickDelta(out var md)) { /* md.Delta.StopReason, md.Usage.OutputTokens */ } }
 var r = await client.Messages.Create(p);              // r.StopReason, r.Usage.InputTokens/OutputTokens, r.StopDetails?.Category
 foreach (var b in r.Content) if (b.TryPickText(out var t)) { /* t.Text on JSON-skeeman mukainen teksti */ }
-// Poikkeukset: AnthropicUnauthorizedException (401), AnthropicRateLimitException (429), Anthropic4xxException,
-// Anthropic5xxException, AnthropicIOException (verkko), kanta AnthropicApiException.
+// Poikkeukset (Anthropic.Exceptions, luettu 12.58.0:n metadatasta): AnthropicException : Exception;
+//   AnthropicServiceException : AnthropicException; AnthropicApiException : AnthropicServiceException;
+//   Anthropic4xxException ja Anthropic5xxException ja AnthropicUnexpectedStatusCodeException : AnthropicApiException;
+//   AnthropicUnauthorizedException (401), AnthropicRateLimitException (429), AnthropicBadRequestException,
+//   AnthropicForbiddenException, AnthropicNotFoundException, AnthropicUnprocessableEntityException : Anthropic4xxException;
+//   AnthropicSseException : AnthropicServiceException (suoratoiston virhetapahtuma, esim. overloaded kesken vastauksen);
+//   AnthropicIOException : AnthropicException (verkko); AnthropicInvalidDataException : AnthropicException.
 // HUOM: StopReason.ToString() palauttaa lainausmerkit mukaan lukien ("end_turn"); vertaa `r.StopReason == "refusal"`
 // (README-esimerkki) ja jos se ei käänny, `r.StopReason?.ToString()?.Trim('"') == "refusal"`.
 // Assistant-prefill ja tool_choice any/tool eivät ole käytössä Opus 5.5:llä; thinking jätetään pois (adaptiivinen oletus).
@@ -70,20 +75,29 @@ Ai-kirjasto (`src/Cleaner.Ai`, nimiavaruus `Cleaner.Ai`)
   sekä `src/Cleaner.UI/Cleaner.UI.csproj` viittaavat siihen.
 - REQ-2: `PathSanitizer.Sanitize(string)` korvaa nykyisen käyttäjäprofiilin polun (esim. `C:\Users\ville`) merkinnällä
   `%USERPROFILE%` ja muualla esiintyvän `\Users\<käyttäjänimi>\`-muodon muodolla `\Users\%USERNAME%\`, kirjainkoosta
-  riippumatta, myös kun polku on keskellä tekstiä. Muiden käyttäjien profiilit ja muu teksti eivät muutu. Konstruktori
-  ottaa profiilipolun ja käyttäjänimen (testattava), `PathSanitizer.ForCurrentUser()` lukee ne ympäristöstä.
-- REQ-3: `ScanDigest.Build(moduleName, items, options, sanitizer)` tuottaa tekstin, jossa jokaisella kategorialla on
-  otsikkorivi (nimi, riski, kohdemäärä, yhteiskoko `ByteFormatter`-muodossa, valittujen määrä) ja kohteet koon mukaan
-  suurin ensin. Kategoria, jossa on enintään `FullListThreshold` (oletus 40) kohdetta, listataan kokonaan; suurempi
-  listaa `SampleSize` (oletus 20) ensimmäistä ja rivin "(+N more, not listed)". Listattuja kohteita on koko tekstissä
-  enintään `MaxListedItems` (oletus 400); rajan täytyttyä loput kategoriat saavat vain otsikkorivin. Kohderivi:
-  avain `i<n>` (juokseva 1..), valintamerkki `[x]`/`[ ]`, koko, siistitty polku, siistitty kuvaus katkaistuna
+  riippumatta, myös kun polku on keskellä tekstiä. Osuma hyväksytään vain, kun sitä seuraa `\`, tekstin loppu tai
+  muu kuin kirjain, numero, `_`, `-` tai `.`; siksi profiili `C:\Users\ville` ei osu polkuun `C:\Users\villeneuve\...`.
+  Muiden käyttäjien profiilit ja muu teksti eivät muutu. Konstruktori ottaa profiilipolun ja käyttäjänimen
+  (testattava), `PathSanitizer.ForCurrentUser()` lukee ne ympäristöstä.
+- REQ-3: `ScanDigest.Build(moduleName, items, sumSizes, options, sanitizer)` tuottaa tekstin, jossa jokaisella
+  kategorialla on otsikkorivi (nimi, riski, kohdemäärä, yhteiskoko, valittujen määrä) ja kohteet koon mukaan suurin
+  ensin. Koot kirjoitetaan `AiFormat.Bytes(long)`-muodossa (oma invariantti englanninkielinen muotoilija Ai-projektissa:
+  `B`, `KB`, `MB`, `GB`, `TB`, yksi desimaali, `InvariantCulture`), ei `ByteFormatter`-luokalla, joka seuraa
+  `Loc.Current`-kieltä. Kun `sumSizes` on false (opt-in-moduulit, joiden kohteet voivat olla sisäkkäisiä kansioita),
+  otsikkorivin yhteiskoko korvataan tekstillä `size not summed (nested items)`. Kategoria, jossa on enintään
+  `FullListThreshold` (oletus 40) kohdetta, listataan kokonaan; suurempi listaa `SampleSize` (oletus 20) ensimmäistä
+  ja rivin "(+N more, not listed)". Listattuja kohteita on koko tekstissä enintään `MaxListedItems` (oletus 400): kun
+  jäljellä oleva kiintiö on pienempi kuin kategorian listattava määrä, kategoria katkaistaan kiintiöön ja saa rivin
+  "(+N more, not listed)"; kiintiön loputtua loput kategoriat saavat vain otsikkorivin ja rivin "(items not listed)".
+  Kohderivi: avain `i<n>` (juokseva 1..), valintamerkki `[x]`/`[ ]`, koko, siistitty polku, siistitty kuvaus katkaistuna
   120 merkkiin. `ScanDigest.KeyToItem` kuvaa avaimen `CleanItem`-olioon ja `ScanDigest.Categories` listaa kategorioiden
-  nimet. Sama syöte antaa aina saman tekstin.
+  nimet. Sama syöte antaa aina saman tekstin riippumatta `Loc.Current`-arvosta.
 - REQ-4: `HealthDigest.Build(SystemFacts, IReadOnlyList<ModuleScanSummary>)` tuottaa tekstin: käyttöjärjestelmän
   versio, suoritinytimet, muisti (yhteensä ja vapaana, jos saatavilla), käyntiaika, jokainen asema (nimi, koko,
   vapaana, vapaana prosentteina), onko prosessi korotettu, sekä jokaisesta moduulista nimi, "not scanned" tai kohdemäärä
-  ja yhteiskoko ja enintään 5 suurinta kategoriaa (nimi, määrä, koko). `SystemFacts.Collect()` lukee tiedot
+  ja yhteiskoko ja enintään 5 suurinta kategoriaa (nimi, määrä, koko). Kun `ModuleScanSummary.SizesSummable` on false
+  (opt-in-moduulit, sisäkkäiset kohteet), moduulin ja kategorioiden koot korvataan tekstillä "size not summed (nested
+  items)". Koot `AiFormat.Bytes`-muodossa. `SystemFactsCollector.Collect()` lukee tiedot
   (.NET: `Environment.OSVersion`, `ProcessorCount`, `TickCount64`, `DriveInfo.GetDrives()` kiinteät valmiit asemat,
   `GC.GetGCMemoryInfo().TotalAvailableMemoryBytes`; vapaa muisti Windowsissa `GlobalMemoryStatusEx`-kutsulla,
   muualla null) eikä heitä, vaikka jokin lähde epäonnistuu (kenttä jää null tai tyhjäksi).
@@ -96,13 +110,19 @@ Ai-kirjasto (`src/Cleaner.Ai`, nimiavaruus `Cleaner.Ai`)
 - REQ-6: `VerdictApplier.Resolve(review, item)` palauttaa kohteen oman arvion, muuten kategorian arvion, muuten null.
   `VerdictApplier.AutoSelection(verdict, risk, current)` palauttaa `false`, kun arvio on Caution tai Keep; `true`, kun
   arvio on Safe ja riski ei ole High; `false`, kun riski on High (arviosta riippumatta); muuten `current`.
-- REQ-7: `AiAssistant` (konstruktori `IAiBackend`, `AiAssistantOptions { Model, MaxHistory = 20 }`) pitää
-  keskusteluhistorian `History` (`AiChatMessage(AiRole Role, string Text)`): `ReviewAsync(digest, language, ct)`
+- REQ-7: `AiAssistant` (konstruktori `IAiBackend`, `AiAssistantOptions { Model, MaxHistory = 20, MaxHistoryChars = 120000 }`)
+  pitää keskusteluhistorian `History` (`AiChatMessage(AiRole Role, string Text)`): `ReviewAsync(digest, language, ct)`
   lisää historiaan käyttäjäviestin (arvio-ohje + digestin teksti) ja avustajan viestin (palautettu JSON-teksti) ja
   palauttaa `AiReview`; `HealthCheckAsync(healthText, language, onDelta, ct)` ja `AskAsync(question, language, onDelta, ct)`
-  lisäävät käyttäjäviestin ja avustajan vastauksen ja palauttavat `AiTextResult`. Historia katkaistaan alusta kokonaisina
-  käyttäjä–avustaja-pareina, kun viestejä on yli `MaxHistory`. `Reset()` tyhjentää. Arvio käyttää
-  `CompleteJsonAsync`-kutsua (effort High, maxTokens 16000), teksti `StreamTextAsync`-kutsua (effort Medium, maxTokens 8000).
+  lisäävät käyttäjäviestin ja avustajan vastauksen ja palauttavat `AiTextResult`. Historian koko on rajattu kahdella
+  säännöllä: (a) kun uusi arvio onnistuu, aiempien arvioiden käyttäjäviestien digest-osa korvataan tekstillä
+  "(earlier review of <module>; item list omitted)" niin, että vain uusimman arvion digest on kokonaisena;
+  (b) kun viestejä on yli `MaxHistory` tai tekstien yhteispituus yli `MaxHistoryChars` merkkiä, historiaa katkaistaan
+  alusta kokonaisina käyttäjä–avustaja-pareina, kunnes molemmat rajat täyttyvät (uusin pari säilyy aina).
+  Mitoitus: digest on enintään 400 kohderiviä × noin 170 merkkiä ≈ 68 000 merkkiä (≈ 17 000–20 000 tokenia), joten
+  120 000 merkkiä pitää yhden täyden digestin ja useita tekstivastauksia, ja yksi kutsu on enintään noin 35 000
+  syötetokenia. `Reset()` tyhjentää. Arvio käyttää `CompleteJsonAsync`-kutsua (effort High, maxTokens 16000), teksti
+  `StreamTextAsync`-kutsua (effort Medium, maxTokens 8000).
 - REQ-8: `AiPrompts.System(Language)` palauttaa järjestelmäkehotteen (englanti ja suomi samasta rakenteesta, vastaus
   pyydetään annetulla kielellä), joka kertoo: avustaja toimii PC Cleaner -ohjelmassa (moduulit: tiedostosiivous,
   selainten välimuistit, roskakori, käynnistysohjelmat, levytilan analyysi, rekisteri, ohjelman poisto, prosessit;
@@ -118,8 +138,10 @@ Ai-kirjasto (`src/Cleaner.Ai`, nimiavaruus `Cleaner.Ai`)
   Molemmat palauttavat `AiTextResult(Text, StopReason, AiUsage(InputTokens, OutputTokens), Truncated)`, jossa
   `Truncated` on tosi, kun `stop_reason` on `max_tokens`. `stop_reason == "refusal"` heittää `AiException(Refused)`
   ja `Category`-kenttään `StopDetails.Category`. SDK:n poikkeukset kuvataan: 401 → `Unauthorized`, 429 → `RateLimited`,
-  muu 4xx → `BadRequest`, 5xx → `Server`, `AnthropicIOException` → `Network`, muu `AnthropicApiException` → `Other`;
-  alkuperäinen poikkeus on `InnerException`. `OperationCanceledException` kulkee läpi sellaisenaan.
+  muu 4xx → `BadRequest`, 5xx → `Server`, `AnthropicSseException` → `Server`, `AnthropicIOException` → `Network`,
+  `AnthropicInvalidDataException` → `InvalidResponse`, muu `AnthropicException` → `Other`; mikään SDK:n poikkeus ei
+  pääse läpi `AiException`-kääreen ohi. Alkuperäinen poikkeus on `InnerException`. `OperationCanceledException`
+  kulkee läpi sellaisenaan.
 - REQ-10: `AnthropicBackend.IsConfigured` on tosi täsmälleen silloin, kun ympäristömuuttuja `ANTHROPIC_API_KEY` ei
   ole tyhjä. Käynnistyksessä ei tehdä API-kutsua.
 
@@ -145,8 +167,9 @@ Käyttöliittymä
   (`ModuleViewModel.ApplyReview`): kategorian merkki ja kohteen merkki. Auto-tilassa lisäksi
   `ModuleViewModel.ApplyAutoSelection` ja viestiin rivi "Selected N, deselected M" / "Valittu N, poistettu valinnasta M".
   Token-määrät kirjataan lokiin Debug-tasolla.
-- REQ-14: Koneen kunto: `HealthCheckCommand` kerää `SystemFacts.Collect()` (`Task.Run`) ja moduulien yhteenvedot
-  (`ModuleScanSummary` jokaisesta `MainViewModel.Modules`-moduulista nykyisestä skannaustuloksesta) ja suoratoistaa
+- REQ-14: Koneen kunto: `HealthCheckCommand` kerää `SystemFactsCollector.Collect()` (`Task.Run`) ja moduulien
+  yhteenvedot (`ModuleScanSummary` jokaisesta `MainViewModel.Modules`-moduulista nykyisestä skannaustuloksesta,
+  `SizesSummable = SelectedByDefault`) ja suoratoistaa
   avustajan vastauksen: avustajan viesti luodaan tyhjänä ja sen `Text` kasvaa deltojen mukana UI-säikeessä.
 - REQ-15: Kysymys: `AskCommand` lähettää `Question`-tekstin, tyhjentää kentän ja suoratoistaa vastauksen kuten REQ-14.
 - REQ-16: Virheet: `AiException` näytetään paneelissa virheviestinä (tyyppi `AiMessageRole.Error`) lokalisoidulla
@@ -163,14 +186,18 @@ Käyttöliittymä
 - REQ-18: `DeselectFlaggedCommand` poistaa valinnasta jokaisen kohteen, jonka `VerdictApplier.Resolve` antaa Caution
   tai Keep, ja lisää paneeliin tiedoteviestin "Deselected N items" / "Poistettu valinnasta N kohdetta".
   `HasFlagged` on tosi, kun valitulla moduulilla on arvio ja vähintään yksi valittu kohde on Caution tai Keep.
-- REQ-19: Automaattinen siivous (`MainViewModel.AutoCleanCommand`, sallittu kun `!IsBusy && Ai.IsAvailable && Ai.AutoMode`):
-  (1) skannaa kaikki `SelectedByDefault`-moduulit kuten "Skannaa kaikki"; (2) pyytää arvion jokaisesta moduulista, jolla
-  on vähintään yksi kohde (paneeliin viestit kuten REQ-13) ja soveltaa `ApplyAutoSelection`; (3) ajaa kuivan ajon
-  kaikkien näiden moduulien valituille kohteille; (4) näyttää yhden vahvistusdialogin, jossa on jokaisen arvioidun
-  moduulin `Summary`, kuivan ajon kohdemäärä ja koko sekä ohitetut syineen (enintään 4), painike "Delete permanently" /
-  "Poista pysyvästi"; (5) ajaa oikean ajon, näyttää tulosdialogin ja skannaa moduulit uudelleen. Jos kuiva ajo ei
-  poistaisi mitään, näytetään "Nothing to do" / "Ei mitään tehtävää". Opt-in-moduulit eivät ole mukana, High-riskin
-  kohde ei ole koskaan valittuna, ja Peruuta missä tahansa vaiheessa ennen oikeaa ajoa keskeyttää ilman puhdistusta.
+- REQ-19: Automaattinen siivous (`MainViewModel.AutoCleanCommand`, sallittu kun `!IsBusy && !Ai.IsThinking &&
+  Ai.IsAvailable && Ai.AutoMode`): vaiheet (1)–(3) ajetaan yhden `BeginBusy`-tilan ja yhden `CancellationTokenSource`-olion
+  alla, joten alapalkin Peruuta on käytössä koko ajan ja keskeyttää minkä tahansa vaiheen: (1) skannaa kaikki
+  `SelectedByDefault`-moduulit kuten "Skannaa kaikki"; (2) pyytää arvion jokaisesta moduulista, jolla on vähintään yksi
+  kohde (paneeliin viestit kuten REQ-13, `BusyTitle` "Review: <moduuli>" / "Arvio: <moduuli>") ja soveltaa
+  `ApplyAutoSelection`; (3) ajaa kuivan ajon kaikkien näiden moduulien valituille kohteille; (4) näyttää yhden
+  vahvistusdialogin, jossa on jokaisen arvioidun moduulin `Summary`, kuivan ajon kohdemäärä ja koko sekä ohitetut
+  syineen (enintään 4), painike "Delete permanently" / "Poista pysyvästi"; (5) ajaa oikean ajon, näyttää tulosdialogin
+  ja skannaa moduulit uudelleen. Jos kuiva ajo ei poistaisi mitään, näytetään "Nothing to do" / "Ei mitään tehtävää".
+  Opt-in-moduulit eivät ole mukana, High-riskin kohde ei ole koskaan valittuna. Peruutus vaiheissa 1–3 (alapalkin
+  Peruuta tai paneelin Peruuta) keskeyttää ilman dialogia ja ilman puhdistusta, ja skannauksen peruutus todetaan
+  skannauksen paluuarvosta, ei moduulien `HasScanned`-tilasta.
 - REQ-20: Paneeli: `AiSplitView` (`SplitView`, `PanePlacement=Right`, `DisplayMode=Inline`, `OpenPaneLength=400`,
   oletuksena kiinni) ympäröi `NavigationView`-elementin `LogSplitView`-sisällön sisällä, joten moduulisivu kapenee
   paneelin auetessa ja lokipaneeli piirtyy sen päälle. Paneelissa ylhäältä alas: otsikko "AI assistant" /
@@ -219,8 +246,9 @@ Käyttöliittymä
 - EDGE-10: Ulkoasun vaihto suoratoiston aikana → viestit ovat ViewModelissa ja näkyvät uudessa näkymässä; paneeli
   on näkymän tilaa ja sulkeutuu (kuten lokipaneeli).
 - EDGE-11: Skannaus tai puhdistus on käynnissä → Review/Health/Ask eivät ole sallittuja (`IsBusy`); avustajan
-  ajattelun aikana Skannaa ja Puhdista ovat sallittuja, mutta arvion soveltaminen tarkistaa, että moduuli on yhä
-  sama olio eikä sitä ole tyhjennetty (`HasScanned`), muuten arvio näytetään vain tekstinä.
+  ajattelun aikana Skannaa ja Puhdista ovat sallittuja, mutta arvion soveltaminen tarkistaa, että moduulin
+  `ScanGeneration` (laskuri, joka kasvaa jokaisessa `LoadScan`- ja `ClearScan`-kutsussa) on sama kuin kutsun alussa;
+  muuten arvio näytetään vain tekstinä eikä merkkejä tai valintoja muuteta.
 - EDGE-12: Ohjelman poisto -moduuli ilman kohdetta (`HasScanned == false`) → Review ei ole sallittu.
 - EDGE-13: Kohde, jonka arvio on Safe mutta riski High → ei koskaan valita automaattisesti (REQ-6); merkki näytetään.
 
@@ -274,9 +302,9 @@ Käyttöliittymä
 - CON-1: toteutuu rakenteella; T1:n Verify tarkistaa `grep ProjectReference` ja `grep PackageReference` Ai-csproj:stä
   ja ettei Core/Cli/Modules-csproj:issa ole `PackageReference`-rivejä.
 - CON-3: toteutuu puuttumalla: vain `ScanDigest.Text`, `HealthDigest`-teksti ja `Question` päätyvät `IAiBackend`-kutsuihin
-  (T4 rakentaa kutsut; AC-6 tarkistaa koodista grep-haulla, että `IAiBackend`-kutsuja on vain `AiAssistant`-luokassa).
+  (T4 rakentaa kutsut; AC-3 tarkistaa koodista grep-haulla, että `CompleteJsonAsync`/`StreamTextAsync`-kutsuja on vain `AiAssistant`-luokassa).
 - CON-5, CON-6: T3 (`AnthropicClient` ilman parametreja, malli optioista) ja T4 (`ModelName` asetuksista); mitään
-  avainta ei kirjoiteta, tarkistus AC-6.
+  avainta ei kirjoiteta, tarkistus AC-3.
 - EDGE-4, EDGE-13: seuraavat REQ-3:n ja REQ-6:n sanamuodosta, testataan T1:ssä.
 - EDGE-10: seuraa nykyisestä uudelleenluontimallista (ViewModel säilyy); T5 huolehtii `Detach`-nollauksesta (REQ-21).
 
@@ -294,6 +322,7 @@ Yksi tehtävä: T1 luo Ai-projektin, sen rajapinnat ja puhtaan logiikan sekä as
   src/Cleaner.Ai/AiModels.cs,
   src/Cleaner.Ai/IAiBackend.cs,
   src/Cleaner.Ai/AiException.cs,
+  src/Cleaner.Ai/AiFormat.cs,
   src/Cleaner.Ai/PathSanitizer.cs,
   src/Cleaner.Ai/ScanDigest.cs,
   src/Cleaner.Ai/SystemFacts.cs,
@@ -351,11 +380,12 @@ Yksi tehtävä: T1 luo Ai-projektin, sen rajapinnat ja puhtaan logiikan sekä as
   public sealed record AiTextResult(string Text, string StopReason, AiUsage Usage, bool Truncated);
   public sealed record AiRequestOptions(string Model, AiEffort Effort, int MaxTokens);
   public sealed record ModuleScanSummary(string ModuleId, string DisplayName, bool Scanned, int Count, long TotalBytes,
-      IReadOnlyList<(string Name, int Count, long Bytes)> Categories);
+      bool SizesSummable, IReadOnlyList<(string Name, int Count, long Bytes)> Categories);
+  public static class AiFormat { public static string Bytes(long bytes); }   // invariantti: "0 B", "1.5 KB", "61.9 MB", "1.2 GB", "1.0 TB"
   public sealed record DriveFacts(string Name, string? Label, long TotalBytes, long FreeBytes);
   public sealed record SystemFacts(string OsVersion, int ProcessorCount, long? TotalMemoryBytes, long? AvailableMemoryBytes,
       TimeSpan Uptime, IReadOnlyList<DriveFacts> Drives, bool IsElevated);
-  public sealed class AiAssistantOptions { public string Model { get; init; } = "claude-opus-5-5"; public int MaxHistory { get; init; } = 20; }
+  public sealed class AiAssistantOptions { public string Model { get; init; } = "claude-opus-5-5"; public int MaxHistory { get; init; } = 20; public int MaxHistoryChars { get; init; } = 120_000; }
 
   public sealed class AiException : Exception
   {
@@ -388,7 +418,7 @@ Yksi tehtävä: T1 luo Ai-projektin, sen rajapinnat ja puhtaan logiikan sekä as
       public string Text { get; }
       public IReadOnlyDictionary<string, CleanItem> KeyToItem { get; }   // "i1" → kohde
       public IReadOnlyList<string> Categories { get; }
-      public static ScanDigest Build(string moduleName, IEnumerable<(CleanItem Item, bool Selected)> items, DigestOptions options, PathSanitizer sanitizer);
+      public static ScanDigest Build(string moduleName, IEnumerable<(CleanItem Item, bool Selected)> items, bool sumSizes, DigestOptions options, PathSanitizer sanitizer);
   }
   public static class HealthDigest { public static string Build(SystemFacts facts, IReadOnlyList<ModuleScanSummary> modules); }
   public static class SystemFactsCollector { public static SystemFacts Collect(); }   // SystemFacts-record pysyy puhtaana datana
@@ -417,23 +447,31 @@ Yksi tehtävä: T1 luo Ai-projektin, sen rajapinnat ja puhtaan logiikan sekä as
   ```
 
   Säännöt:
-  - `PathSanitizer.Sanitize`: korvaa profiilipolun (esim. `C:\Users\ville`, myös `/`-erottimella annettuna ei tarvitse
-    tukea; vain `\`) merkinnällä `%USERPROFILE%` kaikkialla tekstissä kirjainkoosta riippumatta; sen jälkeen korvaa
-    `\Users\<userName>\`-esiintymät muodolla `\Users\%USERNAME%\`. Muiden käyttäjien `\Users\muu\` ei muutu. Tyhjä
-    käyttäjänimi tai profiili → kyseinen korvaus ohitetaan.
+  - `AiFormat.Bytes`: oma invariantti muotoilija (`InvariantCulture`, yksiköt B/KB/MB/GB/TB, jako 1024:llä, yksi
+    desimaali paitsi tavuilla: "0 B", "512 B", "1.5 KB", "61.9 MB"). Älä käytä `Cleaner.Core.Services.ByteFormatter`-luokkaa
+    missään Ai-projektin tekstissä: se muotoilee `Loc.Current`-kielen mukaan (suomeksi "Mt" ja desimaalipilkku), ja
+    testit ajetaan oletuksena suomeksi. Lisää testi, että digest on sama `Loc.Current = Fi` ja `En` -arvoilla.
+  - `PathSanitizer.Sanitize`: korvaa profiilipolun (esim. `C:\Users\ville`; vain `\`-erotin) merkinnällä
+    `%USERPROFILE%` kaikkialla tekstissä kirjainkoosta riippumatta, mutta vain kun osumaa seuraa `\`, tekstin loppu tai
+    muu merkki kuin kirjain, numero, `_`, `-` tai `.` (säännöllinen lauseke `(?<![\w.-])` ei tarvita alkuun, loppuun
+    `(?![\w.-])`); sen jälkeen korvaa `\Users\<userName>\`-esiintymät muodolla `\Users\%USERNAME%\`. Muiden käyttäjien
+    `\Users\muu\` ja etuliitteen jakava `\Users\villeneuve\` eivät muutu. Tyhjä käyttäjänimi tai profiili → kyseinen
+    korvaus ohitetaan.
   - `ScanDigest.Build`: ryhmittele kategorioittain (säilytä ensiesiintymisjärjestys), kategorian sisällä koko laskevasti,
-    sitten polku. Otsikkorivi: `## <Category> (risk <Low|Medium|High>, <n> items, <koko>, <m> selected)`, koko
-    `ByteFormatter.Format`-muodossa (0 tavua → "0 B" tai mitä `ByteFormatter` antaa; tarkista luokasta). Kategorian
+    sitten polku ordinal. Otsikkorivi: `## <Category> (risk <Low|Medium|High>, <n> items, <koko>, <m> selected)`, koko
+    `AiFormat.Bytes`-muodossa; kun `sumSizes` on false, koon tilalla `size not summed (nested items)`. Kategorian
     riski on sen kohteiden suurin riski. Kohderivi: `- i<n> [x] <koko> <siistitty polku> — <siistitty kuvaus>` (kuvaus
-    pois, jos tyhjä; katkaise 120 merkkiin ja lisää "…"); `[ ]` kun ei valittu. Täysi lista, kun kohteita on enintään
-    `FullListThreshold`, muuten `SampleSize` ensimmäistä ja rivi `(+<loput> more, not listed)`. Avaimet juoksevat koko
-    digestin yli (`i1`, `i2`, ...). Kun listattuja kohteita on `MaxListedItems`, seuraavat kategoriat saavat vain
-    otsikkorivin ja rivin `(items not listed)`. Tekstin alussa rivi `# Module: <moduleName>` ja rivi, joka selittää
-    merkinnät (`[x] = currently selected for cleanup`). Englanninkielinen teksti; se ei näy käyttäjälle.
-  - `HealthDigest.Build`: englanninkielinen teksti. Osiot `# System` (OS, cores, memory total/available tai
-    "unknown", uptime `d h min`, elevated yes/no), `# Drives` (yksi rivi per asema: nimi, label, koko, vapaana,
-    vapaana %), `# Cleanup modules` (per moduuli: `- <DisplayName> (<ModuleId>): not scanned` tai `<n> items, <koko>`
-    ja sen alla enintään 5 suurinta kategoriaa `  - <Name>: <count> items, <koko>`).
+    pois, jos tyhjä; katkaise 120 merkkiin ja lisää "…"); `[ ]` kun ei valittu. Listattava määrä on `min(n, n <= FullListThreshold ? n : SampleSize, jäljellä oleva kiintiö)`,
+    kiintiö alussa `MaxListedItems` ja vähenee jokaisesta listatusta rivistä. Kun listattava määrä on pienempi kuin
+    `n`, perään rivi `(+<n - listattu> more, not listed)`; kun kiintiö on 0, kategoria saa vain otsikkorivin ja rivin
+    `(items not listed)`. Avaimet juoksevat koko digestin yli (`i1`, `i2`, ...) ja vastaavat täsmälleen listattuja
+    rivejä. Tekstin alussa rivi `# Module: <moduleName>` ja rivi, joka selittää merkinnät
+    (`[x] = currently selected for cleanup`). Englanninkielinen teksti; se ei näy käyttäjälle.
+  - `HealthDigest.Build`: englanninkielinen teksti, koot `AiFormat.Bytes`. Osiot `# System` (OS, cores, memory
+    total/available tai "unknown", uptime `d h min`, elevated yes/no), `# Drives` (yksi rivi per asema: nimi, label,
+    koko, vapaana, vapaana %), `# Cleanup modules` (per moduuli: `- <DisplayName> (<ModuleId>): not scanned` tai
+    `<n> items, <koko>` ja sen alla enintään 5 suurinta kategoriaa `  - <Name>: <count> items, <koko>`; kun
+    `SizesSummable` on false, kokojen tilalla `size not summed (nested items)` ja kategoriat järjestetään määrän mukaan).
   - `SystemFactsCollector.Collect()`: ei heitä koskaan; jokainen lähde omassa try-lohkossaan. `OsVersion` =
     `Environment.OSVersion.VersionString` ja 64-bittisyys; `TotalMemoryBytes` = `GC.GetGCMemoryInfo().TotalAvailableMemoryBytes`;
     `AvailableMemoryBytes` Windowsissa `GlobalMemoryStatusEx` (kernel32, rakenne `MEMORYSTATUSEX` `dwLength`-kentällä,
@@ -464,9 +502,13 @@ Yksi tehtävä: T1 luo Ai-projektin, sen rajapinnat ja puhtaan logiikan sekä as
     `CompleteJsonAsync(AiPrompts.System(language), History, AiReviewSchema.Json, new(Model, High, 16000), ct)`, lisää
     `Assistant`-viestin vastauksen tekstillä ja palauttaa `AiReviewParser.Parse(...)`. Jos taustapalvelu heittää
     (myös `OperationCanceledException`), juuri lisätty käyttäjäviesti poistetaan ennen uudelleenheittoa (EDGE-5, EDGE-7).
-    `HealthCheckAsync` ja `AskAsync` toimivat samoin `StreamTextAsync`-kutsulla (`Medium`, 8000). Katkaisu: kun
-    viestejä on yli `MaxHistory`, poista alusta kaksi kerrallaan, kunnes määrä on enintään `MaxHistory` ja
-    ensimmäinen viesti on `User`. Historia annetaan taustapalvelulle kopiona (`ToList()`).
+    `HealthCheckAsync` ja `AskAsync` toimivat samoin `StreamTextAsync`-kutsulla (`Medium`, 8000). Historian rajaus
+    (REQ-7): pidä kirjaa siitä, mitkä käyttäjäviestit ovat arvioiden digestejä (esim. sisäinen lista indeksejä tai
+    kääreluokka, `History` paljastaa silti vain `AiChatMessage`-oliot); onnistuneen arvion jälkeen korvaa jokaisen
+    aiemman arvion käyttäjäviestin teksti muodolla `ReviewInstruction + "\n\n(earlier review of <ModuleName>; item list omitted)"`.
+    Sen jälkeen katkaise: kun viestejä on yli `MaxHistory` tai tekstien yhteispituus yli `MaxHistoryChars`, poista alusta
+    kaksi viestiä kerrallaan, kunnes molemmat rajat täyttyvät tai jäljellä on vain uusin pari; ensimmäinen viesti on aina
+    `User`. Historia annetaan taustapalvelulle kopiona (`ToList()`).
   - `AppSettings` (Core): lisää `public string AiModel { get; set; } = "claude-opus-5-5";` ja
     `public bool AiAutoMode { get; set; }` kommentteineen samaan tyyliin kuin `Palette`; `Load`-metodiin
     `settings.AiModel ??= "claude-opus-5-5";`. Älä muuta JSON-asetuksia (camelCase antaa `aiModel`, `aiAutoMode`).
@@ -481,7 +523,11 @@ Yksi tehtävä: T1 luo Ai-projektin, sen rajapinnat ja puhtaan logiikan sekä as
   `VerdictApplierTests` (Resolve-järjestys, AutoSelection kaikki haarat ml. High+Safe → false);
   `AiAssistantTests` väärennetyllä `IAiBackend`-toteutuksella (ReviewAsync lisää 2 viestiä ja palauttaa arvion;
   AskAsync välittää deltat ja lisää 2 viestiä; backendin poikkeus poistaa käyttäjäviestin; katkaisu 20:een pareina;
-  Reset tyhjentää; `AiPrompts.System(Language.Fi)` sisältää "suomeksi" ja `System(Language.En)` sisältää "English").
+  katkaisu `MaxHistoryChars`-rajalla pareina niin, että uusin pari säilyy vaikka ylittäisi rajan; toisen arvion jälkeen
+  ensimmäisen arvion käyttäjäviesti sisältää "item list omitted" eikä digestin rivejä; Reset tyhjentää;
+  `AiPrompts.System(Language.Fi)` sisältää "suomeksi" ja `System(Language.En)` sisältää "English");
+  `ScanDigestTests`-luokassa lisäksi: `AiFormat.Bytes`-arvot ("0 B", "512 B", "1.5 KB", "61.9 MB") ja digest sama
+  molemmilla kielillä (`Loc.Current` asetetaan ja palautetaan `finally`-lohkossa; luokka kokoelmaan `TestLanguage.Collection`).
   `LocalizationTests`: lisää testi `AppSettings_ai_fields_round_trip` (tallennus ja lataus `AiModel = "x"`,
   `AiAutoMode = true`; vanha JSON `{ "language": "fi" }` antaa oletukset) olemassa olevien `AppSettings_*`-testien
   viereen samaan tyyliin (väliaikainen polku, siivous).
@@ -549,10 +595,19 @@ Yksi tehtävä: T3 toteuttaa SDK-kutsut T1:n rajapintaan (kääntää saman solu
     ole saatavilla suoratoistossa → category null, ellei se löydy `md.Delta`-oliosta; kokeile kääntämällä, älä arvaa).
   - Poikkeusten kuvaus `catch`-ketjuna tarkimmasta yleisimpään: `AnthropicUnauthorizedException` → `Unauthorized`;
     `AnthropicRateLimitException` → `RateLimited`; `Anthropic4xxException` → `BadRequest`; `Anthropic5xxException` →
-    `Server`; `AnthropicIOException` → `Network`; `AnthropicApiException` → `Other`. Viesti = SDK:n viesti,
-    `InnerException` = alkuperäinen. `OperationCanceledException` kulkee läpi. Jos jokin luokan nimi ei käänny,
-    etsi oikea nimi `strings ~/.nuget/packages/anthropic/12.58.0/lib/net8.0/Anthropic.dll | grep -i exception`
-    ja korjaa; älä kirjoita omaa HTTP-koodin tulkintaa.
+    `Server`; `AnthropicSseException` → `Server`; `AnthropicIOException` → `Network`; `AnthropicInvalidDataException`
+    → `InvalidResponse`; viimeisenä `AnthropicException` → `Other`. Luokkahierarkia (luettu 12.58.0:n metadatasta,
+    nimiavaruus `Anthropic.Exceptions`): `AnthropicException : Exception`; `AnthropicServiceException : AnthropicException`;
+    `AnthropicApiException : AnthropicServiceException`; `Anthropic4xxException`, `Anthropic5xxException`,
+    `AnthropicUnexpectedStatusCodeException : AnthropicApiException`; `AnthropicUnauthorizedException`,
+    `AnthropicRateLimitException`, `AnthropicBadRequestException`, `AnthropicForbiddenException`,
+    `AnthropicNotFoundException`, `AnthropicUnprocessableEntityException : Anthropic4xxException`;
+    `AnthropicSseException : AnthropicServiceException`; `AnthropicIOException : AnthropicException`;
+    `AnthropicInvalidDataException : AnthropicException`. Nämä nimet ovat varmistettuja; älä etsi niitä uudelleen
+    äläkä kirjoita omaa HTTP-koodin tulkintaa. Viesti = SDK:n viesti, `InnerException` = alkuperäinen.
+    `OperationCanceledException` kulkee läpi. Sieppaa myös `onDelta`-kutsun ulkopuolelta tuleva `JsonException`
+    (tai muu `Exception`, joka ei ole `OperationCanceledException`) ja kääri se `Other`-tyypiksi, jotta kutsuja voi
+    luottaa siihen, että taustapalvelu heittää vain `AiException`- tai `OperationCanceledException`-poikkeuksia.
   - `public static bool IsConfigured => !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY"));`
     Konstruktori heittää `AiException(MissingKey)`, jos avainta ei ole. Avainta ei lueta muualta eikä kirjata minnekään.
   - Luokka ei saa viitata UI:hin eikä `Loc`-kieleen; viestit englanniksi (UI lokalisoi tyypin mukaan).
@@ -619,7 +674,7 @@ Yksi tehtävä: T4 tuo avustajan ViewModelit ja kytkee ne `MainViewModel`-luokka
       [ObservableProperty] public partial string Question { get; set; }
       public bool HasFlagged { get; }                      // laskettu valitusta moduulista; OnPropertyChanged kun arvio tai valinta muuttuu
       public IAsyncRelayCommand ReviewCommand, HealthCheckCommand, AskCommand; public IRelayCommand DeselectFlaggedCommand, ResetCommand, CancelCommand;
-      public Task<AiReview?> ReviewModuleAsync(ModuleViewModel module, CancellationToken ct);  // yhteinen Review-komennolle ja automaattiselle siivoukselle; palauttaa null virheessä (virhe näytetty paneelissa)
+      public Task<AiReview?> ReviewModuleAsync(ModuleViewModel module, CancellationToken ct);  // yhteinen Review-komennolle ja automaattiselle siivoukselle; palauttaa null virheessä (virhe näytetty paneelissa); ct linkitetään omaan CTS:ään, joten paneelin Peruuta toimii myös automaattisessa siivouksessa
       public void RefreshLanguage();                       // OnPropertyChanged(UnavailableText, KeyHint, HasFlagged) ja komentojen tila
   }
 
@@ -629,13 +684,15 @@ Yksi tehtävä: T4 tuo avustajan ViewModelit ja kytkee ne `MainViewModel`-luokka
   public void SetVerdict(AiVerdict? verdict, string reason);   // nostaa kaikkien yllä olevien PropertyChangedin
   // ModuleViewModel:
   public AiReview? Review { get; }  public bool HasReview { get; }
+  public int ScanGeneration { get; }            // kasvaa jokaisessa LoadScan- ja ClearScan-kutsussa (EDGE-11)
   public void ApplyReview(AiReview review);     // kategoriat ja kohteet (kohteelle vain oma arvio; kategorialle kategorian arvio), nostaa HasReview
   public void ClearReview();                    // kutsutaan LoadScan- ja ClearScan-metodeista
   public int DeselectFlagged();                 // VerdictApplier.Resolve == Caution|Keep → IsSelected = false; palauttaa määrän
   public (int Selected, int Deselected) ApplyAutoSelection();   // VerdictApplier.AutoSelection jokaiselle kohteelle; palauttaa muutosten määrät
   // MainViewModel:
   public AiAssistantViewModel Ai { get; }
-  public IAsyncRelayCommand AutoCleanCommand { get; }   // [RelayCommand(CanExecute = nameof(CanAutoClean))], CanAutoClean => !IsBusy && Ai.IsAvailable && Ai.AutoMode
+  public IAsyncRelayCommand AutoCleanCommand { get; }   // [RelayCommand(CanExecute = nameof(CanAutoClean))], CanAutoClean => !IsBusy && !Ai.IsThinking && Ai.IsAvailable && Ai.AutoMode
+  private Task<bool> ScanModulesCoreAsync(IReadOnlyList<ModuleViewModel> targets, CancellationTokenSource cts);  // nykyisen ScanModulesAsync-metodin runko ilman BeginBusy/EndBusy; palauttaa false peruutuksessa tai virheessä
   ```
 
   Käyttäytyminen:
@@ -644,16 +701,25 @@ Yksi tehtävä: T4 tuo avustajan ViewModelit ja kytkee ne `MainViewModel`-luokka
     kutsulla `backendFactory`-tehtaasta (`AiAssistantOptions { Model = settings.AiModel }`); `ModelName = settings.AiModel`;
     `AutoMode` alkuarvo `settings.AiAutoMode`. `RefreshLanguage` kutsuu `Ai.RefreshLanguage()`; `Dispose` peruu
     avustajan mahdollisen kutsun (`Ai.CancelCommand`).
-  - `IsBusy`-muutos ilmoittaa `Ai`-komentojen `NotifyCanExecuteChanged` (lisää `partial void OnIsBusyChanged` tai
-    `[NotifyCanExecuteChangedFor]` ei riitä, koska komennot ovat toisessa oliossa). `SelectedModule`-muutos ilmoittaa
-    `ReviewCommand` ja `HasFlagged`; moduulin `SelectedCount`/`HasScanned`-muutos samoin (laajenna `OnModulePropertyChanged`).
+  - `IsBusy`-muutos ilmoittaa `Ai`-komentojen `NotifyCanExecuteChanged` (lisää `partial void OnIsBusyChanged`;
+    `[NotifyCanExecuteChangedFor]` ei riitä, koska komennot ovat toisessa oliossa). `Ai.IsThinking`-muutos ilmoittaa
+    `AutoCleanCommand.NotifyCanExecuteChanged()` (lisää `partial void OnIsThinkingChanged`). `SelectedModule`-muutos
+    ilmoittaa `ReviewCommand` ja `HasFlagged`; moduulin `SelectedCount`/`HasScanned`-muutos samoin (laajenna `OnModulePropertyChanged`).
+  - Refaktoroi `ScanModulesAsync` kahtia: `ScanModulesCoreAsync(targets, cts)` sisältää nykyisen rungon (silmukka,
+    `OperationCanceledException`- ja `Exception`-käsittely dialogeineen) ja palauttaa `true` vain, kun kaikki
+    kohteet skannattiin loppuun; `ScanModulesAsync` tekee `BeginBusy`, kutsuu ydintä ja `EndBusy`. Nykyinen käytös
+    säilyy merkki merkiltä (lokitekstit, dialogit, `ScanCanceled`-tila).
   - `ReviewCommand`: `module = main.SelectedModule`; CanExecute: `IsAvailable && !main.IsBusy && !IsThinking &&
     module is { HasScanned: true } && module.HasResults`. Suoritus: `ReviewModuleAsync(module, cts.Token)`.
-  - `ReviewModuleAsync`: lisää `User`-viestin `Loc.T($"Review results: {module.DisplayName}", $"Tarkista tulokset: {module.DisplayName}")`;
-    `IsThinking = true`; rakentaa `ScanDigest.Build(module.DisplayName, kaikki kategoriat (Categories + HighRiskCategories)
-    → (ItemViewModel.Item, ItemViewModel.IsSelected), new DigestOptions(), PathSanitizer.ForCurrentUser())` `Task.Run`-kutsussa;
-    `await assistant.ReviewAsync(digest, Loc.Current, ct)`; jos moduuli on yhä skannattu (`module.HasScanned`),
-    `module.ApplyReview(review)`; Auto-tilassa lisäksi `module.ApplyAutoSelection()` ja rivi
+  - `ReviewModuleAsync(module, ct)`: luo oman `CancellationTokenSource`-olion linkitettynä `ct`-tokeniin
+    (`CreateLinkedTokenSource(ct)`) ja tallentaa sen `CancelCommand`-komentoa varten; lisää `User`-viestin
+    `Loc.T($"Review results: {module.DisplayName}", $"Tarkista tulokset: {module.DisplayName}")`; `IsThinking = true`;
+    tallentaa `generation = module.ScanGeneration`; rakentaa `ScanDigest.Build(module.DisplayName, kaikki kategoriat
+    (Categories + HighRiskCategories) → (ItemViewModel.Item, ItemViewModel.IsSelected), sumSizes: module.SelectedByDefault,
+    new DigestOptions(), PathSanitizer.ForCurrentUser())` `Task.Run`-kutsussa (lue ItemViewModel-arvot UI-säikeessä
+    listaksi ennen `Task.Run`-kutsua); `await assistant.ReviewAsync(digest, Loc.Current, token)`; jos
+    `module.ScanGeneration == generation` (EDGE-11), `module.ApplyReview(review)`; muuten vain teksti. Auto-tilassa
+    (ja vain kun arvio sovellettiin) lisäksi `module.ApplyAutoSelection()` ja rivi
     `Loc.T($"Selected {s}, deselected {d}", $"Valittu {s}, poistettu valinnasta {d}")`. `Assistant`-viesti: `Summary`,
     tyhjä rivi, sitten jokaisesta Caution/Keep-arviosta rivi `"<VerdictText>: <polku tai kategoria> – <Reason>"`
     (kohteen arviolla polku `item.Path`, kategorian arviolla kategorian nimi). Loki Debug: `"AI review: {in} in / {out} out tokens"`.
@@ -661,7 +727,8 @@ Yksi tehtävä: T4 tuo avustajan ViewModelit ja kytkee ne `MainViewModel`-luokka
     `Loc.T("(canceled)", "(peruutettu)")`; `finally IsThinking = false`; palauttaa arvion tai null. `HasFlagged` päivitetään.
   - `HealthCheckCommand`: `User`-viesti `Loc.T("PC health check", "Koneen kunnon tarkistus")`; facts `Task.Run(SystemFactsCollector.Collect)`;
     `ModuleScanSummary` jokaisesta `main.Modules`-moduulista (`Scanned = HasScanned`, `Count` ja `TotalBytes` kaikista
-    kategorioista, kategoriat (Name, Items.Count, TotalBytes)); tyhjä `Assistant`-viesti lisätään ennen kutsua;
+    kategorioista, `SizesSummable = SelectedByDefault` (opt-in-moduulien kohteet voivat olla sisäkkäisiä, ks.
+    `ModuleViewModel.LoadScan`-kommentti), kategoriat (Name, Items.Count, TotalBytes)); tyhjä `Assistant`-viesti lisätään ennen kutsua;
     `onDelta` → `dispatcher.TryEnqueue(() => message.Append(delta))`; tulos `Truncated` → rivi
     `Loc.T("\n(answer was cut short)", "\n(vastaus katkesi)")`. Virheet ja peruutus kuten yllä (peruutuksessa teksti jää,
     rivi "(peruutettu)" perään). Loki Debug token-määrillä.
@@ -675,24 +742,33 @@ Yksi tehtävä: T4 tuo avustajan ViewModelit ja kytkee ne `MainViewModel`-luokka
     Other → viesti. Virheviestin alkuun ei lisätä avainta eikä pyynnön sisältöä.
   - `DeselectFlaggedCommand`: `n = module.DeselectFlagged()`; `Info`-viesti `Loc.T($"Deselected {n} items", $"Poistettu valinnasta {n} kohdetta")`;
     `main.NotifySelectionChanged()`.
-  - `ResetCommand`: `assistant.Reset()` (jos luotu), `Messages.Clear()`. `CancelCommand`: peruu oman `CancellationTokenSource`-olion.
+  - `ResetCommand`: `assistant.Reset()` (jos luotu), `Messages.Clear()`. `CancelCommand`: peruu käynnissä olevan
+    kutsun `CancellationTokenSource`-olion (Review/Health/Ask luovat sen itse; `ReviewModuleAsync` linkittää sen
+    annettuun `ct`-tokeniin, joten automaattisessa siivouksessa sekä alapalkin Peruuta että paneelin Peruuta
+    keskeyttävät arvion). `AiAssistant`-kutsuja ei koskaan ajeta kahta yhtä aikaa: kaikki komennot ja `ReviewModuleAsync`
+    tarkistavat `IsThinking`-lipun ja palaavat heti, jos kutsu on jo käynnissä.
   - `AutoMode`-setteri: ei tee mitään samalla arvolla; asettaa kentän, `AppSettings.Update(s => s.AiAutoMode = value)`
     try/catch → `_log.Warning(Loc.T($"Saving the auto mode setting failed: {m}", $"Auto-tilan tallennus epäonnistui: {m}"))`;
     `OnPropertyChanged`; `main.AutoCleanCommand.NotifyCanExecuteChanged()`.
   - `ItemViewModel`/`CategoryViewModel` `VerdictText`: Safe → `Loc.T("safe", "turvallinen")`, Caution → `Loc.T("caution", "varo")`,
     Keep → `Loc.T("keep", "säilytä")`, null → "". `RefreshLanguage` nostaa `VerdictText`-muutoksen (CategoryViewModel.RefreshLanguage
     kutsuu kohteiden `RefreshLanguage`-metodia; lisää `ItemViewModel.RefreshLanguage()`).
-  - `ModuleViewModel.ApplyReview`: `Review = review`; kategorialle `SetVerdict` kategorian arviolla (nimi ordinal);
+  - `ModuleViewModel.ScanGeneration`: `int`, kasvatetaan `LoadScan`- ja `ClearScan`-metodien alussa (ei
+    PropertyChanged-tapahtumaa tarvita). `ModuleViewModel.ApplyReview`: `Review = review`; kategorialle `SetVerdict` kategorian arviolla (nimi ordinal);
     kohteelle vain kohteen oma arvio (`AiItemVerdict.ItemId == Item.Id`), ei periytettyä, jotta merkki kertoo mistä
     avustaja sanoi jotain erityistä. `DeselectFlagged` ja `ApplyAutoSelection` käyttävät `VerdictApplier.Resolve`-kutsua
     (periytyminen kategoriasta) ja kiertävät `Categories` + `HighRiskCategories` kaikki `Items` (myös piilotetut yli 500).
     Valinnan muutos tehdään `ItemViewModel.IsSelected`-asetuksella, jolloin kategoria laskee summat itse.
   - `MainViewModel.AutoCleanAsync` (REQ-19): targets = `Modules.Where(m => m.SelectedByDefault)`;
-    `await ScanModulesAsync(targets)`; jos jokin kohde ei ole `HasScanned` (peruutettu) → paluu. Arvio jokaisesta
-    moduulista, jolla `HasResults`: `await Ai.ReviewModuleAsync(module, cts.Token)` (Auto-tila on päällä, joten se
-    soveltaa valinnat); null (virhe) → keskeytä ja palaa (virhe näkyy paneelissa). Kerää `items` kaikkien targetsien
-    `SelectedItems()`; jos tyhjä → `InfoAsync(Loc.T("Nothing to do", "Ei mitään tehtävää"), Loc.T("The assistant did not select anything to delete.", "Avustaja ei valinnut mitään poistettavaksi."))`.
-    Kuiva ajo `BeginBusy(Loc.T("Dry run: automatic cleanup", "Kuiva ajo: automaattinen siivous"))` → `_engine.CleanAsync(items, CreateContext(true, cts), ct)`;
+    `var cts = BeginBusy(Loc.T("Automatic cleanup", "Automaattinen siivous"))` ja koko vaiheet 1–3 yhden
+    `try/finally EndBusy()` -lohkon sisällä: (1) `if (!await ScanModulesCoreAsync(targets, cts)) return;` (peruutus tai
+    virhe todetaan paluuarvosta, ei `HasScanned`-tilasta, koska peruutetun skannauksen jäljelle jääneet moduulit
+    säilyttävät vanhan tuloksen); (2) jokaisesta moduulista, jolla `HasResults`: `BusyTitle = Loc.T($"Review: {m.DisplayName}", $"Arvio: {m.DisplayName}")`,
+    `var review = await Ai.ReviewModuleAsync(module, cts.Token)` (Auto-tila on päällä, joten se soveltaa valinnat);
+    null (virhe tai peruutus) → paluu (virhe näkyy paneelissa); (3) kerää `items` kaikkien targetsien `SelectedItems()`;
+    jos tyhjä → `EndBusy` ja `InfoAsync(Loc.T("Nothing to do", "Ei mitään tehtävää"), Loc.T("The assistant did not select anything to delete.", "Avustaja ei valinnut mitään poistettavaksi."))`;
+    `BusyTitle = Loc.T("Dry run: automatic cleanup", "Kuiva ajo: automaattinen siivous")` → `_engine.CleanAsync(items, CreateContext(true, cts), cts.Token)`;
+    `OperationCanceledException` → loki "Dry run canceled." kuten `CleanAsync` ja paluu. Busy-tila päättyy ennen dialogia.
     dryRemoved == 0 → "Ei mitään tehtävää" kuten `CleanAsync`-metodissa. Yksi dialogi `ConfirmAsync(Loc.T("Automatic cleanup", "Automaattinen siivous"), text, Loc.T("Delete permanently", "Poista pysyvästi"))`,
     jossa `text` = jokaisesta arvioidusta moduulista `"<DisplayName>: <Summary>"` tyhjällä rivillä eroteltuna, sitten
     `Loc.T($"The dry run would delete {n} items ({size}).", $"Kuivassa ajossa poistetaan {n} kohdetta ({size}).")`,
@@ -835,10 +911,10 @@ joten ne voidaan ajaa rinnakkain.
 
 - AC-1 [auto]: `dotnet build PcCleaner.sln -warnaserror` → "0 Warning(s)", "0 Error(s)".
 - AC-2 [auto]: `dotnet test PcCleaner.sln --no-build` → "Passed!", 0 failed (254 vanhaa + uudet Ai-testit).
-- AC-3 [auto]: `grep -rn "IAiBackend" src/Cleaner.UI/ src/Cleaner.Ai/ --include=*.cs -l` → `IAiBackend`-kutsuja
-  (`CompleteJsonAsync`/`StreamTextAsync`) on vain tiedostoissa `src/Cleaner.Ai/AiAssistant.cs` ja
-  `src/Cleaner.Ai/AnthropicBackend.cs`; `grep -rn "ANTHROPIC_API_KEY" src/ --include=*.cs` osuu vain
-  `AnthropicBackend.cs`-tiedostoon ja `Loc.T`-teksteihin (ei lokikutsuihin).
+- AC-3 [auto]: `grep -rlE "\.(CompleteJsonAsync|StreamTextAsync)\(" src/ --include=*.cs` → täsmälleen
+  `src/Cleaner.Ai/AiAssistant.cs` (`AnthropicBackend` määrittelee metodit, ei kutsu niitä; testiprojekti ei kuulu
+  hakuun); `grep -rn "ANTHROPIC_API_KEY" src/ --include=*.cs` osuu vain `AnthropicBackend.cs`-tiedostoon
+  (`IsConfigured`) ja `Loc.T`-teksteihin (ei lokikutsuihin).
 - AC-4 [manual]: avain asetettuna: Tiedostosiivous → Skannaa → paneeli → Tarkista tulokset: avustajan viesti
   sisältää yhteenvedon ja varo/säilytä-rivit, kortteihin tulee merkit ja ToolTip näyttää perustelun; "Poista
   varoitetut valinnasta" pudottaa valintaa ja ilmoittaa määrän; uusi skannaus tyhjentää merkit.
