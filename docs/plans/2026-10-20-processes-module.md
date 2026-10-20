@@ -401,7 +401,7 @@ Yksi tehtävä: T1 luo projektin, mallit ja puhtaan logiikan, joihin kaikki muut
 Yksi tehtävä: T2 lisää Win32-inventaarion ja lopetuksen samaan projektiin, jota T1 loi.
 
 ### T2: Inventaario ja lopetus (Win32)
-- Status: pending
+- Status: done cf807cc
 - Model: opus
 - Requirements: REQ-2, REQ-3, REQ-16
 - Constraints/edge: CON-2, CON-3, CON-5, EDGE-1, EDGE-7
@@ -463,7 +463,7 @@ Yksi tehtävä: T2 lisää Win32-inventaarion ja lopetuksen samaan projektiin, j
 Yksi tehtävä: T3 kokoaa moduulin T1:n ja T2:n päälle.
 
 ### T3: ProcessesModule ja integraatiotestit
-- Status: pending
+- Status: done efa99a9
 - Model: opus
 - Requirements: REQ-1, REQ-9, REQ-12, REQ-13, REQ-14, REQ-15, REQ-17, REQ-18
 - Constraints/edge: CON-2, CON-6, EDGE-3, EDGE-4, EDGE-5
