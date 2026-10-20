@@ -18,7 +18,7 @@ Solution `PcCleaner.sln` kääntyy 0 virhettä / 0 varoitusta. Käyttäjän kone
 | `src/Cleaner.Modules.Startup` | `StartupModule` (Run-avaimet HKCU/HKLM/Wow6432Node, käynnistyskansiot, Task Schedulerin juurikansion kirjautumistehtävät), `StartupSource`, `StartupApproved` (12 tavun arvomuoto), `TaskSchedulerSource` ja `ShortcutResolver` (COM myöhäissidonnaisesti `dynamic`-tyypillä) | valmis, skannattu oikealla koneella 19.10.2026 |
 | `src/Cleaner.Modules.DiskUsage` | `DiskUsageModule` (kansiopuu `DirectoryNode`, ylätason kansiot rinnakkain, top-N kansiot ja tiedostot, puu jää `LastTrees`-ominaisuuteen treemapia varten), `DiskUsageOptions` (juuret, top-N, rinnakkaisuus) | valmis, skannattu oikealla levyllä 19.10.2026 |
 | `src/Cleaner.Modules.Registry` (nimiavaruus `Cleaner.Modules.RegistryCleaner`) | `RegistryModule` (Uninstall-orvot, .ext/ProgId-orvot, MUICache-orvot, MRU-listat), `CommandLineParser` (exe komentorivistä, varovainen puuttumistarkistus), `RegistryScanOptions`; käyttää Coren `RegistryGuard`-, `RegistryBackup`- ja `RegistryPaths`-palveluita | valmis, skannattu oikealla koneella 19.10.2026 |
-| `src/Cleaner.Modules.Uninstall` | `UninstallModule` (`uninstall`, "Ohjelman poisto"), `InstalledProgramReader`, `NameMatcher`, `UninstallCommandLine`, `UninstallRunner`, `RunningProcessCheck`, `LeftoverScanner` (6 kategoriaa), `LeftoverScanOptions`, `LeftoverItemId`, `LeftoverGuard`, `ShortcutTarget`. Kuvaus ARCHITECTURE luku 6.4 | toteutettu 19.10.2026, testattu yksikkötesteillä; manuaaliset tarkistukset AC-5 ja AC-6 tekemättä |
+| `src/Cleaner.Modules.Uninstall` | `UninstallModule` (`uninstall`, "Ohjelman poisto"), `InstalledProgramReader`, `NameMatcher`, `UninstallCommandLine`, `UninstallRunner`, `RunningProcessCheck`, `LeftoverScanner` (6 kategoriaa), `LeftoverScanOptions`, `LeftoverItemId`, `LeftoverGuard`, `ShortcutTarget`. Kuvaus ARCHITECTURE luku 6.4 | valmis, yksikkötestit ja käyttäjän manuaaliset tarkistukset AC-5 ja AC-6 tehty 20.10.2026 (jäänteiden haku, yhden ohjelman poisto, karanteeni ja palautus UI:ssa ja CLI:ssä) |
 | `src/Cleaner.Cli` | `pccleaner modules | scan | clean [--apply] [--yes] [--module id] [--item id] [--path dir] [--top n] [--rules dir] [--include-disabled] [-v]`, `pccleaner restore [aikaleima]` (`RestoreCommand`), `pccleaner uninstall [--program <nimi>] [--leftovers-only] [--quiet] [--apply] [--all] [--item id] [--yes]` (`UninstallCommand`), `ModuleFactory`, `ConsoleLogger` | valmis, ajettu Windowsissa 19.10.2026 |
 | `src/Cleaner.UI` | WinUI 3 (Windows App SDK 1.8.260921001, self-contained, pakkaamaton, x64), CommunityToolkit.Mvvm 8.4.2. `MainWindow` (NavigationView + kategoriat Expandereina + alapalkki), `MainViewModel` (skannaus, kolmivaiheinen puhdistus, peruutus, admin-uudelleenkäynnistys), `ModuleViewModel`, `CategoryViewModel`, `ItemViewModel`, sivu "Ohjelman poisto" (`InstalledProgramViewModel`), `UiModuleFactory`, `UiLogger`, `Elevation`, `IDialogService` | valmis, käynnistetty ja testattu UI Automationilla 19.10.2026 |
 | `tests/Cleaner.Tests` | 139 xUnit-testiä (lisäksi FileLogger-siivous, Treemap): PathGuard, RuleLoader, FileCleanerModule, StartupApproved, StartupModule, DiskUsageModule, CommandLineParser, RegistryGuard, RegistryModule (oikea rekisteri avaimessa `HKCU\Software\PcCleanerTests\<guid>`, oikea reg export/import -kierros). Ohjelman poisto toi 72: QuarantineTests 9, BackupSessionsTests 2, NameMatcherTests 17, InstalledProgramReaderTests 2, LeftoverScannerTests 19, UninstallRunnerTests 14, UninstallModuleTests 9 | 139/139 läpi Windowsissa |
@@ -212,13 +212,13 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
    d) ~~vanhojen lokien siivous~~ tehty.
 7. WinUI 3 alkuperäinen kuvaus: projekti `src/Cleaner.UI`, `net8.0-windows10.0.19041.0`, MVVM (CommunityToolkit.Mvvm), NavigationView moduuleille, löydökset kategorioittain valintaruuduin, Skannaa/Puhdista-napit, kaksoisvahvistus, High-riski oletuksena kiinni, `Progress<T>` → ProgressBar, `CancellationToken` → Peruuta. Tarkempi kuvaus ARCHITECTURE.md luku 7.
 8. ~~Startup-moduuli (luku 6.1)~~ tehty. ~~DiskUsage (6.2)~~ tehty. ~~Registry (6.3)~~ tehty.
-9. ~~Ohjelman poisto (6.4)~~ toteutettu 19.10.2026 haarassa `feature/uninstall-module`. Jäljellä käyttäjän manuaaliset tarkistukset:
-   a) AC-5: korotetussa UI:ssa "Etsi jäänteet" jollekin asennetulle ohjelmalle näyttää kategoriat, kuvaukset kertovat
-   osumasyyn, mikään High-kohde ei ole valittuna ja asennuskansio on valittuna.
-   b) AC-6: käyttäjä poistaa UI:sta yhden pienen testiohjelman alusta loppuun: poisto-ohjelma käynnistyy, odotustila näkyy,
-   jäänteet skannataan automaattisesti, Puhdista siirtää esivalitut karanteeniin, "Palauta varmuuskopio..." tuo ne
-   takaisin ja `pccleaner restore <aikaleima>` listaa saman session.
-   c) Tämän jälkeen haaran yhdistäminen `main`-haaraan.
+9. ~~Ohjelman poisto (6.4)~~ toteutettu 19.10.2026 haarassa `feature/uninstall-module`, AC-5 ja AC-6 tehty käyttäjän
+   koneella 20.10.2026 (korotettu UI, pieni testiohjelma poistettu, jäänteet karanteeniin ja takaisin, `pccleaner restore`
+   listasi saman session). Haara yhdistetty `main`-haaraan 20.10.2026. Avoimet huomiot: "Etsi jäänteet" yhä asennetulle
+   ohjelmalle esivalitsee asennuskansion (suunnitelman mukaan, mutta Puhdista siirtäisi toimivan ohjelman karanteeniin);
+   REQ-10:n prosessitarkistus ei koske tiedostokohteita; README:n rakennepuu ja ARCHITECTURE luvun 1 taulukko ovat
+   vanhentuneet. Seuraava: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner` päähakemistossa, jotta
+   työpöydän `PC Cleaner.lnk` käyttää uutta versiota (sulje sovellus ensin).
 
 ## Tunnetut puutteet / huomiot
 
