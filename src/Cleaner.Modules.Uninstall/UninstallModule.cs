@@ -225,9 +225,11 @@ public sealed class UninstallModule : ICleanerModule
             return;
         }
 
-        if (kind == LeftoverKind.Dir)
+        if (kind is LeftoverKind.Dir or LeftoverKind.File)
         {
-            var running = RunningProcessCheck.FindRunningUnder(path);
+            var running = kind == LeftoverKind.Dir
+                ? RunningProcessCheck.FindRunningUnder(path)
+                : RunningProcessCheck.FindRunningFile(path);
             if (running is not null)
             {
                 result.Skipped.Add((item, $"Käynnissä oleva prosessi estää siirron: {running}"));

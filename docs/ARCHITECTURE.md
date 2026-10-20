@@ -226,7 +226,8 @@ poisto-ohjelman, odottaa sen valmistumista ja etsii jäänteet. "Etsi jäänteet
 - `UninstallRunner` ajaa `QuietUninstallString`-komennon hiljaisessa tilassa, muuten `UninstallString`. MSI-ohjelmalle se ajaa
   `msiexec /x {GUID}`, hiljaisena lisäksi `/qb-` (ei koskaan `/qn`). Se odottaa prosessin päättymistä ja kysyy sen jälkeen 2 s
   välein enintään 60 s, onko Uninstall-avain kadonnut (`KeyRemoved`). Peruutus lopettaa odotuksen eikä tapa poisto-ohjelmaa.
-- `RunningProcessCheck` estää poisto-ohjelman ajon ja karanteenisiirron, jos jonkin prosessin exe on kohdekansion alla.
+- `RunningProcessCheck` estää poisto-ohjelman ajon ja karanteenisiirron, jos jonkin prosessin exe on kohdekansion alla
+  tai täsmälleen siirrettävä tiedosto. Kohde päätyy `Skipped`-listalle prosessin nimellä.
   Prosessit, joiden polkua ei voi lukea (32-bittiset, suojatut), ohitetaan.
 - Moduulin ominaisuudet: `Target` (skannattava ohjelma), `TargetKeyRemoved`, `ListPrograms()`, `RunUninstallerAsync`,
   `LastQuarantineDirectory`, `LastBackupTimestamp`.

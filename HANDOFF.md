@@ -216,8 +216,8 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
    koneella 20.10.2026 (korotettu UI, pieni testiohjelma poistettu, jäänteet karanteeniin ja takaisin, `pccleaner restore`
    listasi saman session). Haara yhdistetty `main`-haaraan 20.10.2026. ~~"Etsi jäänteet" yhä asennetulle
    ohjelmalle esivalitsee asennuskansion~~ korjattu 20.10.2026: kun Uninstall-avain on olemassa, mitään ei esivalita
-   (`LeftoverScanner.ApplyInstalledRule`), kuvaus ja CLI kertovat syyn. Avoimet huomiot:
-   REQ-10:n prosessitarkistus ei koske tiedostokohteita; README:n rakennepuu ja ARCHITECTURE luvun 1 taulukko ovat
+   (`LeftoverScanner.ApplyInstalledRule`), kuvaus ja CLI kertovat syyn. ~~REQ-10:n prosessitarkistus ei koske
+   tiedostokohteita~~ korjattu 20.10.2026 (`RunningProcessCheck.FindRunningFile`, tarkka polkuvertailu). Avoimet huomiot: README:n rakennepuu ja ARCHITECTURE luvun 1 taulukko ovat
    vanhentuneet. Seuraava: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner` päähakemistossa, jotta
    työpöydän `PC Cleaner.lnk` käyttää uutta versiota (sulje sovellus ensin).
 
@@ -236,7 +236,7 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
 - Registry: `reg export`/`reg import` -tulosteet ovat lokalisoituja; virheviesti välitetään sellaisenaan.
 - Registry: ei vielä Uninstall-orpoja MSI-tuotteille (msiexec ohitetaan aina) eikä HKCR-reflektoituja 32-bittisiä ProgId-avaimia (`HKLM\SOFTWARE\WOW6432Node\Classes`).
 - Uninstall: Store/MSIX-sovelluksia ei listata eikä poisteta (päätös 21).
-- Uninstall: `RunningProcessCheck` ei pysty lukemaan 32-bittisten ja suojattujen prosessien exe-polkua, joten ne ohitetaan. Käynnissä oleva ohjelma voi siksi jäädä huomaamatta; lukittu tiedosto pysäyttää silloin karanteenisiirron (`IOException`).
+- Uninstall: `RunningProcessCheck` ei pysty lukemaan 32-bittisten ja suojattujen prosessien exe-polkua, joten ne ohitetaan. Käynnissä oleva ohjelma voi siksi jäädä huomaamatta; lukittu tiedosto pysäyttää silloin karanteenisiirron (`IOException`). Tiedostokohteille vertailu on tarkka exe-polku; ladatut DLL:t eivät osu.
 - Uninstall: julkaisijakansio ja julkaisija-avain poistuvat vain, jos ne ovat tyhjiä siirron tai poiston jälkeen. Muuten ne jäävät paikalleen.
 - Uninstall: `Quarantine`-siirto eri asemalle kopioi ensin. Jos kopio onnistuu mutta alkuperäisen poisto epäonnistuu, kopio jää karanteeniin manifest-merkinnällä ja kohde raportoidaan `Skipped`-listalla karanteenipolun kanssa.
 - `Quarantine.Restore(aikaleima)` ja `BackupSessions.Restore` eivät tarkista aikaleiman muotoa (sama kuin `RegistryBackup`).

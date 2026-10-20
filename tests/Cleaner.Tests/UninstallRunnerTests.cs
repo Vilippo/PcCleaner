@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
 using Cleaner.Modules.Uninstall;
 using Microsoft.Win32;
@@ -136,5 +137,34 @@ public sealed class UninstallRunnerTests : IDisposable
         Directory.CreateDirectory(_tempDir);
 
         Assert.Null(RunningProcessCheck.FindRunningUnder(_tempDir));
+    }
+
+    [Fact]
+    public void FindRunningFile_missing_file_returns_null()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        Assert.Null(RunningProcessCheck.FindRunningFile(Path.Combine(_tempDir, "missing.exe")));
+        Assert.Null(RunningProcessCheck.FindRunningFile(""));
+    }
+
+    [Fact]
+    public void FindRunningFile_finds_child_process_by_exact_path()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var cmd = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+        using var child = Process.Start(new ProcessStartInfo(cmd, "/c ping -n 30 127.0.0.1 >nul")
+        {
+            UseShellExecute = false, CreateNoWindow = true
+        })!;
+        try
+        {
+            Assert.Equal("cmd", RunningProcessCheck.FindRunningFile(cmd));
+            Assert.Null(RunningProcessCheck.FindRunningFile(Path.Combine(Environment.SystemDirectory, "cmd.exe.lnk")));
+        }
+        finally
+        {
+            try { child.Kill(entireProcessTree: true); } catch { }
+        }
     }
 }
