@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Logging;
 using Cleaner.Core.Services;
 
@@ -63,13 +64,13 @@ public sealed class UninstallRunner
         var command = BuildCommand(program, quiet);
         if (command is null)
         {
-            const string noCommand = "Ohjelmalla ei ole poisto-ohjelmaa.";
+            var noCommand = Loc.T("The program has no uninstaller.", "Ohjelmalla ei ole poisto-ohjelmaa.");
             _log.Warning($"{program.Name}: {noCommand}");
             return new UninstallRunResult(null, !RegistryPaths.KeyExists(program.KeyPath), stopwatch.Elapsed, noCommand);
         }
 
         var (fileName, arguments) = command.Value;
-        _log.Info($"Käynnistetään poisto-ohjelma: {fileName} {arguments}".TrimEnd());
+        _log.Info(Loc.T($"Starting uninstaller: {fileName} {arguments}", $"Käynnistetään poisto-ohjelma: {fileName} {arguments}").TrimEnd());
 
         int exitCode;
         try
@@ -82,7 +83,7 @@ public sealed class UninstallRunner
             });
             if (process is null)
             {
-                var msg = $"Poisto-ohjelmaa ei voitu käynnistää: {fileName}";
+                var msg = Loc.T($"Could not start the uninstaller: {fileName}", $"Poisto-ohjelmaa ei voitu käynnistää: {fileName}");
                 _log.Warning(msg);
                 return new UninstallRunResult(null, false, stopwatch.Elapsed, msg);
             }
@@ -92,15 +93,17 @@ public sealed class UninstallRunner
         }
         catch (Exception ex) when (ex is Win32Exception or FileNotFoundException)
         {
-            var msg = $"Poisto-ohjelmaa ei voitu käynnistää: {fileName} ({ex.Message})";
+            var msg = Loc.T($"Could not start the uninstaller: {fileName} ({ex.Message})",
+                $"Poisto-ohjelmaa ei voitu käynnistää: {fileName} ({ex.Message})");
             _log.Warning(msg);
             return new UninstallRunResult(null, false, stopwatch.Elapsed, msg);
         }
 
-        _log.Info($"Poisto-ohjelma päättyi, koodi {exitCode}");
+        _log.Info(Loc.T($"Uninstaller exited with code {exitCode.ToString(Loc.Culture)}", $"Poisto-ohjelma päättyi, koodi {exitCode.ToString(Loc.Culture)}"));
 
         var keyRemoved = await WaitForKeyRemovalAsync(program.KeyPath, ct).ConfigureAwait(false);
-        _log.Info($"Uninstall-avain poistui: {(keyRemoved ? "kyllä" : "ei")}");
+        _log.Info(Loc.T($"Uninstall key removed: {(keyRemoved ? "yes" : "no")}",
+            $"Uninstall-avain poistui: {(keyRemoved ? "kyllä" : "ei")}"));
 
         return new UninstallRunResult(exitCode, keyRemoved, stopwatch.Elapsed, null);
     }

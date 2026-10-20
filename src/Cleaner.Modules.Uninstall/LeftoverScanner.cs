@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
 using Microsoft.Win32;
@@ -13,12 +14,12 @@ namespace Cleaner.Modules.Uninstall;
 [SupportedOSPlatform("windows")]
 public sealed class LeftoverScanner
 {
-    public const string InstallFolderCategory = "Asennuskansio";
-    public const string ProgramFoldersCategory = "Ohjelmakansiot";
-    public const string UserDataFoldersCategory = "Käyttäjän datakansiot";
-    public const string ShortcutsCategory = "Pikakuvakkeet";
-    public const string RegistryKeysCategory = "Rekisteriavaimet";
-    public const string RegistryValuesCategory = "Rekisteriarvot";
+    public static string InstallFolderCategory => Loc.T("Install folder", "Asennuskansio");
+    public static string ProgramFoldersCategory => Loc.T("Program folders", "Ohjelmakansiot");
+    public static string UserDataFoldersCategory => Loc.T("User data folders", "Käyttäjän datakansiot");
+    public static string ShortcutsCategory => Loc.T("Shortcuts", "Pikakuvakkeet");
+    public static string RegistryKeysCategory => Loc.T("Registry keys", "Rekisteriavaimet");
+    public static string RegistryValuesCategory => Loc.T("Registry values", "Rekisteriarvot");
 
     private static readonly EnumerationOptions Enumeration = new()
     {
@@ -75,27 +76,27 @@ public sealed class LeftoverScanner
 
         public IReadOnlyList<CleanItem> Execute()
         {
-            Report(0, "Kansiot");
+            Report(0, Loc.T("Folders", "Kansiot"));
             _ct.ThrowIfCancellationRequested();
             ScanInstallFolder();
             ScanUninstallerFolder();
             ScanBaseFolders();
 
-            Report(30, "Pikakuvakkeet");
+            Report(30, Loc.T("Shortcuts", "Pikakuvakkeet"));
             _ct.ThrowIfCancellationRequested();
             ScanShortcuts();
 
-            Report(50, "Rekisteriavaimet");
+            Report(50, Loc.T("Registry keys", "Rekisteriavaimet"));
             _ct.ThrowIfCancellationRequested();
             ScanNamedKeys();
             ScanUninstallKey();
             ScanAppPaths();
             ScanProgIds();
 
-            Report(70, "Rekisteriarvot");
+            Report(70, Loc.T("Registry values", "Rekisteriarvot"));
             ScanValues();
 
-            Report(100, "Valmis");
+            Report(100, Loc.T("Done", "Valmis"));
             return _items;
         }
 
@@ -138,7 +139,8 @@ public sealed class LeftoverScanner
         {
             if (_install is null) return;
             AddFolder(_install, InstallFolderCategory, RiskLevel.Medium, preselected: true,
-                $"Asennuskansio (InstallLocation) ohjelmalle '{_p.Name}'", ruleFolder: true);
+                Loc.T($"Install folder (InstallLocation) for program '{_p.Name}'",
+                    $"Asennuskansio (InstallLocation) ohjelmalle '{_p.Name}'"), ruleFolder: true);
         }
 
         /// <summary>DisplayIcon- tai UninstallString-exen kansio Program Files- tai LocalAppData\Programs-kansion alla.</summary>
@@ -163,7 +165,7 @@ public sealed class LeftoverScanner
                 if (match is MatchKind.None or MatchKind.Publisher) continue; // julkaisijakansio on liian laaja
 
                 AddFolder(dir, InstallFolderCategory, RiskLevel.Medium, preselected: true,
-                    "Poisto-ohjelman kansio, " + MatchReason(match), ruleFolder: true);
+                    Loc.T("Uninstaller folder, ", "Poisto-ohjelman kansio, ") + MatchReason(match), ruleFolder: true);
             }
         }
 
@@ -201,7 +203,7 @@ public sealed class LeftoverScanner
                         case MatchKind.Exact:
                         case MatchKind.Tokens:
                             AddFolder(child, category, risk, preselected: !userData && match == MatchKind.Exact,
-                                "Kansion " + MatchReason(match), ruleFolder: true);
+                                Loc.T("Folder ", "Kansion ") + MatchReason(match), ruleFolder: true);
                             break;
                         case MatchKind.Publisher:
                             foreach (var grandchild in SortedDirectories(child))
@@ -209,7 +211,8 @@ public sealed class LeftoverScanner
                                 var gm = NameMatcher.Match(Path.GetFileName(grandchild), _p.Name, null);
                                 if (gm is MatchKind.Exact or MatchKind.Tokens)
                                     AddFolder(grandchild, category, risk, preselected: false,
-                                        $"Julkaisijan '{_p.Publisher}' kansion alikansio, " + MatchReason(gm), ruleFolder: true);
+                                        Loc.T($"Subfolder of publisher folder '{_p.Publisher}', ",
+                                            $"Julkaisijan '{_p.Publisher}' kansion alikansio, ") + MatchReason(gm), ruleFolder: true);
                             }
                             break;
                     }
@@ -234,7 +237,7 @@ public sealed class LeftoverScanner
                         var match = NameMatcher.Match(Path.GetFileName(dir), _p.Name, null);
                         if (match is MatchKind.Exact or MatchKind.Tokens)
                             AddFolder(dir, ShortcutsCategory, RiskLevel.Low, preselected: true,
-                                "Käynnistä-valikon kansio, " + MatchReason(match), ruleFolder: false);
+                                Loc.T("Start menu folder, ", "Käynnistä-valikon kansio, ") + MatchReason(match), ruleFolder: false);
                     }
                 }
 
@@ -247,7 +250,8 @@ public sealed class LeftoverScanner
 
                     var folder = TargetFolder(target);
                     if (folder is null) continue;
-                    AddFile(lnk, ShortcutsCategory, RiskLevel.Low, preselected: true, $"Pikakuvake osoittaa kansioon {folder}");
+                    AddFile(lnk, ShortcutsCategory, RiskLevel.Low, preselected: true,
+                        Loc.T($"Shortcut points to folder {folder}", $"Pikakuvake osoittaa kansioon {folder}"));
                 }
             }
         }
@@ -279,7 +283,8 @@ public sealed class LeftoverScanner
                     var childPath = RegistryPaths.Combine(root, child);
                     if (match == MatchKind.Exact)
                     {
-                        AddKey(childPath, $"Rekisteriavain, nimi täsmää ohjelman nimeen '{_p.Name}'");
+                        AddKey(childPath, Loc.T($"Registry key, name matches program name '{_p.Name}'",
+                            $"Rekisteriavain, nimi täsmää ohjelman nimeen '{_p.Name}'"));
                     }
                     else if (match == MatchKind.Publisher)
                     {
@@ -290,7 +295,8 @@ public sealed class LeftoverScanner
                             if (IsSkippedSegment(grandchild)) continue;
                             if (NameMatcher.Match(grandchild, _p.Name, null) == MatchKind.Exact)
                                 AddKey(RegistryPaths.Combine(childPath, grandchild),
-                                    $"Rekisteriavain julkaisijan '{_p.Publisher}' alla, nimi täsmää ohjelman nimeen '{_p.Name}'");
+                                    Loc.T($"Registry key under publisher '{_p.Publisher}', name matches program name '{_p.Name}'",
+                                        $"Rekisteriavain julkaisijan '{_p.Publisher}' alla, nimi täsmää ohjelman nimeen '{_p.Name}'"));
                         }
                     }
                 }
@@ -302,7 +308,8 @@ public sealed class LeftoverScanner
             if (_keyRemoved || string.IsNullOrEmpty(_p.KeyPath)) return;
             using var key = OpenRoot(_p.KeyPath);
             if (key is null) return;
-            AddKey(_p.KeyPath, "Ohjelman Uninstall-avain ei poistunut poisto-ohjelman ajossa");
+            AddKey(_p.KeyPath, Loc.T("The program's Uninstall key was not removed when the uninstaller ran",
+                "Ohjelman Uninstall-avain ei poistunut poisto-ohjelman ajossa"));
         }
 
         private void ScanAppPaths()
@@ -320,7 +327,8 @@ public sealed class LeftoverScanner
                     using var key = TryOpen(rootKey, child);
                     if (key is null) continue;
                     if (PointsToInstall(ReadString(key, "")) || PointsToInstall(ReadString(key, "Path")))
-                        AddKey(RegistryPaths.Combine(root, child), $"App Paths -avain viittaa asennuskansioon {_install}");
+                        AddKey(RegistryPaths.Combine(root, child), Loc.T($"App Paths key points to install folder {_install}",
+                            $"App Paths -avain viittaa asennuskansioon {_install}"));
                 }
             }
         }
@@ -344,7 +352,8 @@ public sealed class LeftoverScanner
                     var raw = ReadString(command, "");
                     var exe = UninstallCommandLine.ExtractExecutable(raw) ?? raw;
                     if (PointsToInstall(exe))
-                        AddKey(RegistryPaths.Combine(root, child), $"ProgId-avaimen avauskomento viittaa asennuskansioon {_install}");
+                        AddKey(RegistryPaths.Combine(root, child), Loc.T($"ProgId key's open command points to install folder {_install}",
+                            $"ProgId-avaimen avauskomento viittaa asennuskansioon {_install}"));
                 }
             }
         }
@@ -410,7 +419,7 @@ public sealed class LeftoverScanner
                 catch (Exception) { continue; }
 
                 if (PointsToInstall(text))
-                    AddValue(keyPath, name, $"Arvo viittaa asennuskansioon {_install}");
+                    AddValue(keyPath, name, Loc.T($"Value points to install folder {_install}", $"Arvo viittaa asennuskansioon {_install}"));
             }
         }
 
@@ -459,7 +468,7 @@ public sealed class LeftoverScanner
         private (bool Preselected, string Description) ApplyInstalledRule(bool preselected, string description)
         {
             if (_keyRemoved || !preselected) return (preselected, description);
-            return (false, description + " (ohjelma on yhä asennettu, ei esivalittu)");
+            return (false, description + Loc.T(" (program is still installed, not preselected)", " (ohjelma on yhä asennettu, ei esivalittu)"));
         }
 
         private void AddKey(string keyPath, string description)
@@ -480,7 +489,7 @@ public sealed class LeftoverScanner
             var id = LeftoverItemId.MakeValue(path, valueName);
             if (!_values.Add(id)) return;
 
-            var shown = valueName.Length == 0 ? "(oletus)" : valueName;
+            var shown = valueName.Length == 0 ? Loc.T("(default)", "(oletus)") : valueName;
             _items.Add(new CleanItem(id, _moduleId, RegistryValuesCategory, $@"{path}\{shown}", 0,
                 description, RiskLevel.High, false));
         }
@@ -510,10 +519,11 @@ public sealed class LeftoverScanner
 
         private string MatchReason(MatchKind match) => match switch
         {
-            MatchKind.Exact => $"nimi täsmää ohjelman nimeen '{_p.Name}'",
-            MatchKind.Tokens => $"nimi sisältää ohjelman nimen sanat '{string.Join(' ', NameMatcher.SignificantTokens(_p.Name))}'",
-            MatchKind.Publisher => $"nimi täsmää julkaisijaan '{_p.Publisher}'",
-            _ => "ei osumaa"
+            MatchKind.Exact => Loc.T($"name matches program name '{_p.Name}'", $"nimi täsmää ohjelman nimeen '{_p.Name}'"),
+            MatchKind.Tokens => Loc.T($"name contains the program name words '{string.Join(' ', NameMatcher.SignificantTokens(_p.Name))}'",
+                $"nimi sisältää ohjelman nimen sanat '{string.Join(' ', NameMatcher.SignificantTokens(_p.Name))}'"),
+            MatchKind.Publisher => Loc.T($"name matches publisher '{_p.Publisher}'", $"nimi täsmää julkaisijaan '{_p.Publisher}'"),
+            _ => Loc.T("no match", "ei osumaa")
         };
 
         /// <summary>Täysi polku ilman loppukenoa; suhteellinen tai virheellinen polku → null.</summary>

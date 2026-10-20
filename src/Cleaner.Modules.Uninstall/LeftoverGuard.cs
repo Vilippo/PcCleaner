@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Services;
 
 namespace Cleaner.Modules.Uninstall;
@@ -25,7 +26,7 @@ public static class LeftoverGuard
             LeftoverKind.Dir or LeftoverKind.File => IsAllowedPath(path, target, o, out reason),
             LeftoverKind.Key => IsAllowedKey(path, o, out reason),
             LeftoverKind.Value => IsAllowedValue(path, valueName, o, out reason),
-            _ => Fail("Tuntematon kohdetyyppi.", out reason)
+            _ => Fail(Loc.T("Unknown item type.", "Tuntematon kohdetyyppi."), out reason)
         };
     }
 
@@ -34,7 +35,7 @@ public static class LeftoverGuard
     private static bool IsAllowedPath(string path, InstalledProgram? target, LeftoverScanOptions o, out string reason)
     {
         var full = NormalizePath(path);
-        if (full is null) return Fail("Virheellinen polku.", out reason);
+        if (full is null) return Fail(Loc.T("Invalid path.", "Virheellinen polku."), out reason);
 
         var folders = o.BaseFolders.Select(b => b.Path).Concat(o.ShortcutFolders.Select(s => s.Path))
             .Select(NormalizePath).OfType<string>().ToList();
@@ -42,15 +43,16 @@ public static class LeftoverGuard
         foreach (var folder in folders)
         {
             if (full.Equals(folder, StringComparison.OrdinalIgnoreCase))
-                return Fail($"Peruskansiota ei poisteta: {full}", out reason);
+                return Fail(Loc.T($"A base folder is never deleted: {full}", $"Peruskansiota ei poisteta: {full}"), out reason);
             if (IsUnder(folder, full))
-                return Fail($"Polku sisältää peruskansion: {full}", out reason);
+                return Fail(Loc.T($"Path contains a base folder: {full}", $"Polku sisältää peruskansion: {full}"), out reason);
         }
 
         var install = InstallLocationOrNull(target?.InstallLocation);
         var inside = folders.Any(f => IsUnder(full, f))
             || (install is not null && (full.Equals(install, StringComparison.OrdinalIgnoreCase) || IsUnder(full, install)));
-        if (!inside) return Fail("Polku ei ole peruskansion, pikakuvakekansion eikä asennuskansion alla.", out reason);
+        if (!inside) return Fail(Loc.T("Path is not under a base folder, a shortcut folder or the install folder.",
+            "Polku ei ole peruskansion, pikakuvakekansion eikä asennuskansion alla."), out reason);
 
         return PathGuard.IsSafeToDelete(full, out reason);
     }
@@ -60,7 +62,7 @@ public static class LeftoverGuard
     private static bool IsAllowedKey(string path, LeftoverScanOptions o, out string reason)
     {
         var key = NormalizeKey(path);
-        if (key is null) return Fail("Virheellinen rekisteripolku.", out reason);
+        if (key is null) return Fail(Loc.T("Invalid registry path.", "Virheellinen rekisteripolku."), out reason);
 
         if (MatchesAny(key, o.RegistryRoots, maxSegments: 2)
             || MatchesAny(key, o.UninstallRoots, maxSegments: 1)
@@ -68,16 +70,17 @@ public static class LeftoverGuard
             || MatchesAny(key, o.ClassesRoots, maxSegments: 1))
             return Ok(out reason);
 
-        return Fail(@"Avain ei ole sallittua muotoa (juuri\X, juuri\X\Y, Uninstall\X, App Paths\X tai Classes\X) tai sisältää suojatun segmentin.", out reason);
+        return Fail(Loc.T(@"Key is not in an allowed form (root\X, root\X\Y, Uninstall\X, App Paths\X or Classes\X) or contains a protected segment.",
+            @"Avain ei ole sallittua muotoa (juuri\X, juuri\X\Y, Uninstall\X, App Paths\X tai Classes\X) tai sisältää suojatun segmentin."), out reason);
     }
 
     // ---------- Rekisteriarvot ----------
 
     private static bool IsAllowedValue(string path, string? valueName, LeftoverScanOptions o, out string reason)
     {
-        if (valueName is null) return Fail("Arvon nimi puuttuu.", out reason);
+        if (valueName is null) return Fail(Loc.T("Value name is missing.", "Arvon nimi puuttuu."), out reason);
         var key = NormalizeKey(path);
-        if (key is null) return Fail("Virheellinen rekisteripolku.", out reason);
+        if (key is null) return Fail(Loc.T("Invalid registry path.", "Virheellinen rekisteripolku."), out reason);
 
         if (o.RunKeys.Any(r => key.Equals(r.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)))
             return Ok(out reason);
@@ -90,7 +93,9 @@ public static class LeftoverGuard
         }
 
         // Juuren omat arvot (syvyys 0) eivät kelpaa: vienti koskisi koko juurihaaraa (esim. HKCU\Software).
-        return Fail($"Arvon avain ei ole sallitun juuren alla enintään {o.MaxRegistryDepth} tason syvyydessä eikä Run-avain, tai sisältää suojatun segmentin.", out reason);
+        return Fail(Loc.T(
+            $"The value's key is not under an allowed root at most {o.MaxRegistryDepth} levels deep and is not a Run key, or contains a protected segment.",
+            $"Arvon avain ei ole sallitun juuren alla enintään {o.MaxRegistryDepth} tason syvyydessä eikä Run-avain, tai sisältää suojatun segmentin."), out reason);
     }
 
     // ---------- Apurit ----------
