@@ -2,6 +2,8 @@
 
 Versio 0.3 · 20.10.2026
 
+Lisenssi: MIT, ks. `LICENSE` repon juuressa.
+
 ## 1. Tavoite
 
 Oma siivousohjelma Windows 11:lle (vrt. CCleaner), jossa jokainen ominaisuus on itsenäinen
@@ -430,6 +432,31 @@ Turvamekanismit:
 ## 9. Konventiot
 
 - C# 12, nullable päällä, `sealed` oletuksena.
-- Kaikki käyttäjälle näkyvät tekstit suomeksi; koodin nimet englanniksi.
+- Koodin nimet englanniksi. Käyttäjälle näkyvät tekstit ovat englanniksi ja suomeksi, oletuskieli on englanti
+  (Windowsin kieli ei vaikuta):
+  - `Cleaner.Core.Localization.Loc`: `Loc.Current` (`Language.En`/`Language.Fi`, oletus `En`), `Loc.T(en, fi)`
+    palauttaa nykyisen kielen tekstin sillä hetkellä, kun teksti syntyy, `Loc.Changed` laukeaa kerran jokaisesta
+    todellisesta kielen muutoksesta ja `Loc.Culture` (`en-US`/`fi-FI`) muotoilee käyttäjälle näkyvät numerot.
+    `CultureInfo.CurrentCulture` jää ennalleen.
+  - Uusi teksti kirjoitetaan koodiin `Loc.T("English", "Suomi")`-parina, englanti ensin. Arvo, joka luetaan
+    myöhemmin uudelleen (esim. moduulin nimi ja kuvaus), tallennetaan tyyppinä `LocalizedText(En, Fi)`: sen
+    `ToString()` palauttaa `Loc.T(En, Fi)`, ja `string` muuntuu siihen implisiittisesti. Ei `.resx`- eikä `.resw`-tiedostoja.
+  - Olemassa oleva suomenkielinen teksti pysyy merkki merkiltä ennallaan; käännös lisää vain englanninkielisen version.
+  - Sääntötiedostot: `name` ja `description` englanniksi, suomi kentissä `nameFi` ja `descriptionFi`
+    (`CleanRule.DisplayName`, `CleanRule.DisplayDescription`). Prosessisäännöissä (`rules/processes/known.json`)
+    suomi on kentässä `descriptionFi` (`ProcessRule.DisplayDescription`). Jos suomenkielinen kenttä puuttuu,
+    englanninkielinen teksti näytetään molemmilla kielillä.
+  - Kielivalinta: `AppSettings` lukee ja kirjoittaa tiedoston `%LOCALAPPDATA%\PcCleaner\settings.json`
+    (`{ "language": "en" }` tai `{ "language": "fi" }`). Puuttuva, rikkinäinen tai tuntematon arvo → englanti.
+    CLI valitsee kielen järjestyksessä `--lang` > `settings.json` > `en` eikä kirjoita tiedostoa. UI lukee asetuksen
+    ennen pääikkunan luontia. Navigaatiopaneelin valitsin `English`/`Suomi` tallentaa valinnan ja vaihtaa kielen heti:
+    `Loc.Changed` päivittää `UiText`-olion ja näkymämallit, joihin XAML on sidottu `x:Bind ... Mode=OneWay`
+    -sidonnoilla. Jo tuotetut skannaustulokset ja lokirivit jäävät kielelle, jolla ne syntyivät.
+  - Pysyvät tiedostomuodot pysyvät suomeksi: karanteenin ja rekisterivarmuuskopioiden `manifest.txt` (myös erotinrivi
+    `Käsitellyt kohteet:`, jota `RegistryBackup` jäsentää). Kohdetunnisteet sekä CLI:n komennot ja liput eivät
+    riipu kielestä.
+  - Testit ajetaan oletuksena suomeksi: testiprojektin moduulialustaja asettaa `Loc.Current = Language.Fi`, joten
+    suomenkieliset tarkistukset pysyvät voimassa. Englantia testaavat luokat kuuluvat xUnit-kokoelmaan `Language`
+    (`DisableParallelization = true`), asettavat `Language.En` ja palauttavat `Language.Fi` lopuksi.
 - Moduulin `Id` on pieniä kirjaimia ilman välilyöntejä ja ei muutu koskaan julkaisun jälkeen.
 - Levyoperaatiot vain `SafeFileDeleter`- ja `PathExpander`-luokkien kautta.

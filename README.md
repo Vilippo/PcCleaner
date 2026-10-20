@@ -1,40 +1,45 @@
 # PC Cleaner
 
-Oma, modulaarinen siivousohjelma Windows 11:lle. C# / .NET 8.
+**English** | [Suomi](README.fi.md)
 
-## Rakenne
+A modular cleanup tool for Windows 11. C# / .NET 8. WinUI 3 desktop app and a command-line interface.
+PC Cleaner is a public open source project (https://github.com/Vilippo/PcCleaner) under the MIT license.
+The program runs in English and Finnish.
+
+## Structure
 
 ```
 PcCleaner.sln
 ├── src/
-│   ├── Cleaner.Core/               Ydin: ICleanerModule, mallit, säännöt (JSON), CleanerEngine, lokitus.
+│   ├── Cleaner.Core/               Core: ICleanerModule, models, rules (JSON), CleanerEngine, logging.
+│   │   ├── Localization/           Loc, LocalizedText: English and Finnish texts
 │   │   └── Services/               PathGuard, SafeFileDeleter, PathExpander, ProcessChecker, ElevationHelper,
-│   │                               Quarantine, BackupSessions, Registry/ (RegistryBackup, RegistryGuard, RegistryPaths)
-│   ├── Cleaner.Modules.Files/      Tiedostosiivous + selainvälimuistit (rules/files.json, rules/browsers.json) + roskakori
-│   ├── Cleaner.Modules.Startup/    Käynnistysohjelmat: Run-avaimet, käynnistyskansiot, Task Scheduler, Store StartupTask
-│   ├── Cleaner.Modules.DiskUsage/  Levytilan analyysi (vain luku) + treemap-algoritmi
-│   ├── Cleaner.Modules.Registry/   Rekisterin puhdistus: orvot Uninstall-, tiedostopääte-, ProgId-, MUICache- ja MRU-merkinnät
-│   ├── Cleaner.Modules.Uninstall/  Ohjelman poisto: poisto-ohjelman ajo, jäännöshaku, karanteeni
-│   ├── Cleaner.Modules.Processes/  Prosessit: käyttäjän istunnon taustaprosessien luokittelu ja lopetus (rules/processes/known.json)
-│   ├── Cleaner.Cli/                Komentorivi: scan, clean, modules, uninstall, restore (ModuleFactory)
-│   └── Cleaner.UI/                 WinUI 3 -sovellus PcCleaner.exe: MainWindow, ViewModels/, Services/ (UiModuleFactory)
+│   │                               Quarantine, BackupSessions, AppSettings, Registry/ (RegistryBackup, RegistryGuard, RegistryPaths)
+│   ├── Cleaner.Modules.Files/      File cleanup + browser caches (rules/files.json, rules/browsers.json) + Recycle Bin
+│   ├── Cleaner.Modules.Startup/    Startup programs: Run keys, startup folders, Task Scheduler, Store StartupTask
+│   ├── Cleaner.Modules.DiskUsage/  Disk usage (read-only) + treemap algorithm
+│   ├── Cleaner.Modules.Registry/   Registry cleanup: orphaned Uninstall, file extension, ProgId, MUICache and MRU entries
+│   ├── Cleaner.Modules.Uninstall/  Uninstall programs: runs the uninstaller, finds leftovers, quarantine
+│   ├── Cleaner.Modules.Processes/  Processes: classifies and ends background processes in the user session (rules/processes/known.json)
+│   ├── Cleaner.Cli/                Command line: scan, clean, modules, uninstall, restore (ModuleFactory)
+│   └── Cleaner.UI/                 WinUI 3 app PcCleaner.exe: MainWindow, ViewModels/, Services/ (UiModuleFactory)
 ├── tests/
-│   └── Cleaner.Tests/              xUnit-testit (moduulit, palvelut, karanteeni, treemap)
+│   └── Cleaner.Tests/              xUnit tests (modules, services, quarantine, treemap)
 ├── tools/
-│   └── make-icon.ps1               Generoi sovelluskuvakkeen src/Cleaner.UI/Assets/PcCleaner.ico
+│   └── make-icon.ps1               Generates the app icon src/Cleaner.UI/Assets/PcCleaner.ico
 └── docs/
-    ├── ARCHITECTURE.md             Tekninen määrittely
-    └── plans/                      Toteutussuunnitelmat
+    ├── ARCHITECTURE.md             Technical specification (in Finnish)
+    └── plans/                      Implementation plans (in Finnish)
 ```
 
-## Vaatimukset
+## Requirements
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- Visual Studio 2022 (17.8+) tai VS Code + C# Dev Kit
+- Visual Studio 2022 (17.8+) or VS Code + C# Dev Kit
 
-## Käännös ja ajo
+## Build and run
 
-Graafinen sovellus (WinUI 3, ei vaadi Visual Studiota):
+Desktop app (WinUI 3, Visual Studio not required):
 
 ```powershell
 dotnet build
@@ -42,103 +47,131 @@ dotnet test
 dotnet run --project src\Cleaner.UI
 ```
 
-Exe on kansiossa `src\Cleaner.UI\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\PcCleaner.exe`.
-Windows App SDK -ajonaika kopioituu ohjelman viereen, erillistä asennusta ei tarvita.
-Graafinen sovellus pyytää aina järjestelmänvalvojan oikeudet (UAC), jotta järjestelmäkansiot ja HKLM-avaimet
-ovat käsiteltävissä. Komentorivi toimii tavallisena käyttäjänä.
+The exe is in `src\Cleaner.UI\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\PcCleaner.exe`.
+The Windows App SDK runtime is copied next to the program, so no separate install is needed.
+The desktop app always asks for administrator rights (UAC) so that it can handle system folders and HKLM keys.
+The command line runs as a normal user.
 
-Julkaisukansio (Release, siirrettävissä toiselle koneelle, vaatii .NET 8 -ajonajan):
+Publish folder (Release, can be copied to another computer, requires the .NET 8 runtime):
 
 ```powershell
 dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner
 ```
 
-Levytilan analyysin sivulla voi rajata kansion, valita top-N:n ja selata treemapia (napsautus avaa alikansion).
-Sovelluskuvake generoidaan skriptillä `tools\make-icon.ps1` (ei vaadi kuvankäsittelyohjelmaa).
-Puhdistus kysyy kahdesti: ensin kuivan ajon yhteenveto, sitten vahvistus. Korkean riskin kohteet ovat
-omassa, oletuksena suljetussa lohkossa eikä niitä valita koskaan automaattisesti.
+On the Disk usage page you can limit the scan to one folder, choose the top N and browse a treemap (a click opens the
+subfolder). The app icon is generated by the script `tools\make-icon.ps1` (no image editor needed).
+Cleaning asks twice: first a dry run summary, then a confirmation. High-risk items are in their own section, collapsed
+by default, and they are never selected automatically.
 
-Komentorivi:
+Command line:
 
 ```powershell
 cd src\Cleaner.Cli
 dotnet run -- modules
 dotnet run -- scan
-dotnet run -- clean              # kuiva ajo, ei poista mitään
-dotnet run -- clean --apply      # poistaa, kysyy vahvistuksen
-dotnet run -- scan --include-disabled   # myös oletuksena pois päältä olevat säännöt (Prefetch, Windows.old)
-dotnet run -- scan --module startup     # käynnistysohjelmat (ajetaan vain erikseen pyydettäessä)
-dotnet run -- clean --module startup --item "startup:hkcu-run:Spotify" --apply   # poista yksi käytöstä
-dotnet run -- scan --module diskusage --path C:\Users\%USERNAME% --top 10         # suurimmat kansiot ja tiedostot
-dotnet run -- scan --module registry                                             # orvot rekisterimerkinnät (vain luku)
-dotnet run -- clean --module registry --item "registry:mru:" --apply              # tyhjennä MRU-listat, varmuuskopio ensin
-dotnet run -- scan --module processes                                            # käyttäjän istunnon taustaprosessit, luokiteltuina
-dotnet run -- clean --module processes --item "processes:<pid>:<käynnistysaika>" --apply   # lopeta yksi prosessi, kysyy vahvistuksen
-dotnet run -- uninstall                                                           # listaa asennetut ohjelmat nimen mukaan
-dotnet run -- uninstall --sort date                                               # sama, asennuspäivä uusin ensin
-dotnet run -- uninstall --program "7-Zip"                                         # aja poisto-ohjelma, listaa jäänteet kuivana
-dotnet run -- uninstall --program "7-Zip" --quiet                                 # sama hiljaisella poistokomennolla
-dotnet run -- uninstall --program "7-Zip" --leftovers-only                        # vain jäänteiden haku, ei poisto-ohjelmaa
-dotnet run -- uninstall --program "7-Zip" --leftovers-only --apply                # siirrä esivalitut (*) karanteeniin
-dotnet run -- uninstall --program "7-Zip" --leftovers-only --apply --all          # kaikki jäänteet, myös High-riskin
-dotnet run -- restore                                                             # listaa varmuuskopiot (rekisteri + karanteeni)
-dotnet run -- restore 20261019-170000                                             # tuo session takaisin (reg import + karanteeni)
+dotnet run -- clean              # dry run, deletes nothing
+dotnet run -- clean --apply      # deletes, asks for confirmation
+dotnet run -- scan --include-disabled   # also rules that are off by default (Prefetch, Windows.old)
+dotnet run -- scan --module startup     # startup programs (runs only when requested)
+dotnet run -- clean --module startup --item "startup:hkcu-run:Spotify" --apply   # disable one
+dotnet run -- scan --module diskusage --path C:\Users\%USERNAME% --top 10         # largest folders and files
+dotnet run -- scan --module registry                                             # orphaned registry entries (read-only)
+dotnet run -- clean --module registry --item "registry:mru:" --apply              # clear MRU lists, backup first
+dotnet run -- scan --module processes                                            # background processes in the user session, classified
+dotnet run -- clean --module processes --item "processes:<pid>:<start-time>" --apply   # end one process, asks for confirmation
+dotnet run -- uninstall                                                           # list installed programs by name
+dotnet run -- uninstall --sort date                                               # same, newest install date first
+dotnet run -- uninstall --program "7-Zip"                                         # run the uninstaller, list leftovers as a dry run
+dotnet run -- uninstall --program "7-Zip" --quiet                                 # same with the quiet uninstall command
+dotnet run -- uninstall --program "7-Zip" --leftovers-only                        # only search for leftovers, no uninstaller
+dotnet run -- uninstall --program "7-Zip" --leftovers-only --apply                # move preselected (*) items to quarantine
+dotnet run -- uninstall --program "7-Zip" --leftovers-only --apply --all          # all leftovers, including High risk
+dotnet run -- restore                                                             # list backups (registry + quarantine)
+dotnet run -- restore 20261019-170000                                             # restore a session (reg import + quarantine)
+dotnet run -- --lang fi scan                                                      # Finnish output, see Language
 ```
 
-Ohjelman poisto (`uninstall`) ajaa ohjelman oman poisto-ohjelman, odottaa sen loppumista ja etsii jäänteet: kansiot,
-pikakuvakkeet, rekisteriavaimet ja -arvot. `--program` hyväksyy tarkan nimen tai yksikäsitteisen osan nimestä; usealla
-osumalla komento listaa ehdokkaat ja palauttaa koodin 2. Jäänteet tulostetaan kuivana, esivalitut `*`-merkillä.
-`--apply` siirtää esivalitut kohteet, `--item`-rajauksen kohteet tai `--all`-valinnalla kaikki, ja kysyy vahvistuksen
-`[k/E]` ellei `--yes`. Kansiot ja tiedostot siirtyvät kansioon `%LOCALAPPDATA%\PcCleaner\quarantine\<aikaleima>\`,
-rekisteri viedään `.reg`-tiedostoihin samalla aikaleimalla. Tuloste kertoo karanteenikansion ja palautuskomennon.
-Vain Win32-ohjelmat; Store-sovellukset eivät näy listassa.
+Uninstall programs (`uninstall`) runs the program's own uninstaller, waits for it to finish and searches for leftovers:
+folders, shortcuts, registry keys and values. `--program` accepts the exact name or an unambiguous part of the name.
+With several matches the command lists the candidates and returns exit code 2. Leftovers are printed as a dry run, and
+preselected items are marked with `*`. `--apply` moves the preselected items, the items limited by `--item`, or all
+items with `--all`, and asks for confirmation `[y/N]` (in Finnish `[k/E]`) unless `--yes` is given. Folders and files
+move to `%LOCALAPPDATA%\PcCleaner\quarantine\<timestamp>\`, and registry data is exported to `.reg` files with the
+same timestamp. The output shows the quarantine folder and the restore command.
+Win32 programs only. Store apps do not appear in the list.
 
-Graafisessa sovelluksessa sivulla "Ohjelman poisto" on hakukenttä, ohjelmalista (nimi, versio, julkaisija, koko) ja
-napit "Päivitä lista", "Poista ohjelma" ja "Etsi jäänteet". "Poista ohjelma" näyttää odotustilan
-"Odotetaan poisto-ohjelmaa: <nimi>" (Peruuta lopettaa odotuksen, ei poistoa) ja skannaa jäänteet automaattisesti.
-Jäänteet näkyvät tavallisessa kategorianäkymässä, ja Puhdista siirtää valitut karanteeniin. "Palauta varmuuskopio..."
-listaa sekä rekisterivarmuuskopiot että karanteenisessiot.
+In the desktop app the "Uninstall programs" page has a search box, a program list (name, version, publisher, size) and
+the buttons "Refresh list", "Uninstall program" and "Find leftovers". "Uninstall program" shows a waiting state
+"Waiting for uninstaller: <name>" (Cancel stops the waiting, not the uninstall) and then scans for leftovers
+automatically. Leftovers appear in the normal category view, and Clean moves the selected items to quarantine.
+"Restore backup..." lists both registry backups and quarantine sessions.
 
-Rekisterin puhdistus (`registry`) on rajattu: orvot Uninstall-merkinnät, tiedostotyyppikytkökset, MUICache ja
-viimeksi käytettyjen listat. Jokainen muutettava avain viedään `.reg`-tiedostoon kansioon
-`%LOCALAPPDATA%\PcCleaner\registry-backups\<aikaleima>\` ennen muutosta. Jos vienti epäonnistuu, kohdetta ei kosketa.
-CLSID-, Interface-, TypeLib-, Services-, Drivers-, SharedDLLs- ja Fonts-avaimiin ei kosketa koskaan.
+Registry cleanup (`registry`) has a limited scope: orphaned Uninstall entries, file type associations, MUICache and
+most recently used (MRU) lists. Every key that will change is exported to a `.reg` file in
+`%LOCALAPPDATA%\PcCleaner\registry-backups\<timestamp>\` before the change. If the export fails, the item is not
+touched. CLSID, Interface, TypeLib, Services, Drivers, SharedDLLs and Fonts keys are never touched.
 
-Levytilan analyysi (`diskusage`) vain listaa suurimmat kansiot ja tiedostot. `--apply` poistaa
-ainoastaan `--item`-valinnalla rajatut tiedostot, ei koskaan kansioita. Koko aseman skannaus kestää
-minuutteja; rajaa `--path`-valinnalla.
+Disk usage (`diskusage`) only lists the largest folders and files. `--apply` deletes only the files limited by
+`--item`, never folders. Scanning a whole drive takes minutes, so limit it with `--path`.
 
-Prosessit (`processes`) listaa käyttäjän istunnon prosessit, joiden exe ei ole Windows-kansiossa, kuudessa kategoriassa
-(avoimet ohjelmat, puuttuva ohjelmatiedosto, orvot apuprosessit, tunnetut, joutilaat ja aktiiviset taustaprosessit).
-Skannaus mittaa suorittimen käyttöä 3 s. Lopetus tarkistaa tunnisteen käynnistysajan, joten kierrätettyä PID:tä ei lopeteta,
-ja jokainen lopetus kirjataan lokiin nimellä, PID:llä ja polulla. PcCleanerin oma prosessi ja sen kaikki esivanhemmat
-(esimerkiksi pääte ja Windows Terminal, joista komento ajettiin) ovat suojattuja: niitä ei listata eikä lopeteta.
-Varoitus: CLI:n `clean` ei suodata esivalinnan tai riskin mukaan. `--apply` ilman tarkkaa `--item`-tunnistetta (tai pelkällä
-etuliitteellä `"processes:"`) lopettaa kaikki listatut prosessit, myös avoimet ohjelmat.
+Processes (`processes`) lists processes in the user session whose exe is not in the Windows folder, in six categories
+(open programs, missing program file, orphaned helper processes, known, idle and active background processes).
+The scan measures CPU usage for 3 s. Ending a process checks the start time in the item id, so a recycled PID is never
+ended, and every ended process is logged with its name, PID and path. PC Cleaner's own process and all its ancestors
+(for example the shell and Windows Terminal the command was run from) are protected: they are never listed or ended.
+Warning: the CLI `clean` command does not filter by preselection or risk. `--apply` without an exact `--item` id (or
+with only the prefix `"processes:"`) ends all listed processes, including open programs.
 
-Käynnistysohjelmia ei poisteta, vaan ne poistetaan käytöstä samalla tavalla kuin Tehtävienhallinnassa
-(`StartupApproved`-avain, Store-sovelluksilla StartupTask-tila). Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä.
+Startup programs are not deleted. They are disabled the same way Task Manager does it (the `StartupApproved` key, or
+the StartupTask state for Store apps). You can turn them back on from the Startup apps tab in Task Manager.
 
-Komentorivillä järjestelmäkansiot (`Windows\Temp`, `SoftwareDistribution`) vaativat, että PowerShell on
-käynnistetty järjestelmänvalvojana. Ilman sitä ne vain ohitetaan.
+On the command line, system folders (`Windows\Temp`, `SoftwareDistribution`) require PowerShell to be started as
+administrator. Without it they are skipped.
 
-## Turvallisuusperiaatteet
+## Language
 
-1. **Kuiva ajo on oletus.** Mitään ei poisteta ilman `--apply`.
-2. **Ikäraja.** Temp-tiedostot poistetaan vasta 24 h jälkeen, jotta käynnissä olevat ohjelmat eivät kärsi.
-3. **PathGuard.** Levyn juuria, Windows-, Program Files- ja käyttäjäkansioita ei poisteta koskaan, vaikka sääntötiedostossa olisi virhe.
-4. **Selain auki = ohitus.** Välimuistia ei kosketa, jos selain on käynnissä.
-5. **Kaikki lokitetaan** tiedostoon `%LOCALAPPDATA%\PcCleaner\logs\`.
-6. **Rekisteri varmuuskopioidaan aina ensin.** Ilman onnistunutta `.reg`-vientiä avainta ei muuteta, ja palautus on yksi komento.
-7. **Jäänteet karanteeniin, ei poistoon.** Ohjelman poisto siirtää jäännöskansiot ja -tiedostot karanteeniin, ja `pccleaner restore <aikaleima>` tuo ne takaisin.
+The default language is English. The Windows display language does not affect it.
 
-## Uuden siivouskohteen lisääminen
+- In the desktop app, the selector `English`/`Suomi` at the bottom of the navigation pane changes the language
+  immediately, without a restart, and saves the choice to `%LOCALAPPDATA%\PcCleaner\settings.json`. The selector is
+  disabled while the app scans, cleans, restores or waits for an uninstaller.
+- On the command line, `--lang en|fi` sets the language for one run and overrides the saved choice, for example
+  `dotnet run -- --lang fi scan`. Without the flag the command line uses the language in `settings.json`, or English
+  if the file does not exist. The command line never writes `settings.json`.
 
-Lisää sääntö tiedostoon `src/Cleaner.Modules.Files/rules/files.json`. Koodia ei tarvitse muuttaa.
-Katso kentät tiedostosta `docs/ARCHITECTURE.md`.
+Results that were already scanned (category names, item descriptions) and log lines already written keep the language
+they were created in. They switch to the new language on the next scan.
 
-## Uuden moduulin lisääminen
+## Safety principles
 
-1. Luo projekti `src/Cleaner.Modules.<Nimi>/`, viittaa `Cleaner.Core`-projektiin.
-2. Toteuta `ICleanerModule`.
-3. Rekisteröi moduuli `ModuleFactory.CreateAll`-metodissa (CLI) ja `UiModuleFactory.CreateAll`-metodissa (WinUI).
+1. **Dry run is the default.** Nothing is deleted without `--apply`.
+2. **Age limit.** Temp files are deleted only after 24 h, so running programs are not affected.
+3. **PathGuard.** Drive roots, the Windows, Program Files and user folders are never deleted, even if a rule file has an error.
+4. **Browser open = skip.** A browser cache is not touched while the browser is running.
+5. **Everything is logged** to `%LOCALAPPDATA%\PcCleaner\logs\`.
+6. **The registry is always backed up first.** A key is not changed without a successful `.reg` export, and restoring takes one command.
+7. **Leftovers go to quarantine, not deletion.** Uninstall programs moves leftover folders and files to quarantine, and `pccleaner restore <timestamp>` brings them back.
+
+## Disclaimer
+
+PC Cleaner deletes files, changes the registry and startup settings, and ends processes. It is provided as is,
+without warranty of any kind. The author is not liable for any damage or data loss caused by using it. You use it at
+your own risk. Back up your important data before you clean.
+
+## Adding a new cleanup target
+
+Add a rule to `src/Cleaner.Modules.Files/rules/files.json`. No code changes are needed.
+Write `name` and `description` in English and the Finnish text in `nameFi` and `descriptionFi`. If the Finnish
+fields are missing, the English text is shown in both languages.
+The fields are described in `docs/ARCHITECTURE.md`.
+
+## Adding a new module
+
+1. Create the project `src/Cleaner.Modules.<Name>/` and reference the `Cleaner.Core` project.
+2. Implement `ICleanerModule`. Write user-visible texts as `Loc.T("English", "Suomi")` pairs.
+3. Register the module in `ModuleFactory.CreateAll` (CLI) and `UiModuleFactory.CreateAll` (WinUI).
+
+## License
+
+PC Cleaner is released under the MIT License. See [LICENSE](LICENSE). The software is provided "as is", without
+warranty of any kind, and you use it at your own risk.
