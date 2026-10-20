@@ -538,7 +538,7 @@ Yksi tehtävä: T3 kokoaa moduulin T1:n ja T2:n päälle.
 T4 ja T5 ovat riippumattomia (eri tiedostot; T5 ei käännä mitään) ja ajetaan rinnakkain.
 
 ### T4: CLI- ja UI-kytkentä
-- Status: pending
+- Status: done 5e184f0
 - Model: opus
 - Requirements: REQ-19, REQ-20
 - Constraints/edge: CON-1
@@ -576,7 +576,7 @@ T4 ja T5 ovat riippumattomia (eri tiedostot; T5 ei käännä mitään) ja ajetaa
   Muut moduulit säilyttävät nykyiset tekstinsä täsmälleen.
 
 ### T5: Dokumentit
-- Status: pending
+- Status: done e94daac
 - Model: opus
 - Requirements: REQ-22
 - Files: docs/ARCHITECTURE.md, README.md, HANDOFF.md
