@@ -194,7 +194,8 @@ setx ANTHROPIC_API_KEY sk-ant-...
 
 Muuttujan voi asettaa myös Windowsissa kohdassa Järjestelmä > Tietoja > Järjestelmän lisäasetukset > Ympäristömuuttujat.
 Käynnistä PC Cleaner sen jälkeen uudelleen, koska sovellus lukee muuttujan käynnistyksessä. Ilman avainta paneeli
-näyttää ilmoituksen ja sen napit ovat pois käytöstä; muu sovellus toimii kuten ennenkin. Avainta ei kirjoiteta
+näyttää ilmoituksen, ja avustajaa kutsuvat napit ovat pois käytöstä. Auto-tilan kytkin ja "Uusi keskustelu" toimivat,
+ja muu sovellus toimii kuten ennenkin. Avainta ei kirjoiteta
 `settings.json`-tiedostoon, lokiin eikä paneeliin.
 
 API-käyttö laskutetaan Anthropic-tililtäsi Anthropicin hinnaston mukaan. Jokainen arvio, kuntotarkistus ja kysymys on
@@ -216,7 +217,8 @@ Ei lähetetä: lokia, `settings.json`-tiedostoa, API-avainta, tiedostojen sisäl
 Rekisterikohteista lähtee sama polku ja kuvaus kuin kortissa näkyy.
 
 Auto-tilassa avustaja saa muuttaa valintoja. Kytkin "Auto-tila" on paneelissa ja asetussivulla, ja se on oletuksena
-pois. Auto-tilassa arvio valitsee turvalliset kohteet ja poistaa valinnan varo- ja säilytä-kohteilta. Nappi
+pois. Auto-tilassa arvio valitsee turvalliset kohteet ja poistaa valinnan varo- ja säilytä-kohteilta
+(vain oletusmoduuleissa; erikseen valittavissa moduuleissa arvio vain neuvoo). Nappi
 "Automaattinen siivous" skannaa oletusmoduulit (Tiedostosiivous, Selainten välimuistit, Roskakori), arvioi jokaisen
 moduulin, jolla on tuloksia, soveltaa valinnat, ajaa kuivan ajon ja näyttää yhden vahvistusdialogin, jossa ovat
 avustajan yhteenvedot, kuivan ajon kohdemäärä ja koko sekä ohitetut kohteet. Mitään ei poisteta ennen vahvistusta, ja

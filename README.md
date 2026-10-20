@@ -193,8 +193,9 @@ setx ANTHROPIC_API_KEY sk-ant-...
 ```
 
 You can also set it in Windows under System > About > Advanced system settings > Environment variables. Restart PC Cleaner
-afterwards, because the app reads the variable at startup. Without a key the pane shows a notice and its buttons are
-disabled; the rest of the app works as before. The key is never written to `settings.json`, the log or the pane.
+afterwards, because the app reads the variable at startup. Without a key the pane shows a notice and the buttons that
+call the assistant are disabled; the Auto mode switch and "New conversation" still work, and the rest of the app works
+as before. The key is never written to `settings.json`, the log or the pane.
 
 API usage is billed to your Anthropic account according to Anthropic's pricing. Every review, health check and question
 is one API call, and each call sends the whole conversation again.
@@ -214,7 +215,8 @@ Not sent: the log, `settings.json`, the API key, file contents or registry value
 the same path and description that the card shows.
 
 Auto mode lets the assistant change the selection. The "Auto mode" switch is in the pane and on the settings page, and
-it is off by default. In Auto mode a review selects items marked `safe` and deselects items marked `caution` or `keep`.
+it is off by default. In Auto mode a review selects items marked `safe` and deselects items marked `caution` or `keep`
+(only in the default modules; in opt-in modules the review only gives advice).
 The "Automatic cleanup" button then scans the default modules (File cleanup, Browser caches, Recycle Bin), reviews every
 module with results, applies the selections, runs a dry run and shows one confirmation dialog with the assistant's
 summaries, the dry run count and size, and the skipped items. Nothing is deleted before you confirm, and Cancel stops

@@ -166,7 +166,9 @@ public sealed partial class AiAssistantViewModel : ObservableObject
             if (module.ScanGeneration == generation)
             {
                 module.ApplyReview(review);
-                if (AutoMode)
+                // Opt-in-moduulit (käynnistys, levytila, rekisteri, ohjelman poisto, prosessit) jäävät aina Auto-tilan
+                // ulkopuolelle: niissä arvio vain neuvoo, ja kohteet valitaan yksitellen.
+                if (AutoMode && module.SelectedByDefault)
                 {
                     var (selected, deselected) = module.ApplyAutoSelection();
                     text.Append("\n\n").Append(Loc.T($"Selected {selected}, deselected {deselected}",

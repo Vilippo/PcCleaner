@@ -555,11 +555,13 @@ Turvamekanismit:
   `AppSettings.Update`-kutsulla; epäonnistuminen kirjataan varoituksena eikä estä vaihtoa. Auto-tilassa arvio myös
   valitsee kohteet (`ModuleViewModel.ApplyAutoSelection`, `VerdictApplier.AutoSelection`): High-riskin kohde ei ole
   koskaan valittuna, caution ja keep poistavat valinnan, safe valitsee, ja kohde ilman arviota pysyy ennallaan.
-  Paneeliin tulee rivi "Valittu N, poistettu valinnasta M".
+  Paneeliin tulee rivi "Valittu N, poistettu valinnasta M". Valinta koskee vain `SelectedByDefault`-moduuleja;
+  opt-in-moduuleissa arvio vain neuvoo. Puhdista-ketju ajaa oikeassa ajossa vain kohteet, jotka ovat yhä valittuina,
+  joten dialogien aikana valmistunut arvio voi vain vähentää poistettavia.
 - Automaattinen siivous (`MainViewModel.AutoCleanCommand`, sallittu kun sovellus ei ole kiireinen, avustaja ei
   ajattele, avain on asetettu ja Auto-tila on päällä). Vaiheet 1–3 ajetaan yhden `BeginBusy`-tilan ja yhden
-  `CancellationTokenSource`-olion alla. Alapalkin ja paneelin Peruuta keskeyttävät ne ilman dialogia ja ilman
-  puhdistusta.
+  `CancellationTokenSource`-olion alla. Alapalkin Peruuta keskeyttää minkä tahansa niistä ilman dialogia ja ilman
+  puhdistusta. Paneelin Peruuta näkyy vain arvion aikana ja keskeyttää sen.
   1. Skannaa kaikki `SelectedByDefault`-moduulit kuten "Skannaa kaikki".
   2. Pyytää arvion jokaisesta moduulista, jolla on kohteita (`BusyTitle` "Arvio: <moduuli>"), ja soveltaa Auto-tilan
      valinnat. Virhe tai peruutus lopettaa ajon, samoin Auto-tilan kytkeminen pois kesken ajon.

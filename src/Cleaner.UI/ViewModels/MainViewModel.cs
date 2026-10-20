@@ -514,7 +514,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (!await _dialogs.ConfirmAsync(Loc.T("Confirm", "Vahvista"), confirmText, confirmButton))
             return;
 
-        // 4) Oikea ajo
+        // 4) Oikea ajo. Avustajan arvio voi valmistua dialogien aikana ja poistaa valintoja (Auto-tila, EDGE-11):
+        // ajetaan vain kohteet, jotka ovat yhä valittuina. Suodatus voi vain vähentää vahvistettuja kohteita.
+        var stillSelected = module.SelectedItems().ToHashSet();
+        items = items.Where(stillSelected.Contains).ToList();
+        if (items.Count == 0)
+        {
+            await _dialogs.InfoAsync(Loc.T("Nothing to do", "Ei mitään tehtävää"),
+                Loc.T("No items are selected anymore.", "Yhtään kohdetta ei ole enää valittuna."));
+            return;
+        }
         IReadOnlyList<CleanResult> real;
         cts = BeginBusy(Loc.T($"Cleaning: {module.DisplayName}", $"Puhdistetaan: {module.DisplayName}"));
         try
