@@ -281,7 +281,7 @@ Assets-glob) eivät ole kenenkään build-syötteenä tässä aallossa. T2 ja T3
 kääntäisi T1:n keskeneräisen Coren.
 
 ### T1: AppSettings: palette ja font, Update-apuri
-- Status: pending
+- Status: done e2ea1e9
 - Model: opus
 - Requirements: REQ-1, REQ-2
 - Constraints/edge: CON-1, EDGE-1
@@ -410,7 +410,7 @@ T2:n buildissa, mikä on vaaratonta (kopiointi). Foreman ajaa aallon lopuksi: po
   Koodityyli: suomenkieliset XML-kommentit kuten muualla projektissa, `file-scoped namespace`, nullable päällä.
 
 ### T3: Inter-fontti ja lisenssi
-- Status: pending
+- Status: done 281952d
 - Model: opus
 - Requirements: REQ-8
 - Constraints/edge: CON-2
@@ -436,7 +436,7 @@ T2:n buildissa, mikä on vaaratonta (kopiointi). Foreman ajaa aallon lopuksi: po
   kokeilun jäljiltä sama ttf; se ei ole todiste mistään.
 
 ### T4: Palettikuvakkeet ja kuvakaappaustyökalu
-- Status: pending
+- Status: done ad2d137
 - Model: opus
 - Requirements: REQ-7
 - Files: tools/make-icon.ps1, tools/snap-window.py, src/Cleaner.UI/Assets/PcCleaner.ico, src/Cleaner.UI/Assets/PcCleaner.png, src/Cleaner.UI/Assets/PcCleaner-mint.ico, src/Cleaner.UI/Assets/PcCleaner-indigo.ico, src/Cleaner.UI/Assets/PcCleaner-steel.ico, src/Cleaner.UI/Assets/PcCleaner-graphite.ico, src/Cleaner.UI/Assets/PcCleaner-sun.ico
