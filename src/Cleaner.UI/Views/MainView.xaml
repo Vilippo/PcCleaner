@@ -1,0 +1,596 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Cleaner.UI.Views.MainView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Cleaner.UI.ViewModels">
+
+    <!-- Juuren tausta on läpinäkyvä, kun Mica on käytettävissä (code-behind nollaa sen); muuten tämä (EDGE-4). -->
+    <Grid x:Name="Root" Background="{ThemeResource AppContentBackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="36" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Oma otsikkopalkki: raahausalue (MainWindow.SetTitleBar), läpinäkyvä jotta Mica näkyy (REQ-12). -->
+        <Grid x:Name="AppTitleBar" x:FieldModifier="public" Grid.Row="0" Height="36" Background="Transparent">
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,0,0,0" VerticalAlignment="Center">
+                <Image Width="16" Height="16" Source="{x:Bind IconSource}" VerticalAlignment="Center" />
+                <TextBlock Text="{x:Bind ViewModel.TitleText, Mode=OneWay}"
+                           FontSize="12"
+                           FontFamily="{ThemeResource AppBodyFontFamily}"
+                           Foreground="{ThemeResource AppTextSecondaryBrush}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Tavallinen käyttäjä: tarjotaan uudelleenkäynnistys adminina, ei pakoteta. -->
+        <InfoBar Grid.Row="1"
+                 IsOpen="{x:Bind ViewModel.ShowElevationHint}"
+                 IsClosable="True"
+                 Severity="Informational"
+                 Title="{x:Bind ViewModel.T.StandardUserTitle, Mode=OneWay}"
+                 Message="{x:Bind ViewModel.T.StandardUserMessage, Mode=OneWay}">
+            <InfoBar.ActionButton>
+                <Button Content="{x:Bind ViewModel.T.RestartElevated, Mode=OneWay}"
+                        Command="{x:Bind ViewModel.RestartElevatedCommand}" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <!-- Lokipaneeli oikealla (REQ-18). Auki/kiinni-tila on näkymän omaa tilaa ja nollautuu uudelleenluonnissa. -->
+        <SplitView Grid.Row="2"
+                   x:Name="LogSplitView"
+                   PanePlacement="Right"
+                   DisplayMode="Overlay"
+                   OpenPaneLength="420"
+                   IsPaneOpen="False"
+                   PaneBackground="{ThemeResource AppContentBackgroundBrush}">
+            <SplitView.Pane>
+                <Grid Padding="16"
+                      BorderThickness="1,0,0,0"
+                      BorderBrush="{ThemeResource AppDividerBrush}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="{x:Bind ViewModel.T.Log, Mode=OneWay}"
+                                   FontFamily="{ThemeResource AppHeadingFontFamily}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="{ThemeResource AppTextPrimaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <Button Grid.Column="1"
+                                Click="CloseLog_Click"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.T.Close, Mode=OneWay}">
+                            <FontIcon Glyph="&#xE711;" FontSize="14" />
+                        </Button>
+                    </Grid>
+
+                    <ListView Grid.Row="1"
+                              x:Name="LogList"
+                              Margin="0,12,0,12"
+                              ItemsSource="{x:Bind ViewModel.LogLines}"
+                              SelectionMode="None"
+                              IsItemClickEnabled="False">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Text="{x:Bind}"
+                                           FontFamily="{ThemeResource AppMonoFontFamily}"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource AppTextPrimaryBrush}"
+                                           TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="MinHeight" Value="0" />
+                                <Setter Property="Padding" Value="4,1" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                    </ListView>
+
+                    <StackPanel Grid.Row="2" Spacing="8">
+                        <Button Content="{x:Bind ViewModel.T.ClearLog, Mode=OneWay}" Command="{x:Bind ViewModel.ClearLogCommand}" />
+                        <TextBlock Text="{x:Bind ViewModel.LogPath}"
+                                   IsTextSelectionEnabled="True"
+                                   TextWrapping="Wrap"
+                                   FontSize="12"
+                                   FontFamily="{ThemeResource AppBodyFontFamily}"
+                                   Foreground="{ThemeResource AppTextSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+            </SplitView.Pane>
+
+            <!-- Navigointipaneeli: 240 px, aina auki, ei toggle-nappia eikä otsikkoa (REQ-19). Paneelin tausta tulee
+                 Appearance-sanakirjan NavigationViewDefaultPaneBackground-ohituksesta (AppPaneBackground). -->
+            <NavigationView x:Name="Nav"
+                            MenuItemsSource="{x:Bind ViewModel.Modules}"
+                            SelectionChanged="Nav_SelectionChanged"
+                            Loaded="Nav_Loaded"
+                            IsSettingsVisible="True"
+                            IsBackButtonVisible="Collapsed"
+                            IsPaneToggleButtonVisible="False"
+                            IsPaneOpen="True"
+                            PaneDisplayMode="Left"
+                            OpenPaneLength="240">
+                <NavigationView.MenuItemTemplate>
+                    <DataTemplate x:DataType="vm:ModuleViewModel">
+                        <NavigationViewItem Content="{x:Bind DisplayName, Mode=OneWay}"
+                                            ToolTipService.ToolTip="{x:Bind Description, Mode=OneWay}">
+                            <NavigationViewItem.Icon>
+                                <FontIcon Glyph="{x:Bind Glyph}" />
+                            </NavigationViewItem.Icon>
+                        </NavigationViewItem>
+                    </DataTemplate>
+                </NavigationView.MenuItemTemplate>
+
+                <NavigationView.PaneFooter>
+                    <StackPanel Padding="12,8" Spacing="4">
+                        <Button Content="{x:Bind ViewModel.T.ScanAll, Mode=OneWay}"
+                                HorizontalAlignment="Stretch"
+                                Command="{x:Bind ViewModel.ScanAllCommand}"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.T.ScanAllToolTip, Mode=OneWay}" />
+                    </StackPanel>
+                </NavigationView.PaneFooter>
+
+                <!-- Sisältöalue: moduulisivu ja asetussivu päällekkäin, yksi näkyvissä. -->
+                <Grid Background="{ThemeResource AppContentBackgroundBrush}">
+
+                    <!-- Valitun moduulin sivu -->
+                    <Grid Padding="24,16,24,8" Visibility="{x:Bind Collapse(ViewModel.IsSettingsSelected), Mode=OneWay}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Spacing="4">
+                            <TextBlock Text="{x:Bind ViewModel.SelectedModule.DisplayName, Mode=OneWay}"
+                                       Style="{StaticResource TitleTextBlockStyle}" />
+                            <TextBlock Text="{x:Bind ViewModel.SelectedModule.Description, Mode=OneWay}"
+                                       Style="{StaticResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="{x:Bind ViewModel.SelectedModule.RiskText, Mode=OneWay}"
+                                           Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind ViewModel.SelectedModule.AdminHint, Mode=OneWay}"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="{x:Bind ViewModel.SelectedModule.OptInHint, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                            <!-- Levytilan analyysi: polku, top-N ja treemap -->
+                            <StackPanel Visibility="{x:Bind ViewModel.IsDiskUsageSelected, Mode=OneWay}" Spacing="8" Margin="0,8,0,0">
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Header="{x:Bind ViewModel.T.FolderHeader, Mode=OneWay}"
+                                             PlaceholderText="{x:Bind ViewModel.T.FolderPlaceholder, Mode=OneWay}"
+                                             Text="{x:Bind ViewModel.DiskUsagePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <Button Grid.Column="1" Content="{x:Bind ViewModel.T.Browse, Mode=OneWay}" VerticalAlignment="Bottom" Click="PickFolder_Click" />
+                                    <NumberBox Grid.Column="2" Header="Top-N" Minimum="1" Maximum="500" SmallChange="5"
+                                               SpinButtonPlacementMode="Compact" MinWidth="120"
+                                               Value="{x:Bind ViewModel.DiskUsageTop, Mode=TwoWay}" />
+                                </Grid>
+                                <Grid Visibility="{x:Bind ViewModel.HasTreemap, Mode=OneWay}" RowSpacing="4">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" x:Name="TreemapUpButton" Content="{x:Bind ViewModel.T.Up, Mode=OneWay}" Click="TreemapUp_Click" IsEnabled="False" />
+                                        <TextBlock Grid.Column="1" x:Name="TreemapPathText" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    </Grid>
+                                    <Border Grid.Row="1" Height="300" BorderThickness="1" CornerRadius="4"
+                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                                        <Canvas x:Name="TreemapCanvas" SizeChanged="TreemapCanvas_SizeChanged" />
+                                    </Border>
+                                </Grid>
+                            </StackPanel>
+                            <!-- Ohjelman poisto: haku, ohjelmalista ja poistonapit -->
+                            <StackPanel Visibility="{x:Bind ViewModel.IsUninstallSelected, Mode=OneWay}" Spacing="8" Margin="0,8,0,0">
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" PlaceholderText="{x:Bind ViewModel.T.ProgramSearchPlaceholder, Mode=OneWay}"
+                                             Text="{x:Bind ViewModel.ProgramFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <ComboBox Grid.Column="1" MinWidth="220"
+                                              Header=""
+                                              SelectedIndex="{x:Bind ViewModel.ProgramSortIndex, Mode=TwoWay}"
+                                              ToolTipService.ToolTip="{x:Bind ViewModel.T.SortToolTip, Mode=OneWay}">
+                                        <!-- TextBlock-sisältö: suljettu ComboBox näyttää valitun kohteen elementin, joten teksti päivittyy kielen vaihtuessa. -->
+                                        <ComboBoxItem>
+                                            <TextBlock Text="{x:Bind ViewModel.T.SortByName, Mode=OneWay}" />
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <TextBlock Text="{x:Bind ViewModel.T.SortByInstallDate, Mode=OneWay}" />
+                                        </ComboBoxItem>
+                                    </ComboBox>
+                                </Grid>
+                                <ListView x:Name="ProgramList"
+                                          ItemsSource="{x:Bind ViewModel.Programs, Mode=OneWay}"
+                                          SelectedItem="{x:Bind ViewModel.SelectedProgram, Mode=TwoWay}"
+                                          MaxHeight="260"
+                                          SelectionMode="Single"
+                                          BorderThickness="1"
+                                          CornerRadius="4"
+                                          BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:InstalledProgramViewModel">
+                                            <Grid ColumnSpacing="12" Padding="0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="120" />
+                                                    <ColumnDefinition Width="200" />
+                                                    <ColumnDefinition Width="80" />
+                                                    <ColumnDefinition Width="90" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
+                                                           Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Version}" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
+                                                           Style="{StaticResource CaptionTextBlockStyle}" />
+                                                <TextBlock Grid.Column="2" Text="{x:Bind Publisher}" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
+                                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                <TextBlock Grid.Column="3" Text="{x:Bind InstallDateText, Mode=OneWay}"
+                                                           VerticalAlignment="Center"
+                                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           ToolTipService.ToolTip="{x:Bind InstallDateToolTip, Mode=OneWay}" />
+                                                <TextBlock Grid.Column="4" Text="{x:Bind SizeText, Mode=OneWay}" HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"
+                                                           Style="{StaticResource CaptionTextBlockStyle}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="{x:Bind ViewModel.T.RefreshList, Mode=OneWay}" Command="{x:Bind ViewModel.RefreshProgramsCommand}" />
+                                    <Button Content="{x:Bind ViewModel.T.UninstallProgram, Mode=OneWay}"
+                                            Style="{StaticResource AccentButtonStyle}"
+                                            Command="{x:Bind ViewModel.UninstallProgramCommand}" />
+                                    <Button Content="{x:Bind ViewModel.T.FindLeftovers, Mode=OneWay}" Command="{x:Bind ViewModel.ScanLeftoversCommand}" />
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.T.UninstallHelp, Mode=OneWay}"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+
+                            <TextBlock Text="{x:Bind ViewModel.SelectedModule.StatusText, Mode=OneWay}"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       Margin="0,8,0,0" />
+                        </StackPanel>
+
+                        <InfoBar Grid.Row="1"
+                                 Margin="0,8,0,0"
+                                 IsOpen="{x:Bind ViewModel.SelectedModule.HasErrors, Mode=OneWay}"
+                                 IsClosable="False"
+                                 Severity="Warning"
+                                 Title="{x:Bind ViewModel.T.NotesTitle, Mode=OneWay}"
+                                 Message="{x:Bind ViewModel.SelectedModule.ErrorText, Mode=OneWay}" />
+
+                        <ScrollViewer Grid.Row="2" Margin="0,8,0,0">
+                            <StackPanel Spacing="8">
+
+                                <!-- Matalan ja keskiriskin kategoriat -->
+                                <ItemsControl x:Name="CategoryList" ItemsSource="{x:Bind ViewModel.SelectedModule.Categories, Mode=OneWay}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:CategoryViewModel">
+                                            <Expander HorizontalAlignment="Stretch"
+                                                      HorizontalContentAlignment="Stretch"
+                                                      Margin="0,0,0,8"
+                                                      IsExpanded="False">
+                                                <Expander.Header>
+                                                    <Grid ColumnSpacing="12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <CheckBox Grid.Column="0"
+                                                                  MinWidth="0"
+                                                                  IsThreeState="False"
+                                                                  IsChecked="{x:Bind IsChecked, Mode=TwoWay}" />
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                                            <TextBlock Text="{x:Bind RiskText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="2" Text="{x:Bind SummaryText, Mode=OneWay}"
+                                                                   VerticalAlignment="Center"
+                                                                   Style="{StaticResource BodyTextBlockStyle}" />
+                                                    </Grid>
+                                                </Expander.Header>
+                                                <StackPanel>
+                                                    <ItemsControl ItemsSource="{x:Bind VisibleItems}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:ItemViewModel">
+                                                                <Grid ColumnSpacing="8" Padding="0,2">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <CheckBox Grid.Column="0" MinWidth="0"
+                                                                              IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                        <TextBlock Text="{x:Bind Path}" TextTrimming="CharacterEllipsis"
+                                                                                   Style="{StaticResource BodyTextBlockStyle}" />
+                                                                        <TextBlock Text="{x:Bind Description}"
+                                                                                   Visibility="{x:Bind HasDescription}"
+                                                                                   TextTrimming="CharacterEllipsis"
+                                                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                    </StackPanel>
+                                                                    <TextBlock Grid.Column="2" Text="{x:Bind SizeText}"
+                                                                               VerticalAlignment="Center"
+                                                                               Style="{StaticResource CaptionTextBlockStyle}" />
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <TextBlock Text="{x:Bind HiddenText, Mode=OneWay}"
+                                                               Visibility="{x:Bind HasHidden}"
+                                                               Margin="0,8,0,0"
+                                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </StackPanel>
+                                            </Expander>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Korkean riskin kohteet: erillinen, oletuksena kiinni, ei valittuna -->
+                                <Expander Visibility="{x:Bind ViewModel.SelectedModule.HasHighRisk, Mode=OneWay}"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Stretch"
+                                          IsExpanded="False">
+                                    <Expander.Header>
+                                        <StackPanel>
+                                            <TextBlock Text="{x:Bind ViewModel.T.HighRiskHeader, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                       Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                            <TextBlock Text="{x:Bind ViewModel.T.HighRiskHint, Mode=OneWay}"
+                                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Expander.Header>
+                                    <ItemsControl x:Name="HighRiskList" ItemsSource="{x:Bind ViewModel.SelectedModule.HighRiskCategories, Mode=OneWay}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:CategoryViewModel">
+                                                <Expander HorizontalAlignment="Stretch"
+                                                          HorizontalContentAlignment="Stretch"
+                                                          Margin="0,0,0,8"
+                                                          IsExpanded="False">
+                                                    <Expander.Header>
+                                                        <Grid ColumnSpacing="12">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <CheckBox Grid.Column="0" MinWidth="0" IsThreeState="False"
+                                                                      IsChecked="{x:Bind IsChecked, Mode=TwoWay}" />
+                                                            <TextBlock Grid.Column="1" Text="{x:Bind Name}" VerticalAlignment="Center"
+                                                                       Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                                            <TextBlock Grid.Column="2" Text="{x:Bind SummaryText, Mode=OneWay}" VerticalAlignment="Center"
+                                                                       Style="{StaticResource BodyTextBlockStyle}" />
+                                                        </Grid>
+                                                    </Expander.Header>
+                                                    <StackPanel>
+                                                        <ItemsControl ItemsSource="{x:Bind VisibleItems}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ItemViewModel">
+                                                                    <Grid ColumnSpacing="8" Padding="0,2">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto" />
+                                                                            <ColumnDefinition Width="*" />
+                                                                            <ColumnDefinition Width="Auto" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <CheckBox Grid.Column="0" MinWidth="0"
+                                                                                  IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
+                                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                            <TextBlock Text="{x:Bind Path}" TextTrimming="CharacterEllipsis"
+                                                                                       Style="{StaticResource BodyTextBlockStyle}" />
+                                                                            <TextBlock Text="{x:Bind Description}"
+                                                                                       Visibility="{x:Bind HasDescription}"
+                                                                                       TextTrimming="CharacterEllipsis"
+                                                                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                        </StackPanel>
+                                                                        <TextBlock Grid.Column="2" Text="{x:Bind SizeText}"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <TextBlock Text="{x:Bind HiddenText, Mode=OneWay}"
+                                                                   Visibility="{x:Bind HasHidden}"
+                                                                   Margin="0,8,0,0"
+                                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    </StackPanel>
+                                                </Expander>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Expander>
+
+                                <TextBlock Text="{x:Bind ViewModel.T.NothingFound, Mode=OneWay}"
+                                           Visibility="{x:Bind ViewModel.SelectedModule.IsEmpty, Mode=OneWay}"
+                                           Style="{StaticResource BodyTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <!-- Asetussivu (REQ-9, REQ-10). Valitsimet pois käytöstä kiireisenä (EDGE-3). -->
+                    <ScrollViewer Visibility="{x:Bind ViewModel.IsSettingsSelected, Mode=OneWay}">
+                        <StackPanel Padding="32,24" Spacing="12" MaxWidth="720" HorizontalAlignment="Left">
+                            <TextBlock Text="{x:Bind ViewModel.T.SettingsTitle, Mode=OneWay}"
+                                       FontFamily="{ThemeResource AppHeadingFontFamily}"
+                                       FontSize="28"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource AppTextPrimaryBrush}" />
+
+                            <TextBlock Text="{x:Bind ViewModel.T.AppearanceHeader, Mode=OneWay}"
+                                       Margin="0,12,0,0"
+                                       FontFamily="{ThemeResource AppHeadingFontFamily}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource AppTextPrimaryBrush}" />
+
+                            <TextBlock Text="{x:Bind ViewModel.T.PaletteHeader, Mode=OneWay}"
+                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                       FontSize="14"
+                                       Foreground="{ThemeResource AppTextSecondaryBrush}" />
+                            <!-- ItemsSource ennen SelectedIndexiä: alkuvalinta kohdistuu olemassa oleviin riveihin. -->
+                            <RadioButtons x:Name="PaletteRadios"
+                                          ItemsSource="{x:Bind ViewModel.PaletteOptions}"
+                                          SelectedIndex="{x:Bind ViewModel.PaletteIndex, Mode=TwoWay}"
+                                          IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
+                                <RadioButtons.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:AppearanceOptionViewModel">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Ellipse Width="16" Height="16" Fill="{x:Bind Swatch1}"
+                                                     Stroke="{ThemeResource AppCardBorderBrush}" StrokeThickness="1" />
+                                            <Ellipse Width="16" Height="16" Fill="{x:Bind Swatch2}"
+                                                     Stroke="{ThemeResource AppCardBorderBrush}" StrokeThickness="1" />
+                                            <Ellipse Width="16" Height="16" Fill="{x:Bind Swatch3}"
+                                                     Stroke="{ThemeResource AppCardBorderBrush}" StrokeThickness="1" />
+                                            <TextBlock Text="{x:Bind Name, Mode=OneWay}"
+                                                       Margin="6,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                                       FontSize="14"
+                                                       Foreground="{ThemeResource AppTextPrimaryBrush}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </RadioButtons.ItemTemplate>
+                            </RadioButtons>
+
+                            <TextBlock Text="{x:Bind ViewModel.T.FontHeader, Mode=OneWay}"
+                                       Margin="0,8,0,0"
+                                       FontFamily="{ThemeResource AppBodyFontFamily}"
+                                       FontSize="14"
+                                       Foreground="{ThemeResource AppTextSecondaryBrush}" />
+                            <RadioButtons x:Name="FontRadios"
+                                          ItemsSource="{x:Bind ViewModel.FontOptions}"
+                                          SelectedIndex="{x:Bind ViewModel.FontIndex, Mode=TwoWay}"
+                                          IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
+                                <RadioButtons.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:AppearanceOptionViewModel">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{x:Bind Name, Mode=OneWay}"
+                                                       FontFamily="{x:Bind BodyFontFamily}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{ThemeResource AppTextPrimaryBrush}" />
+                                            <TextBlock Text="{x:Bind Sample, Mode=OneWay}"
+                                                       FontFamily="{x:Bind HeadingFontFamily}"
+                                                       FontSize="16"
+                                                       Foreground="{ThemeResource AppTextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </RadioButtons.ItemTemplate>
+                            </RadioButtons>
+
+                            <TextBlock Text="{x:Bind ViewModel.T.LanguageHeader, Mode=OneWay}"
+                                       Margin="0,12,0,0"
+                                       FontFamily="{ThemeResource AppHeadingFontFamily}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource AppTextPrimaryBrush}" />
+                            <!-- Kielet aina omalla kielellään. -->
+                            <RadioButtons SelectedIndex="{x:Bind ViewModel.LanguageIndex, Mode=TwoWay}"
+                                          IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}">
+                                <x:String>English</x:String>
+                                <x:String>Suomi</x:String>
+                            </RadioButtons>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </NavigationView>
+        </SplitView>
+
+        <!-- Alapalkki: edistyminen, yhteenveto, napit (T7 muotoilee; lokinappi avaa paneelin, REQ-18) -->
+        <StackPanel Grid.Row="3"
+                    Padding="24,8,24,12"
+                    Spacing="8"
+                    Background="{ThemeResource AppContentBackgroundBrush}"
+                    BorderThickness="0,1,0,0"
+                    BorderBrush="{ThemeResource AppDividerBrush}">
+
+            <StackPanel Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Spacing="4">
+                <TextBlock Text="{x:Bind ViewModel.BusyTitle, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind ViewModel.ProgressPercent, Mode=OneWay}" />
+                <TextBlock Text="{x:Bind ViewModel.ProgressMessage, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{x:Bind ViewModel.SelectedModule.SelectionText, Mode=OneWay}"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource BodyTextBlockStyle}" />
+                <Button Grid.Column="1"
+                        Click="LogButton_Click"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.T.Log, Mode=OneWay}">
+                    <FontIcon Glyph="&#xE7C3;" FontSize="16" />
+                </Button>
+                <Button Grid.Column="2" Content="{x:Bind ViewModel.T.RestoreBackup, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.ShowRestoreButton, Mode=OneWay}"
+                        Command="{x:Bind ViewModel.RestoreBackupCommand}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.T.RestoreBackupToolTip, Mode=OneWay}" />
+                <Button Grid.Column="3" Content="{x:Bind ViewModel.T.Cancel, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                        Command="{x:Bind ViewModel.CancelCommand}" />
+                <Button Grid.Column="4" Content="{x:Bind ViewModel.T.Scan, Mode=OneWay}"
+                        MinWidth="120"
+                        Command="{x:Bind ViewModel.ScanCommand}" />
+                <Button Grid.Column="5" Content="{x:Bind ViewModel.T.Clean, Mode=OneWay}"
+                        MinWidth="120"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Command="{x:Bind ViewModel.CleanCommand}" />
+            </Grid>
+        </StackPanel>
+    </Grid>
+</UserControl>

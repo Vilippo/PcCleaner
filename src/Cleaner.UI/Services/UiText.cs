@@ -17,7 +17,6 @@ public sealed partial class UiText : ObservableObject
     public string RestartElevated => Loc.T("Restart as administrator", "Käynnistä uudelleen järjestelmänvalvojana");
 
     // Navigointipaneeli
-    public string PaneTitle => Loc.T("Modules", "Moduulit");
     public string ScanAll => Loc.T("Scan all", "Skannaa kaikki");
     public string ScanAllToolTip => Loc.T("Scan all modules included in the default cleanup", "Skannaa kaikki moduulit, jotka kuuluvat oletussiivoukseen");
 
