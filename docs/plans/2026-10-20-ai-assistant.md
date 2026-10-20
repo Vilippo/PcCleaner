@@ -793,7 +793,7 @@ T5 (XAML ja code-behind) ja T6 (dokumentit) ovat riippumattomia: eri tiedostot, 
 joten ne voidaan ajaa rinnakkain.
 
 ### T5: Paneeli, merkit, alapalkin nappi ja asetussivun osio (XAML)
-- Status: pending
+- Status: done 95e2a76
 - Model: opus
 - Requirements: REQ-17 (XAML-osuus), REQ-20, REQ-21 (Detach-osuus)
 - Constraints/edge: CON-7, CON-8, EDGE-1, EDGE-10
@@ -871,7 +871,7 @@ joten ne voidaan ajaa rinnakkain.
   - Kommentoi XAML suomeksi samaan tyyliin kuin muu tiedosto (REQ-numerot tästä suunnitelmasta).
 
 ### T6: Dokumentit
-- Status: pending
+- Status: done 0489f98
 - Model: opus
 - Requirements: REQ-22
 - Files: docs/ARCHITECTURE.md, README.md, README.fi.md, HANDOFF.md
