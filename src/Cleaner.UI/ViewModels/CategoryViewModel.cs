@@ -64,8 +64,12 @@ public sealed partial class CategoryViewModel : ObservableObject
         }
         set
         {
-            // CheckBox antaa null:n vain ohjelmallisesti; käyttäjän klikkaus vuorottelee true/false.
-            var target = value ?? false;
+            // x:Bindin TwoWay-kuuntelija kirjoittaa CheckBoxin arvon takaisin jokaisesta muutoksesta, myös
+            // ohjelmallisesta. Kun yksi rivi rastitaan, getter palauttaa null (osittainen), sidonta asettaa
+            // ruudun null-tilaan ja kuuntelija kirjoittaisi null-arvon tänne: ilman tätä ehtoa se nollaisi
+            // kaikki rivit ja rivin rasti katoaisi heti. Sama arvo ohitetaan samasta syystä (ei kaksoiskäsittelyä).
+            if (value is null || value == IsChecked) return;
+            var target = value.Value;
             _suppress = true;
             foreach (var item in Items) item.IsSelected = target;
             _suppress = false;

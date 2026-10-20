@@ -222,6 +222,16 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
    vanhentuneet~~ päivitetty 20.10.2026. Seuraava: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner` päähakemistossa, jotta
    työpöydän `PC Cleaner.lnk` käyttää uutta versiota (sulje sovellus ensin).
 
+## UI-korjaus 20.10.2026: yksittäisen rivin valintaruutu
+
+Yhden rivin rasti katosi heti kaikissa moduuleissa (käyttäjä huomasi Levytilan analyysissä). Syy: x:Bindin
+TwoWay-kuuntelija (`RegisterPropertyChangedCallback`) kirjoittaa kategorian CheckBoxin arvon takaisin
+`CategoryViewModel.IsChecked`-asettimeen jokaisesta muutoksesta, myös ohjelmallisesta. Rivin rasti teki
+kategoriasta osittaisen (getter null), sidonta asetti ruudun null-tilaan, kuuntelija kirjoitti null-arvon
+asettimeen ja asetin nollasi kaikki rivit. Korjaus: asetin ohittaa null-arvon ja saman arvon. Kokonaisen
+kategorian valinta toimi koska getter ei palauta null-arvoa. UI-näkymämalleille ei ole automaattitestejä
+(testiprojekti ei viittaa WinUI-projektiin), tarkistus käsin: rastita yksi rivi, alapalkki näyttää "Valittu 1 kohdetta".
+
 ## Tunnetut puutteet / huomiot
 
 - Pikkukuvavälimuisti (387 Mt) on todennäköisesti Explorerin lukitsema. `--apply` ohittaa lukitut tiedostot IOException-syyllä, ei testattu.
