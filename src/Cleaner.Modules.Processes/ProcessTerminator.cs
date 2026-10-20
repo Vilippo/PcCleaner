@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Modules.Processes;
 
@@ -23,12 +24,12 @@ public sealed class ProcessTerminator : IProcessTerminator
         }
         catch (ArgumentException)
         {
-            reason = "Prosessi on jo päättynyt";
+            reason = Loc.T("Process has already exited", "Prosessi on jo päättynyt");
             return false;
         }
         catch (InvalidOperationException)
         {
-            reason = "Prosessi on jo päättynyt";
+            reason = Loc.T("Process has already exited", "Prosessi on jo päättynyt");
             return false;
         }
 
@@ -41,19 +42,19 @@ public sealed class ProcessTerminator : IProcessTerminator
             }
             catch (Win32Exception)
             {
-                reason = "Ei oikeuksia";
+                reason = Loc.T("Access denied", "Ei oikeuksia");
                 return false;
             }
             catch (InvalidOperationException)
             {
                 // Päättyi ennen tarkistusta: mitään ei lopetettu.
-                reason = "Prosessi on jo päättynyt";
+                reason = Loc.T("Process has already exited", "Prosessi on jo päättynyt");
                 return false;
             }
 
             if (actualStart != startFileTime)
             {
-                reason = "PID on käytetty uudelleen";
+                reason = Loc.T("PID has been reused", "PID on käytetty uudelleen");
                 return false;
             }
 
@@ -74,12 +75,12 @@ public sealed class ProcessTerminator : IProcessTerminator
                     return true;
                 }
 
-                reason = "Prosessi ei päättynyt 10 s kuluessa";
+                reason = Loc.T("Process did not exit within 10 s", "Prosessi ei päättynyt 10 s kuluessa");
                 return false;
             }
             catch (Win32Exception)
             {
-                reason = "Ei oikeuksia";
+                reason = Loc.T("Access denied", "Ei oikeuksia");
                 return false;
             }
             catch (InvalidOperationException)

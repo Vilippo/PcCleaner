@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 
 namespace Cleaner.Modules.Processes;
@@ -15,6 +16,13 @@ public sealed class ProcessRule
     public required List<string> Match { get; init; }
 
     public string Description { get; init; } = "";
+
+    /// <summary>Suomenkielinen kuvaus (JSON descriptionFi). Puuttuessa käytetään <see cref="Description"/>-arvoa.</summary>
+    public string? DescriptionFi { get; init; }
+
+    /// <summary>Kuvaus nykyisellä kielellä.</summary>
+    public string DisplayDescription => Loc.T(Description, DescriptionFi ?? Description);
+
     public RiskLevel Risk { get; init; } = RiskLevel.Medium;
 
     /// <summary>Osuuko prosessin nimi johonkin kuvioon. Nimi voi olla .exe-päätteellä tai ilman.</summary>

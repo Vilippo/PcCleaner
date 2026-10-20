@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Modules.Processes;
 
@@ -17,7 +18,7 @@ public static class ProcessRuleLoader
     public static ProcessRuleSet LoadFromFile(string path)
     {
         if (!File.Exists(path))
-            throw new FileNotFoundException($"Sääntötiedostoa ei löydy: {path}", path);
+            throw new FileNotFoundException(Loc.T($"Rule file not found: {path}", $"Sääntötiedostoa ei löydy: {path}"), path);
 
         var json = File.ReadAllText(path);
         return LoadFromJson(json, path);
@@ -37,7 +38,7 @@ public static class ProcessRuleLoader
         }
 
         if (set is null)
-            throw new InvalidDataException($"Sääntötiedosto on tyhjä: {sourceName}");
+            throw new InvalidDataException(Loc.T($"Rule file is empty: {sourceName}", $"Sääntötiedosto on tyhjä: {sourceName}"));
 
         Validate(set, sourceName);
         return set;
@@ -49,13 +50,13 @@ public static class ProcessRuleLoader
         foreach (var rule in set.Rules)
         {
             if (string.IsNullOrWhiteSpace(rule.Id))
-                throw new InvalidDataException($"{sourceName}: säännöltä puuttuu Id.");
+                throw new InvalidDataException(Loc.T($"{sourceName}: a rule is missing Id.", $"{sourceName}: säännöltä puuttuu Id."));
             if (!ids.Add(rule.Id))
-                throw new InvalidDataException($"{sourceName}: sääntö-Id '{rule.Id}' esiintyy kahdesti.");
+                throw new InvalidDataException(Loc.T($"{sourceName}: rule Id '{rule.Id}' appears twice.", $"{sourceName}: sääntö-Id '{rule.Id}' esiintyy kahdesti."));
             if (string.IsNullOrWhiteSpace(rule.Name))
-                throw new InvalidDataException($"{sourceName}: säännöltä '{rule.Id}' puuttuu Name.");
+                throw new InvalidDataException(Loc.T($"{sourceName}: rule '{rule.Id}' is missing Name.", $"{sourceName}: säännöltä '{rule.Id}' puuttuu Name."));
             if (rule.Match is null || !rule.Match.Any(m => !string.IsNullOrWhiteSpace(m)))
-                throw new InvalidDataException($"{sourceName}: säännöllä '{rule.Id}' ei ole yhtään match-kuviota.");
+                throw new InvalidDataException(Loc.T($"{sourceName}: rule '{rule.Id}' has no match patterns.", $"{sourceName}: säännöllä '{rule.Id}' ei ole yhtään match-kuviota."));
         }
     }
 }

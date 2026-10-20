@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using System.Text.Json;
 using Cleaner.Core.Abstractions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 
 namespace Cleaner.Modules.Processes;
@@ -15,8 +16,10 @@ namespace Cleaner.Modules.Processes;
 public sealed class ProcessesModule : ICleanerModule
 {
     public string Id => "processes";
-    public string DisplayName => "Prosessit";
-    public string Description => "Listaa käyttäjän istunnon taustaprosessit ja lopettaa valitut. Ei poista mitään levyltä.";
+    public string DisplayName => Loc.T("Processes", "Prosessit");
+    public string Description => Loc.T(
+        "Lists background processes in the user's session and ends the selected ones. Deletes nothing from disk.",
+        "Listaa käyttäjän istunnon taustaprosessit ja lopettaa valitut. Ei poista mitään levyltä.");
 
     /// <summary>Korkein kohdetaso: "Avoimet ohjelmat" on High. Taustaprosessit ovat Medium.</summary>
     public RiskLevel Risk => RiskLevel.High;
@@ -48,15 +51,15 @@ public sealed class ProcessesModule : ICleanerModule
     private ScanResult Scan(CleanerContext context, CancellationToken ct)
     {
         var result = new ScanResult { ModuleId = Id };
-        context.Report(0, "Luetaan prosessit");
+        context.Report(0, Loc.T("Reading processes", "Luetaan prosessit"));
 
         var rules = LoadRules(context, result);
 
-        context.Report(10, $"Mitataan suorittimen käyttöä ({SampleInterval.TotalSeconds:0} s)");
+        context.Report(10, string.Create(Loc.Culture, $"{Loc.T("Measuring CPU usage", "Mitataan suorittimen käyttöä")} ({SampleInterval.TotalSeconds:0} s)"));
         var snapshot = _inventory.Capture(SampleInterval, ct);
         ct.ThrowIfCancellationRequested();
 
-        context.Report(80, "Luokitellaan");
+        context.Report(80, Loc.T("Classifying", "Luokitellaan"));
         var groups = ProcessClassifier.Classify(snapshot, rules);
         foreach (var c in groups)
         {
@@ -72,9 +75,13 @@ public sealed class ProcessesModule : ICleanerModule
         }
 
         var listed = groups.Sum(g => 1 + g.Children.Count);
-        context.Logger.Debug($"{DisplayName}: {snapshot.Processes.Count - listed} prosessia suojattu, ei listata");
-        context.Report(100, "Valmis");
-        context.Logger.Info($"{DisplayName}: löytyi {result.Count} prosessiryhmää");
+        context.Logger.Debug(Loc.T(
+            $"{DisplayName}: {snapshot.Processes.Count - listed} processes protected, not listed",
+            $"{DisplayName}: {snapshot.Processes.Count - listed} prosessia suojattu, ei listata"));
+        context.Report(100, Loc.T("Done", "Valmis"));
+        context.Logger.Info(Loc.T(
+            $"{DisplayName}: found {result.Count} process groups",
+            $"{DisplayName}: löytyi {result.Count} prosessiryhmää"));
         return result;
     }
 
@@ -82,7 +89,7 @@ public sealed class ProcessesModule : ICleanerModule
     {
         if (!File.Exists(_rulesFile))
         {
-            context.Logger.Warning($"Sääntötiedostoa ei löydy: {_rulesFile}");
+            context.Logger.Warning(Loc.T($"Rule file not found: {_rulesFile}", $"Sääntötiedostoa ei löydy: {_rulesFile}"));
             return Array.Empty<ProcessRule>();
         }
 
@@ -92,7 +99,9 @@ public sealed class ProcessesModule : ICleanerModule
         }
         catch (Exception ex) when (ex is InvalidDataException or JsonException or IOException)
         {
-            var msg = $"Sääntötiedosto on virheellinen: {_rulesFile}: {ex.Message}";
+            var msg = Loc.T(
+                $"Rule file is invalid: {_rulesFile}: {ex.Message}",
+                $"Sääntötiedosto on virheellinen: {_rulesFile}: {ex.Message}");
             context.Logger.Warning(msg);
             result.Errors.Add(msg);
             return Array.Empty<ProcessRule>();
@@ -117,13 +126,13 @@ public sealed class ProcessesModule : ICleanerModule
 
             if (!string.Equals(item.ModuleId, Id, StringComparison.OrdinalIgnoreCase))
             {
-                Skip(result, context, item, "Kohde ei kuulu tälle moduulille");
+                Skip(result, context, item, Loc.T("Item does not belong to this module", "Kohde ei kuulu tälle moduulille"));
                 continue;
             }
 
             if (!ProcessItemId.TryParse(item.Id, out var pid, out var start))
             {
-                Skip(result, context, item, "Virheellinen tunniste");
+                Skip(result, context, item, Loc.T("Invalid item id", "Virheellinen tunniste"));
                 continue;
             }
 
@@ -131,12 +140,12 @@ public sealed class ProcessesModule : ICleanerModule
             var info = basic.Processes.FirstOrDefault(p => p.Pid == pid);
             if (info is null)
             {
-                Skip(result, context, item, "Prosessi on jo päättynyt");
+                Skip(result, context, item, Loc.T("Process has already exited", "Prosessi on jo päättynyt"));
                 continue;
             }
             if (info.StartFileTime != start)
             {
-                Skip(result, context, item, "PID on käytetty uudelleen");
+                Skip(result, context, item, Loc.T("PID has been reused", "PID on käytetty uudelleen"));
                 continue;
             }
             var protectedReason = ProcessGuard.Protects(info, basic);
@@ -148,7 +157,9 @@ public sealed class ProcessesModule : ICleanerModule
 
             if (context.DryRun)
             {
-                context.Logger.Debug($"[KUIVA] Lopetettaisiin {info.Name} (PID {pid}) {info.ExePath}");
+                context.Logger.Debug(Loc.T(
+                    $"[DRY RUN] Would end {info.Name} (PID {pid}) {info.ExePath}",
+                    $"[KUIVA] Lopetettaisiin {info.Name} (PID {pid}) {info.ExePath}"));
                 result.Removed.Add(item);
                 continue;
             }
@@ -160,7 +171,7 @@ public sealed class ProcessesModule : ICleanerModule
             }
 
             result.Removed.Add(item);
-            context.Logger.Info($"Lopetettiin {info.Name} (PID {pid}): {info.ExePath}");
+            context.Logger.Info(Loc.T($"Ended {info.Name} (PID {pid}): {info.ExePath}", $"Lopetettiin {info.Name} (PID {pid}): {info.ExePath}"));
 
             // Saman exen jälkeläiset lapsista lapsenlapsiin. Epäonnistuminen ei muuta juuren tulosta.
             // Suojaus tarkistetaan myös jälkeläiselle: sama sääntö kuin juurelle.
@@ -170,24 +181,32 @@ public sealed class ProcessesModule : ICleanerModule
                 var childGuard = ProcessGuard.Protects(child, basic);
                 if (childGuard is not null)
                 {
-                    context.Logger.Warning($"Aliprosessia {child.Name} (PID {child.Pid}) ei lopetettu: {childGuard}");
+                    context.Logger.Warning(Loc.T(
+                        $"Child process {child.Name} (PID {child.Pid}) not ended: {childGuard}",
+                        $"Aliprosessia {child.Name} (PID {child.Pid}) ei lopetettu: {childGuard}"));
                     continue;
                 }
                 if (_terminator.TryTerminate(child.Pid, child.StartFileTime, out var childReason))
-                    context.Logger.Info($"Lopetettiin aliprosessi {child.Name} (PID {child.Pid}): {child.ExePath}");
+                    context.Logger.Info(Loc.T(
+                        $"Ended child process {child.Name} (PID {child.Pid}): {child.ExePath}",
+                        $"Lopetettiin aliprosessi {child.Name} (PID {child.Pid}): {child.ExePath}"));
                 else
-                    context.Logger.Warning($"Aliprosessia {child.Name} (PID {child.Pid}) ei lopetettu: {childReason}");
+                    context.Logger.Warning(Loc.T(
+                        $"Child process {child.Name} (PID {child.Pid}) not ended: {childReason}",
+                        $"Aliprosessia {child.Name} (PID {child.Pid}) ei lopetettu: {childReason}"));
             }
         }
 
-        context.Report(100, "Valmis");
-        context.Logger.Info($"{DisplayName}: {(context.DryRun ? "lopetettaisiin" : "lopetettiin")} {result.Removed.Count} prosessia, ohitettu {result.Skipped.Count}");
+        context.Report(100, Loc.T("Done", "Valmis"));
+        context.Logger.Info(Loc.T(
+            $"{DisplayName}: {(context.DryRun ? "would end" : "ended")} {result.Removed.Count} processes, skipped {result.Skipped.Count}",
+            $"{DisplayName}: {(context.DryRun ? "lopetettaisiin" : "lopetettiin")} {result.Removed.Count} prosessia, ohitettu {result.Skipped.Count}"));
         return result;
     }
 
     private static void Skip(CleanResult result, CleanerContext context, CleanItem item, string reason)
     {
         result.Skipped.Add((item, reason));
-        context.Logger.Warning($"Ohitettu {item.Path}: {reason}");
+        context.Logger.Warning(Loc.T($"Skipped {item.Path}: {reason}", $"Ohitettu {item.Path}: {reason}"));
     }
 }

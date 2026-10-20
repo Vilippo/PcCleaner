@@ -1,50 +1,58 @@
 {
-  // Tunnetut taustaprosessit Prosessit-moduulille. Osuma antaa kategorian "Tunnetut taustaprosessit" ja
-  // nimen kuvaukseen. Tiedosto ei poista mitään levyltä: moduuli vain lopettaa käyttäjän valitsemat prosessit.
-  // match: prosessin nimen jokerikuviot (* ja ?), kirjainkoko ei merkitse, .exe-pääte saa puuttua.
-  // risk: Low | Medium | High (oletus Medium).
+  // Known background processes for the Processes module. A match gives the category "Known background processes"
+  // and puts the name in the description. This file deletes nothing from disk: the module only ends the processes
+  // the user selects.
+  // match: wildcard patterns (* and ?) for the process name, case-insensitive, the .exe extension is optional.
+  // description: English description; descriptionFi: Finnish description (optional, falls back to description).
+  // risk: Low | Medium | High (default Medium).
   "schemaVersion": 1,
   "rules": [
     {
       "id": "google-crash-handler",
       "name": "Google Crash Handler",
       "match": ["GoogleCrashHandler.exe", "GoogleCrashHandler64.exe"],
-      "description": "Googlen päivittäjän kaatumisraportoija, pyörii Chromen ja Driven sulkemisen jälkeen",
+      "description": "Google updater's crash reporter, keeps running after Chrome and Drive are closed",
+      "descriptionFi": "Googlen päivittäjän kaatumisraportoija, pyörii Chromen ja Driven sulkemisen jälkeen",
       "risk": "Medium"
     },
     {
       "id": "adobe-ipc-broker",
       "name": "Adobe IPC Broker",
       "match": ["AdobeIPCBroker.exe"],
-      "description": "Adoben sovellusten välinen viestinvälittäjä, jää pyörimään Creative Cloud -ohjelmien sulkemisen jälkeen",
+      "description": "Message broker between Adobe apps, keeps running after Creative Cloud apps are closed",
+      "descriptionFi": "Adoben sovellusten välinen viestinvälittäjä, jää pyörimään Creative Cloud -ohjelmien sulkemisen jälkeen",
       "risk": "Medium"
     },
     {
       "id": "adobe-ccx-process",
       "name": "Adobe Creative Cloud Experience",
       "match": ["CCXProcess.exe"],
-      "description": "Creative Cloudin taustapalvelu, joka lataa suosituksia ja mainoksia",
+      "description": "Creative Cloud background service that downloads recommendations and ads",
+      "descriptionFi": "Creative Cloudin taustapalvelu, joka lataa suosituksia ja mainoksia",
       "risk": "Medium"
     },
     {
       "id": "adobe-collab-sync",
       "name": "Adobe Collab Sync",
       "match": ["AdobeCollabSync.exe"],
-      "description": "Acrobatin pilvisynkronointi, pyörii Acrobatin sulkemisen jälkeen",
+      "description": "Acrobat cloud sync, keeps running after Acrobat is closed",
+      "descriptionFi": "Acrobatin pilvisynkronointi, pyörii Acrobatin sulkemisen jälkeen",
       "risk": "Medium"
     },
     {
       "id": "steam-webhelper",
       "name": "Steam Web Helper",
       "match": ["steamwebhelper.exe"],
-      "description": "Steamin selainmoottori, Steam käynnistää sen tarvittaessa uudelleen",
+      "description": "Steam's browser engine, Steam restarts it when needed",
+      "descriptionFi": "Steamin selainmoottori, Steam käynnistää sen tarvittaessa uudelleen",
       "risk": "Low"
     },
     {
       "id": "discord-helper",
       "name": "Discord",
       "match": ["Discord*.exe"],
-      "description": "Discordin prosessit; kun pääikkuna on auki, ryhmä näkyy avoimena ohjelmana",
+      "description": "Discord processes; when the main window is open, the group shows up as an open program",
+      "descriptionFi": "Discordin prosessit; kun pääikkuna on auki, ryhmä näkyy avoimena ohjelmana",
       "risk": "Low"
     }
   ]

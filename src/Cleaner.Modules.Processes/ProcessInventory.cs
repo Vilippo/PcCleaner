@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Modules.Processes;
 
@@ -148,14 +149,14 @@ public sealed class ProcessInventory : IProcessInventory
     {
         var snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if (snapshot == IntPtr.Zero || snapshot == INVALID_HANDLE_VALUE)
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "Prosessilistan lukeminen epäonnistui (CreateToolhelp32Snapshot).");
+            throw new Win32Exception(Marshal.GetLastWin32Error(), Loc.T("Reading the process list failed (CreateToolhelp32Snapshot).", "Prosessilistan lukeminen epäonnistui (CreateToolhelp32Snapshot)."));
 
         var entries = new List<ToolhelpEntry>();
         try
         {
             var entry = new PROCESSENTRY32W { dwSize = (uint)Marshal.SizeOf<PROCESSENTRY32W>() };
             if (!Process32FirstW(snapshot, ref entry))
-                throw new Win32Exception(Marshal.GetLastWin32Error(), "Prosessilistan lukeminen epäonnistui (Process32First).");
+                throw new Win32Exception(Marshal.GetLastWin32Error(), Loc.T("Reading the process list failed (Process32First).", "Prosessilistan lukeminen epäonnistui (Process32First)."));
 
             do
             {

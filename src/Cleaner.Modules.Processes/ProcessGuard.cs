@@ -1,3 +1,5 @@
+using Cleaner.Core.Localization;
+
 namespace Cleaner.Modules.Processes;
 
 /// <summary>
@@ -15,19 +17,19 @@ public static class ProcessGuard
         // OwnParentPid kattaa myös jo päättyneen vanhemman; OwnAncestorPids koko elossa olevan ketjun (pääte, jonka
         // sisältä PcCleaner ajettiin, ei saa päätyä listalle).
         if (info.Pid == snapshot.OwnPid || info.Pid == snapshot.OwnParentPid || snapshot.OwnAncestorPids.Contains(info.Pid))
-            return "Oma prosessi";
+            return Loc.T("Own process", "Oma prosessi");
         if (info.Pid <= 4)
-            return "Järjestelmäprosessi";
+            return Loc.T("System process", "Järjestelmäprosessi");
         if (info.SessionId != snapshot.CurrentSessionId)
-            return "Toinen istunto tai palvelu";
+            return Loc.T("Another session or a service", "Toinen istunto tai palvelu");
         if (info.ExePath is null || info.StartFileTime == 0)
-            return "Tietoja ei voitu lukea";
+            return Loc.T("Details could not be read", "Tietoja ei voitu lukea");
         if (IsUnderWindowsDirectory(info.ExePath))
-            return "Windows-kansion prosessi";
+            return Loc.T("Process in the Windows folder", "Windows-kansion prosessi");
         if (info.IsCritical)
-            return "Kriittinen prosessi";
+            return Loc.T("Critical process", "Kriittinen prosessi");
         if (!info.CanTerminate)
-            return "Ei oikeuksia lopettaa";
+            return Loc.T("No rights to end it", "Ei oikeuksia lopettaa");
         return null;
     }
 
