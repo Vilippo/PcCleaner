@@ -45,12 +45,14 @@ Skannaus ja luokittelu
   näytteet onnistuivat ja arvo ei muuttunut. Lukuvirhe tarkoittaa `IsIdle = false`.
 - REQ-3: Skannaus ei koskaan heitä prosessikohtaista virhettä ulos: prosessi, jonka tieto ei ole luettavissa
   (`Win32Exception`, `InvalidOperationException`, kadonnut prosessi), saa puuttuvan arvon (`ExePath = null`,
-  `StartFileTime = 0`, `CpuTime = null`) ja käsitellään suojattuna (REQ-4).
+  `StartFileTime = 0`, `CpuTime = null`) ja käsitellään suojattuna (REQ-4). Lisäksi inventaario koettaa avata
+  prosessin `PROCESS_TERMINATE`-oikeudella (0x0001) ja tallentaa tuloksen kenttään `CanTerminate`; korotetut ja
+  suojatut prosessit saavat `false`, kun ohjelma ajetaan tavallisena käyttäjänä.
 - REQ-4: `ProcessGuard.Protects(info, snapshot)` palauttaa syyn (ei null) prosessille, joka on jokin seuraavista:
   oma prosessi tai oman prosessin vanhempi; PID 0 tai 4; `SessionId` eri kuin oma istunto; `ExePath` null tai
   `StartFileTime` 0; `ExePath` on `Environment.GetFolderPath(SpecialFolder.Windows)`-kansion alla (kirjainkoko ei
-  merkitse); `IsCritical = true`. Suojattuja prosesseja ei listata skannauksessa, ja `CleanAsync` tarkistaa saman
-  ennen lopetusta (REQ-15).
+  merkitse); `IsCritical = true`; `CanTerminate = false`. Suojattuja prosesseja ei listata skannauksessa, ja `CleanAsync`
+  tarkistaa saman ennen lopetusta (REQ-15).
 - REQ-5: Sulautus. Prosessi, jonka vanhempi on elossa, ei ole suojattu, jolla on sama `ExePath` (kirjainkoko ei
   merkitse) ja jonka vanhemman `StartFileTime` on pienempi tai yhtä suuri kuin oma, sulautetaan vanhempaansa.
   Ketju seurataan ylimpään saman exen esivanhempaan (juureen). Vain juuri tuottaa `CleanItem`-kohteen. Juuren
@@ -61,10 +63,11 @@ Skannaus ja luokittelu
 - REQ-7: Orpo. Juuri on orpo, jos sen `ParentPid` ei ole koko näytteen (myös suojattujen) elossa olevien PID-lukujen
   joukossa, tai jos vanhempi löytyy mutta vanhemman `StartFileTime` on suurempi kuin juuren oma (PID on kierrätetty).
 - REQ-8: Jokainen juuri saa täsmälleen yhden kategorian, ensimmäinen osuva sääntö voittaa, tässä järjestyksessä:
-  1. `ExeMissing` → "Ohjelmatiedosto puuttuu levyltä", Medium, `Preselected = true`.
-  2. Orpo (REQ-7) ja ryhmällä ei näkyvää ikkunaa → "Orvot apuprosessit", Medium, `Preselected = ryhmän IsIdle`.
-  3. Sääntötiedoston osuma (REQ-10) → "Tunnetut taustaprosessit", säännön `Risk`, `Preselected = false`.
-  4. Ryhmällä näkyvä ikkuna → "Avoimet ohjelmat", High, `Preselected = false`.
+  1. Ryhmällä näkyvä ikkuna → "Avoimet ohjelmat", High, `Preselected = false`. Ikkunallinen ryhmä ei koskaan päädy
+     muuhun kategoriaan, vaikka exe puuttuisi tai nimi osuisi sääntöön; nämä tiedot näkyvät vain kuvauksessa.
+  2. `ExeMissing` → "Ohjelmatiedosto puuttuu levyltä", Medium, `Preselected = true`.
+  3. Orpo (REQ-7) → "Orvot apuprosessit", Medium, `Preselected = ryhmän IsIdle`.
+  4. Sääntötiedoston osuma (REQ-10) → "Tunnetut taustaprosessit", säännön `Risk`, `Preselected = false`.
   5. Ryhmän `IsIdle` → "Taustaprosessit, ei käyttöä", Medium, `Preselected = false`.
   6. Muuten → "Taustaprosessit, aktiivisia", Medium, `Preselected = false`.
 - REQ-9: `CleanItem`: `Id = processes:<pid>:<startFileTime>` (`ProcessItemId.Make` / `TryParse`, molemmat luvut
@@ -83,10 +86,11 @@ Skannaus ja luokittelu
 - REQ-11: Toimitettu `known.json` sisältää vähintään nämä säännöt (nimi ja kuvaus suomeksi, Risk Medium ellei toisin):
   `google-crash-handler` (match `GoogleCrashHandler.exe`, `GoogleCrashHandler64.exe`), `adobe-ipc-broker`
   (`AdobeIPCBroker.exe`), `adobe-ccx-process` (`CCXProcess.exe`), `adobe-collab-sync` (`AdobeCollabSync.exe`),
-  `steam-webhelper` (`steamwebhelper.exe`, Low), `discord-helper` (`Discord*.exe`, Low; osuu vain kun Discordin
-  pääikkuna ei kuulu samaan ryhmään, koska REQ-8 kohta 4 ei ehdi ennen kohtaa 3; ks. EDGE-6).
+  `steam-webhelper` (`steamwebhelper.exe`, Low), `discord-helper` (`Discord*.exe`, Low; kun Discordin pääikkuna on auki,
+  ryhmä on REQ-8:n kohdan 1 mukaan "Avoimet ohjelmat" ja sääntö näkyy vain kuvauksessa, ks. EDGE-6).
 - REQ-12: Jos sääntötiedostoa ei ole, skannaus toimii ilman sääntöjä ja kirjaa yhden `Logger.Warning`-rivin
-  ("Sääntötiedostoa ei löydy: <polku>"). Virheellinen tiedosto kirjataan samoin ja tuottaa `ScanResult.Errors`-rivin.
+  ("Sääntötiedostoa ei löydy: <polku>"). Virheellinen tiedosto kirjataan `Logger.Warning`-rivillä
+  "Sääntötiedosto on virheellinen: <polku>: <viesti>" ja sama teksti lisätään `ScanResult.Errors`-listaan.
 
 Lopetus
 
@@ -102,9 +106,10 @@ Lopetus
   prosessilla on pääikkuna, kutsutaan `CloseMainWindow()` ja odotetaan enintään 5 s; jos prosessi on yhä elossa,
   kutsutaan `Kill()` ja odotetaan enintään 5 s. Onnistuminen = prosessi on päättynyt. `Win32Exception` → syy
   "Ei oikeuksia", muu poikkeus → poikkeuksen viesti. Prosessia, jonka `StartTime` ei vastaa annettua, ei koskaan lopeteta.
-- REQ-17: Kun juuri lopetetaan oikeasti, `CleanAsync` lopettaa lisäksi tuoreesta näytteestä ne elossa olevat
-  prosessit, joiden `ParentPid` on juuren PID ja `ExePath` sama kuin juuren (sulautetut lapset, REQ-5). Lapsen
-  epäonnistunut lopetus kirjataan `Logger.Warning`-riville eikä muuta juuren tulosta. Lapsia ei haeta kuivassa ajossa.
+- REQ-17: Kun juuri lopetetaan oikeasti, `CleanAsync` lopettaa lisäksi tuoreesta näytteestä juuren saman exen
+  jälkeläiset transitiivisesti (`ProcessClassifier.CollectSameExeDescendants`, sama ehto kuin REQ-5:n sulautuksessa:
+  sama `ExePath`, `StartFileTime` vähintään vanhemman), syvyysjärjestyksessä lapsista lapsenlapsiin. Jälkeläisen
+  epäonnistunut lopetus kirjataan `Logger.Warning`-riville eikä muuta juuren tulosta. Jälkeläisiä ei haeta kuivassa ajossa.
 - REQ-18: `CleanAsync` kirjaa jokaisesta oikeasta lopetuksesta `Logger.Info`-rivin, joka sisältää prosessin nimen,
   PID:n ja `ExePath`-polun, jotta käyttäjä voi käynnistää ohjelman uudelleen lokin perusteella.
 
@@ -126,7 +131,9 @@ Kytkentä
 - REQ-22: Dokumentit: `docs/ARCHITECTURE.md` luvun 1 taulukkoon rivi 9 (`processes`, High, luku 6.5) ja uusi luku 6.5,
   joka kuvaa kategoriat (REQ-8), suojaukset (REQ-4), sulautuksen (REQ-5), tunnisteen (REQ-9) ja lopetuksen
   (REQ-15..17); `README.md` rakennepuuhun projekti, CLI-esimerkkeihin `scan --module processes` ja
-  `clean --module processes --item "processes:" --apply`, sekä kappale moduulista; `HANDOFF.md` taulukkoon rivi.
+  `clean --module processes --item "processes:<pid>:<käynnistysaika>" --apply` ja varoitus, että pelkkä etuliite
+  `"processes:"` tai `--apply` ilman `--item` lopettaa kaikki listatut prosessit, myös avoimet ohjelmat (CLI ei
+  suodata `Preselected`- tai `Risk`-tiedon mukaan, `Program.cs` RunClean), sekä kappale moduulista; `HANDOFF.md` taulukkoon rivi.
 
 ## Edge cases
 
@@ -138,11 +145,13 @@ Kytkentä
   `StartFileTime` ei vastaa → Skipped "PID on käytetty uudelleen", mitään ei lopeteta (REQ-15).
 - EDGE-4: Käyttäjän valitsema juuri on itse sulautettu lapsi (ei mahdollista UI:sta, mahdollista CLI:n `--item`-osumalla
   vanhaan tunnisteeseen) → käsitellään tavallisena kohteena, lapset haetaan REQ-17:n mukaan sen alta.
-- EDGE-5: CLI tavallisena käyttäjänä: korotettujen prosessien polkua ei saa luettua → `ExePath = null` → suojattu →
+- EDGE-5: CLI tavallisena käyttäjänä: korotetun prosessin polku on luettavissa (`PROCESS_QUERY_LIMITED_INFORMATION` ei
+  kuulu no-read-up-maskiin), mutta `OpenProcess(PROCESS_TERMINATE)` epäonnistuu → `CanTerminate = false` → suojattu →
   ei listata. Skannaus ei tuota `Errors`-riviä tästä, vain `Logger.Debug`-rivin lukumäärästä.
-- EDGE-6: Ikkunallinen ohjelma, jonka nimi osuu sääntöön (esim. Discord.exe pääikkunalla): sääntö voittaa (REQ-8
-  kohta 3 ennen kohtaa 4), kategoria "Tunnetut taustaprosessit", mutta `Risk` nostetaan High-tasolle, kun ryhmällä
-  on näkyvä ikkuna, jotta UI sijoittaa sen korkean riskin lohkoon.
+- EDGE-6: Ikkunallinen ohjelma, jonka nimi osuu sääntöön tai jonka exe puuttuu (esim. Discord.exe pääikkunalla,
+  päivityksen vaihtama Chrome) → kategoria "Avoimet ohjelmat", High, ei esivalittu (REQ-8 kohta 1). Säännön nimi ja
+  "Ohjelmatiedostoa ei löydy" lisätään kuvaukseen. Kategoriaa ei nosteta High-tasolle yksittäisen kohteen takia, koska UI
+  sijoittaa koko kategorian korkean riskin lohkoon kategorian maksimiriskin mukaan (`ModuleViewModel.LoadScan`).
 - EDGE-7: `CloseMainWindow()` palauttaa false (ei ikkunaa tai viestiä ei voitu lähettää) → siirrytään suoraan `Kill()`-vaiheeseen.
 - EDGE-8: Sulautetun lapsen vanhempi on elossa mutta eri exe (Steam → steamwebhelper.exe) → ei sulautusta, lapsi on
   oma juuri, kuvauksessa "käynnistäjä steam (PID n)".
@@ -175,7 +184,8 @@ Kytkentä
   ja valintatekstissä "Valittu N kohdetta, X". Muutos UI:n yleiseen logiikkaan ei kuulu tähän suunnitelmaan.
 - Prosessien PPID ja nimi luetaan Toolhelp32-snapshotilla (`CreateToolhelp32Snapshot`, `Process32FirstW/NextW`);
   exe-polku `QueryFullProcessImageNameW`-kutsulla kahvalla `PROCESS_QUERY_LIMITED_INFORMATION` (0x1000), joka toimii
-  32-bittisille ja useimmille suojatuille prosesseille; `IsProcessCritical` samalla kahvalla. Muut kentät
+  32-bittisille ja useimmille suojatuille prosesseille; `IsProcessCritical` samalla kahvalla; erillinen
+  `OpenProcess(PROCESS_TERMINATE)` -koe kertoo, voiko prosessin lopettaa nykyisillä oikeuksilla. Muut kentät
   (`SessionId`, `PrivateMemorySize64`, `StartTime`, `TotalProcessorTime`, `MainWindowHandle`) `System.Diagnostics.Process`-luokasta.
 - Mittausväli 3 s on riittävä: Windowsin ajastinraja on 15,6 ms, joten prosessi, joka käyttää suoritinta edes
   satunnaisesti, näkyy aktiivisena. Lyhyemmän välin saa konstruktorista (testit käyttävät 200 ms).
@@ -248,7 +258,7 @@ Yksi tehtävä: T1 luo projektin, mallit ja puhtaan logiikan, joihin kaikki muut
   ```csharp
   public sealed record ProcessInfo(
       int Pid, int ParentPid, string Name, string? ExePath, long StartFileTime, int SessionId,
-      long PrivateBytes, TimeSpan? CpuTime, bool HasVisibleWindow, bool IsCritical, bool ExeMissing, bool IsIdle);
+      long PrivateBytes, TimeSpan? CpuTime, bool HasVisibleWindow, bool IsCritical, bool CanTerminate, bool ExeMissing, bool IsIdle);
 
   public sealed record ProcessSnapshot(
       IReadOnlyList<ProcessInfo> Processes, int CurrentSessionId, int OwnPid, int OwnParentPid,
@@ -312,6 +322,9 @@ Yksi tehtävä: T1 luo projektin, mallit ja puhtaan logiikan, joihin kaikki muut
   public static class ProcessClassifier
   {
       public static IReadOnlyList<ClassifiedProcess> Classify(ProcessSnapshot snapshot, IReadOnlyList<ProcessRule> rules);
+      /// Pid:n saman exen jälkeläiset transitiivisesti (sama ExePath OrdinalIgnoreCase, StartFileTime >= vanhemman),
+      /// syvyysjärjestyksessä lapsista lapsenlapsiin, suojattuja ei suodateta. Tyhjä, jos pid ei ole näytteessä.
+      public static IReadOnlyList<ProcessInfo> CollectSameExeDescendants(ProcessSnapshot snapshot, int pid);
   }
 
   public static class ProcessDescription
@@ -330,7 +343,7 @@ Yksi tehtävä: T1 luo projektin, mallit ja puhtaan logiikan, joihin kaikki muut
   ("Oma prosessi"); `Pid <= 4` ("Järjestelmäprosessi"); `SessionId != snapshot.CurrentSessionId` ("Toinen istunto tai palvelu");
   `ExePath` null tai `StartFileTime == 0` ("Tietoja ei voitu lukea"); `ExePath` alkaa polulla
   `Environment.GetFolderPath(Environment.SpecialFolder.Windows)` + kansioerotin, kirjainkoko ei merkitse ("Windows-kansion prosessi");
-  `IsCritical` ("Kriittinen prosessi"). Muuten null. Windows-kansion polku luetaan kerran staattiseen kenttään; testattavuuden
+  `IsCritical` ("Kriittinen prosessi"); `!CanTerminate` ("Ei oikeuksia lopettaa"). Muuten null. Windows-kansion polku luetaan kerran staattiseen kenttään; testattavuuden
   vuoksi lisää sisäinen ylikirjoitus `internal static string WindowsDirectory { get; set; }` ja `InternalsVisibleTo("Cleaner.Tests")`
   csproj-tiedostoon.
 
@@ -342,10 +355,13 @@ Yksi tehtävä: T1 luo projektin, mallit ja puhtaan logiikan, joihin kaikki muut
      se on juuri. Suojaa syklit (PID-kierrätys) käyntimerkinnällä. Juuren `Children` = kaikki siihen sulautuneet, PID-järjestyksessä.
   4. Orpo: juuren `ParentPid` ei ole elossa olevien joukossa, tai vanhempi on elossa mutta `parent.StartFileTime > root.StartFileTime`.
      `Parent` kentäksi elossa oleva vanhempi (myös suojattu), kun se on oikea vanhempi; muuten null.
-  5. Kategoria, ensimmäinen osuva voittaa: `Root.ExeMissing` → MissingExe (Medium, Preselected true); orpo ja ryhmällä ei
-     näkyvää ikkunaa → Orphan (Medium, Preselected = ryhmän IsIdle); sääntöosuma `rules.FirstOrDefault(r => r.Matches(Root.Name))`
-     → Known (säännön Risk, mutta High jos ryhmällä on näkyvä ikkuna; Preselected false); ryhmällä näkyvä ikkuna → Windowed
-     (High, false); ryhmän IsIdle → IdleBackground (Medium, false); muuten ActiveBackground (Medium, false).
+  5. Kategoria, ensimmäinen osuva voittaa: ryhmällä näkyvä ikkuna → Windowed (High, Preselected false; `Rule` täytetään
+     silti sääntöosumalla kuvausta varten); `Root.ExeMissing` → MissingExe (Medium, true); orpo → Orphan (Medium,
+     Preselected = ryhmän IsIdle); sääntöosuma `rules.FirstOrDefault(r => r.Matches(Root.Name))` → Known (säännön Risk,
+     false); ryhmän IsIdle → IdleBackground (Medium, false); muuten ActiveBackground (Medium, false).
+  Sulautus (vaihe 3) toteutetaan samalla ehdolla kuin `CollectSameExeDescendants`, joka on julkinen apufunktio
+  `CleanAsync`-toteutusta varten: se palauttaa pid:n saman exen jälkeläiset transitiivisesti syvyysjärjestyksessä
+  (ensin lapset, sitten lapsenlapset) suodattamatta suojattuja.
   6. Tulos järjestetään kategorian (enum-järjestys) ja sitten `TotalPrivateBytes` laskevasti.
 
   `ProcessDescription.CategoryName`: MissingExe "Ohjelmatiedosto puuttuu levyltä", Orphan "Orvot apuprosessit",
@@ -353,7 +369,8 @@ Yksi tehtävä: T1 luo projektin, mallit ja puhtaan logiikan, joihin kaikki muut
   ActiveBackground "Taustaprosessit, aktiivisia".
   `ProcessDescription.Build` kokoaa osat järjestyksessä, tyhjät pois, erotin " · ": (a) syy: MissingExe
   "Ohjelmatiedostoa ei löydy"; Orphan "Käynnistäjä (PID <ParentPid>) on päättynyt"; Known säännön `Name` ja, jos
-  `Description` ei ole tyhjä, ": <Description>"; Windowed "Näkyvä ikkuna"; muut tyhjä. (b) jos `snapshot.SampleInterval > 0`:
+  `Description` ei ole tyhjä, ": <Description>"; Windowed "Näkyvä ikkuna" ja perään, jos `Root.ExeMissing`,
+  "ohjelmatiedostoa ei löydy", ja jos `Rule` ei ole null, säännön `Name`; muut tyhjä. (b) jos `snapshot.SampleInterval > 0`:
   ryhmän IsIdle → "ei suorittimen käyttöä <N> s aikana" (N = kokonaissekunnit, pyöristys ylös), muuten "käyttää suoritinta".
   (c) "käynnistetty <ikä>" kun `Root.StartFileTime > 0`: ikä = `snapshot.TakenAt - DateTime.FromFileTime(StartFileTime)`,
   muoto "N min" (< 60 min), "N h M min" (< 24 h), "N d H h". (d) "N aliprosessia" kun Children.Count > 0.
@@ -371,11 +388,13 @@ Yksi tehtävä: T1 luo projektin, mallit ja puhtaan logiikan, joihin kaikki muut
   ja sisältää vähintään kuusi sääntöä; toistuva id → InvalidDataException; tyhjä match → InvalidDataException;
   `Matches` jokerit ja .exe-päätteen puuttuminen (Theory). `ProcessClassifierTests` rakentaa `ProcessSnapshot`-olioita käsin
   (apufunktio `Info(pid, ppid, name, exe, start, ...)`), asettaa `ProcessGuard.WindowsDirectory = @"C:\Windows"` ja testaa:
-  suojaus kaikille kuudelle syylle; sulautus kolmen tason ketjussa (summa, lasten määrä, yksi rivi); eri exe ei sulaudu
+  suojaus kaikille seitsemälle syylle (myös `CanTerminate = false`); sulautus kolmen tason ketjussa (summa, lasten määrä,
+  yksi rivi) ja `CollectSameExeDescendants` samalle ketjulle (kaksi jälkeläistä, lapsi ennen lapsenlasta); eri exe ei sulaudu
   (EDGE-8); sama exe ilman vanhempi-lapsi-suhdetta on kaksi juurta (EDGE-10); orpo kuolleella vanhemmalla; orpo kierrätetyllä
-  PID:llä (vanhemman StartFileTime suurempi); orpo ikkunalla ei ole Orphan vaan Windowed; kategorioiden etusija (ExeMissing
-  voittaa säännön, sääntö voittaa ikkunan ja nostaa riskin High, ikkuna voittaa joutilaan); Preselected vain MissingExe ja
-  joutilaalle orvolle; ProcessItemId round trip ja virheelliset syötteet; ProcessDescription.Build-osien järjestys yhdessä esimerkissä.
+  PID:llä (vanhemman StartFileTime suurempi); kategorioiden etusija (ikkuna voittaa puuttuvan exen, orvon ja säännön ja
+  antaa High ilman esivalintaa; ExeMissing voittaa säännön; orpo voittaa säännön; sääntö voittaa joutilaan); Preselected
+  vain MissingExe-ryhmälle ja joutilaalle orvolle; ikkunallisen ryhmän kuvaus sisältää säännön nimen; ProcessItemId round trip
+  ja virheelliset syötteet; ProcessDescription.Build-osien järjestys yhdessä esimerkissä.
 
 ## Wave 2
 
@@ -408,7 +427,8 @@ Yksi tehtävä: T2 lisää Win32-inventaarion ja lopetuksen samaan projektiin, j
      se jätetään pois.
   3. Exe-polku: `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION = 0x1000, false, pid)` ja `QueryFullProcessImageNameW(h, 0, sb, ref size)`
      (puskuri 1024 merkkiä); epäonnistuminen → `ExePath = null`. Samalla kahvalla `IsProcessCritical(h, out critical)`; epäonnistuminen → false.
-     Kahva suljetaan aina. `ExeMissing = ExePath != null && !File.Exists(ExePath)`.
+     Kahva suljetaan aina. `ExeMissing = ExePath != null && !File.Exists(ExePath)`. `CanTerminate`: erillinen
+     `OpenProcess(PROCESS_TERMINATE = 0x0001, false, pid)` onnistuu (kahva ei ole `IntPtr.Zero`); kahva suljetaan heti.
   4. Jos `sampleInterval > TimeSpan.Zero`: `Thread.Sleep` tai `ct.WaitHandle.WaitOne(sampleInterval)` (peruutus heittää
      `OperationCanceledException`), sitten jokaiselle prosessille, jonka ensimmäinen `CpuTime` ei ole null, luetaan
      `TotalProcessorTime` uudelleen; `IsIdle = (toinen onnistui && toinen == ensimmäinen)`. Prosessi, joka on kadonnut toisen
@@ -429,7 +449,7 @@ Yksi tehtävä: T2 lisää Win32-inventaarion ja lopetuksen samaan projektiin, j
   Testit `tests/Cleaner.Tests/ProcessInventoryTests.cs` (`if (!OperatingSystem.IsWindows()) return;` alkuun):
   `Capture_includes_current_process_with_exe_path_and_session`: `Capture(TimeSpan.Zero, default)` sisältää oman PID:n,
   jolla `ExePath` on `Environment.ProcessPath` (OrdinalIgnoreCase), `SessionId == CurrentSessionId`, `StartFileTime > 0`,
-  `IsIdle == false`, ja `OwnPid == Environment.ProcessId`. `Capture_with_interval_marks_sleeping_process_idle`: käynnistä
+  `CanTerminate == true`, `IsIdle == false`, ja `OwnPid == Environment.ProcessId`; PID 4 (System) löytyy ja sillä `CanTerminate == false`. `Capture_with_interval_marks_sleeping_process_idle`: käynnistä
   `Process.Start(new ProcessStartInfo("cmd.exe", "/c ping -n 30 127.0.0.1 >nul") { CreateNoWindow = true, UseShellExecute = false })`,
   odota 500 ms, `Capture(TimeSpan.FromMilliseconds(300))`, prosessin rivi löytyy, `ParentPid == Environment.ProcessId`,
   `CpuTime` ei null; lopuksi `Kill()` finally-lohkossa. (Joutilaisuutta ei väitetä varmaksi, koska ping voi ajoittaa
@@ -467,7 +487,8 @@ Yksi tehtävä: T3 kokoaa moduulin T1:n ja T2:n päälle.
 
   `ScanAsync` → `Task.Run(() => Scan(context, ct), ct)`. `Scan`: `Report(0, "Luetaan prosessit")`; säännöt ladataan
   `ProcessRuleLoader.LoadFromFile`-kutsulla, jos tiedosto on; puuttuva tiedosto → `Logger.Warning($"Sääntötiedostoa ei löydy: {polku}")`
-  ja tyhjä lista; `InvalidDataException`/`JsonException`/`IOException` → sama varoitus ja `result.Errors.Add(viesti)` ja tyhjä lista.
+  ja tyhjä lista; `InvalidDataException`/`JsonException`/`IOException` → `Logger.Warning($"Sääntötiedosto on virheellinen: {polku}: {ex.Message}")`,
+  `result.Errors.Add(sama teksti)` ja tyhjä lista.
   `Report(10, $"Mitataan suorittimen käyttöä ({SampleInterval.TotalSeconds:0} s)")`; `snapshot = inventory.Capture(SampleInterval, ct)`;
   `Report(80, "Luokitellaan")`; `ProcessClassifier.Classify`; jokaisesta `ClassifiedProcess c` yksi
   `new CleanItem(Id: ProcessItemId.Make(c.Root.Pid, c.Root.StartFileTime), ModuleId: Id, Category: ProcessDescription.CategoryName(c.Category), Path: c.Root.ExePath!, SizeBytes: c.TotalPrivateBytes, Description: ProcessDescription.Build(c, snapshot), Risk: c.Risk, Preselected: c.Preselected)`.
@@ -484,9 +505,10 @@ Yksi tehtävä: T3 kokoaa moduulin T1:n ja T2:n päälle.
   4. `context.DryRun` → `Logger.Debug($"[KUIVA] Lopetettaisiin {info.Name} (PID {pid}) {info.ExePath}")`, `Removed.Add(item)`, continue.
   5. `terminator.TryTerminate(pid, start, out reason)`: true → `Removed.Add(item)` ja
      `Logger.Info($"Lopetettiin {info.Name} (PID {pid}): {info.ExePath}")`; false → Skipped reason ja `Logger.Warning($"Ohitettu {item.Path}: {reason}")`.
-  6. Onnistuneen lopetuksen jälkeen lapset: `basic.Processes.Where(p => p.ParentPid == pid && p.ExePath != null && string.Equals(p.ExePath, info.ExePath, OrdinalIgnoreCase))`;
-     jokaiselle `TryTerminate(child.Pid, child.StartFileTime, out r)`; onnistuminen → `Logger.Info("Lopetettiin aliprosessi ...")`,
-     epäonnistuminen → `Logger.Warning` ilman vaikutusta juuren tulokseen. Lapsia ei käsitellä kuivassa ajossa.
+  6. Onnistuneen lopetuksen jälkeen jälkeläiset: `ProcessClassifier.CollectSameExeDescendants(basic, pid)` (transitiivinen,
+     sama exe, lapset ennen lapsenlapsia); jokaiselle `TryTerminate(child.Pid, child.StartFileTime, out r)`; onnistuminen →
+     `Logger.Info("Lopetettiin aliprosessi ...")`, epäonnistuminen (myös "Prosessi on jo päättynyt", kun vanhemman kuolema vei
+     lapsen mukanaan) → `Logger.Warning` ilman vaikutusta juuren tulokseen. Jälkeläisiä ei käsitellä kuivassa ajossa.
   Jokainen Skipped-syy kirjataan `Logger.Warning`-rivillä. Lopuksi `Report(100, "Valmis")` ja Info-yhteenveto
   (`context.DryRun ? "lopetettaisiin" : "lopetettiin"`, määrä, ohitettujen määrä).
 
@@ -496,10 +518,14 @@ Yksi tehtävä: T3 kokoaa moduulin T1:n ja T2:n päälle.
   nimellä `pcc-test-cmd.exe` ja käynnistää sen argumentilla `/c ping -n 60 127.0.0.1 >nul` (`CreateNoWindow = true`, `UseShellExecute = false`);
   kopio on tarpeen, koska Windows-kansion prosessit ovat suojattuja eikä niitä listata. `Dispose` tappaa prosessin, jos se on
   elossa, ja poistaa kansion (yritä uudelleen 3 kertaa 200 ms välein, koska exe voi olla hetken lukittu). Moduuli luodaan
-  `new ProcessesModule(rulesFile: null-polku joka ei ole olemassa, sampleInterval: TimeSpan.FromMilliseconds(200))`.
+  `new ProcessesModule(rulesFile: Path.Combine(tempDir, "missing.json"), sampleInterval: TimeSpan.FromMilliseconds(200))`;
+  polun on oltava ei-null ja olematon, koska null-arvo osoittaisi testitulosteen `rules\processes\known.json`-tiedostoon,
+  joka on olemassa.
   Testit: `Scan_lists_test_process_as_background` (odota 300 ms käynnistyksen jälkeen; `ScanAsync` sisältää kohteen, jonka Id on
   `ProcessItemId.Make(pid, startFileTime)` ja `Path` on kopion polku (OrdinalIgnoreCase), kategoria on jokin "Taustaprosessit, ..."
-  -kategorioista, `Preselected == false`, kuvaus sisältää "käynnistäjä"); `Scan_does_not_list_windows_directory_processes`
+  -kategorioista, `Preselected == false`, kuvaus sisältää "käynnistäjä"); `Scan_is_idempotent_for_test_process` (kaksi
+  peräkkäistä `ScanAsync`-kutsua antavat testiprosessille saman `Id`:n ja `Path`:n, ja prosessi on elossa molempien jälkeen;
+  ARCHITECTURE luku 8 vaatii tämän testin jokaiselta moduulilta); `Scan_does_not_list_windows_directory_processes`
   (mikään `Path` ei ala `Environment.GetFolderPath(SpecialFolder.Windows)`); `Scan_warns_when_rules_file_missing` (TestLogger sisältää Warning-rivin,
   `Errors` tyhjä); `DryRun_keeps_process_alive_but_reports_removed` (DryRun true → Removed 1, prosessi elossa);
   `Apply_terminates_process` (DryRun false → Removed 1, `WaitForExit(5000)` → `HasExited`, TestLogger sisältää Info-rivin "Lopetettiin");
@@ -536,7 +562,8 @@ T4 ja T5 ovat riippumattomia (eri tiedostot; T5 ei käännä mitään) ja ajetaa
   → lisää 'processes' listaan; lisää selitysrivi "'processes' listaa käyttäjän istunnon taustaprosessit ja lopettaa valitut; mitään ei poisteta levyltä."
   muiden moduuliselitysten jälkeen; `--apply`-vahvistuksen teksti `"... Tiedostot poistetaan, käynnistysohjelmat poistetaan käytöstä. [k/E] "`
   → `"... Tiedostot poistetaan, käynnistysohjelmat poistetaan käytöstä, prosessit lopetetaan. [k/E] "`. Lisää `--item`-esimerkin
-  alle toinen esimerkkirivi `--module processes --item "processes:"`.
+  alle toinen esimerkkirivi `--module processes --item "processes:<pid>:<käynnistysaika>"` (tarkka tunniste skannauksen
+  tulosteesta; pelkkä etuliite osuu kaikkiin).
 
   UI: `src/Cleaner.UI/Cleaner.UI.csproj` saa saman `ProjectReference`-rivin (polku `..\Cleaner.Modules.Processes\...`).
   `src/Cleaner.UI/Services/UiModuleFactory.cs`: `using Cleaner.Modules.Processes;` ja `modules.Add(new ProcessesModule(Path.Combine(rulesDirectory, "processes", "known.json")));`
@@ -561,16 +588,17 @@ T4 ja T5 ovat riippumattomia (eri tiedostot; T5 ei käännä mitään) ja ajetaa
 
   Mitä moduuli tekee: skannaus listaa käyttäjän istunnon prosessit, jotka eivät ole Windows-kansiossa; suojatut
   (oma prosessi ja sen vanhempi, PID 0 ja 4, toinen istunto tai palvelu, lukukelvoton polku tai käynnistysaika,
-  Windows-kansion exe, kriittinen prosessi) jätetään kokonaan pois. Saman exen lapsiprosessit sulautetaan elossa olevan
-  vanhemman riviin (muisti summataan, kuvaus kertoo "N aliprosessia"). Kategoriat etusijajärjestyksessä: "Ohjelmatiedosto
-  puuttuu levyltä" (Medium, esivalittu), "Orvot apuprosessit" (vanhempi kuollut tai PID kierrätetty, ei ikkunaa; Medium,
-  esivalittu vain jos joutilas), "Tunnetut taustaprosessit" (sääntötiedosto `rules/processes/known.json`: id, name, match-jokerit,
-  description, risk; Medium tai säännön riski, High jos ikkuna), "Avoimet ohjelmat" (näkyvä ikkuna, High, ei koskaan esivalittu),
+  Windows-kansion exe, kriittinen prosessi, prosessi jota ei saa avata lopetusoikeudella) jätetään kokonaan pois. Saman exen
+  lapsiprosessit sulautetaan elossa olevan vanhemman riviin (muisti summataan, kuvaus kertoo "N aliprosessia"). Kategoriat
+  etusijajärjestyksessä: "Avoimet ohjelmat" (ryhmällä näkyvä ikkuna, High, ei koskaan esivalittu; puuttuva exe tai
+  sääntöosuma näkyy vain kuvauksessa), "Ohjelmatiedosto puuttuu levyltä" (Medium, esivalittu), "Orvot apuprosessit"
+  (vanhempi kuollut tai PID kierrätetty; Medium, esivalittu vain jos joutilas), "Tunnetut taustaprosessit" (sääntötiedosto
+  `rules/processes/known.json`: id, name, match-jokerit, description, risk; säännön riski, oletus Medium),
   "Taustaprosessit, ei käyttöä" (suoritinaika ei muuttunut 3 s näytteiden välillä), "Taustaprosessit, aktiivisia".
   `CleanItem.Id = processes:<pid>:<startFileTime>`, `Path` on exe-polku, `SizeBytes` on yksityinen muisti, `Description`
   kertoo syyn, suorittimen käytön, iän, aliprosessien määrän ja käynnistäjän. Lopetus: tunnisteen käynnistysaika
   tarkistetaan (PID-kierrätys → ohitus "PID on käytetty uudelleen"), suojaus tarkistetaan uudelleen, ikkunalliselle
-  `CloseMainWindow` ja 5 s odotus, sitten `Kill` ja 5 s; sulautetut lapset lopetetaan perään. Kuiva ajo ei lopeta mitään.
+  `CloseMainWindow` ja 5 s odotus, sitten `Kill` ja 5 s; saman exen jälkeläiset lopetetaan perään. Kuiva ajo ei lopeta mitään.
   Jokainen lopetus kirjataan lokiin nimellä, PID:llä ja polulla. `SelectedByDefault = false`, `Risk = High`
   (korkein kohdetaso), `RequiresAdmin = false`. Palvelut ja linkitys käynnistysohjelmiin eivät kuulu moduuliin (vaihe 2).
   Sääntötiedosto on alikansiossa, koska `Shipped_rule_files_are_valid` lukee `rules\*.json`-juuren tiedostosääntöinä.
@@ -581,17 +609,20 @@ T4 ja T5 ovat riippumattomia (eri tiedostot; T5 ei käännä mitään) ja ajetaa
   sulautus, tunniste, lopetus, turvamekanismit). Päivitä otsikon versio ja päiväys (0.3 · 20.10.2026).
   `README.md`: rakennepuuhun rivi `Cleaner.Modules.Processes/  Prosessit: käyttäjän istunnon taustaprosessien luokittelu ja lopetus (rules/processes/known.json)`;
   CLI-esimerkkeihin `dotnet run -- scan --module processes` ("käyttäjän istunnon taustaprosessit, luokiteltuina") ja
-  `dotnet run -- clean --module processes --item "processes:" --apply` ("lopeta valitut, kysyy vahvistuksen"); oma kappale
-  moduulista levytilan analyysin kappaleen jälkeen (3-6 riviä); turvallisuusperiaatteisiin ei lisäyksiä.
+  `dotnet run -- clean --module processes --item "processes:<pid>:<käynnistysaika>" --apply` ("lopeta yksi prosessi, kysyy
+  vahvistuksen"); oma kappale moduulista levytilan analyysin kappaleen jälkeen (3-6 riviä), jossa varoitus: CLI:n `clean` ei
+  suodata esivalinnan tai riskin mukaan, joten `--apply` ilman tarkkaa `--item`-tunnistetta (tai pelkällä etuliitteellä
+  `"processes:"`) lopettaa kaikki listatut prosessit, myös avoimet ohjelmat; turvallisuusperiaatteisiin ei lisäyksiä.
   `HANDOFF.md`: taulukkoon rivi `src/Cleaner.Modules.Processes` luokkaluettelolla (`ProcessesModule`, `ProcessInventory`,
   `ProcessClassifier`, `ProcessGuard`, `ProcessTerminator`, `ProcessRuleLoader`, `ProcessItemId`, `ProcessDescription`) ja
   tilalla "valmis, yksikkö- ja integraatiotestit"; päivitä päivämäärä otsikon alla.
 
 ## Final verification
 - AC-1 [auto]: `dotnet build PcCleaner.sln -warnaserror` → "0 Warning(s)", "0 Error(s)".
-- AC-2 [auto]: `dotnet test PcCleaner.sln --no-build` → "Passed!", 0 failed (mukana vanhat 139 ja uudet Process*-testit).
-- AC-3 [auto]: `dotnet run --project src/Cleaner.Cli -- scan --module processes` → tulosteessa "== Prosessit ==", ei riviä
-  jonka polku alkaa `C:\Windows\`, poistumiskoodi 0.
+- AC-2 [auto]: `dotnet test PcCleaner.sln --no-build` → "Passed!", 0 failed (159 testiä ennen tätä haaraa plus uudet Process*-testit).
+- AC-3 [auto]: `dotnet run --project src/Cleaner.Cli -- scan --module processes` → tulosteessa "== Prosessit ==" ja vähintään
+  yksi `processes:`-tunniste, poistumiskoodi 0. (Windows-kansion suojaus varmistetaan testillä
+  `Scan_does_not_list_windows_directory_processes`, koska CLI ei tulosta polkua.)
 - AC-4 [auto]: `dotnet run --project src/Cleaner.Cli -- clean --module processes --item "processes:"` (kuiva ajo, ei --apply) →
   tulosteessa "KUIVA AJO" ja "Vapautuisi:", poistumiskoodi 0, ja uusin tiedosto kansiossa `%LOCALAPPDATA%\PcCleaner\logs\`
   ei sisällä riviä "Lopetettiin".
