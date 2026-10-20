@@ -233,7 +233,7 @@ Kaksi riippumatonta tehtävää, ajetaan rinnakkain: T1 koskee vain Corea ja tes
 - Requirements: REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-26
 - Constraints/edge: EDGE-1
 - Files: src/Cleaner.Core/Localization/Loc.cs, src/Cleaner.Core/Localization/LocalizedText.cs, src/Cleaner.Core/Services/AppSettings.cs, src/Cleaner.Core/Services/ByteFormatter.cs, src/Cleaner.Core/Rules/CleanRule.cs, tests/Cleaner.Tests/TestLanguage.cs, tests/Cleaner.Tests/LocalizationTests.cs
-- Verify: `dotnet build PcCleaner.sln` → 0 warnings, 0 errors; `dotnet test` → kaikki läpi (214 vanhaa + uudet)
+- Verify: `dotnet build PcCleaner.sln` → 0 warnings, 0 errors; `dotnet test` → kaikki läpi (218 vanhaa + uudet)
 - Task:
   PcCleaner (C# .NET 8, ratkaisu `PcCleaner.sln`) saa englannin kielen suomen rinnalle. Tämä tehtävä tekee
   lokalisoinnin perustan, jota kaikki muut projektit käyttävät. Muut tehtävät kääntävät merkkijonot myöhemmin, älä
@@ -301,7 +301,7 @@ Kaksi riippumatonta tehtävää, ajetaan rinnakkain: T1 koskee vain Corea ja tes
   Lasketut ominaisuudet eivät saa näkyä JSON-sarjallistuksessa tai rikkoa jäsennystä; tarkista, sarjallistetaanko
   `CleanRule` missään, ja lisää tarvittaessa `[JsonIgnore]`.
 
-  Testit (`tests/Cleaner.Tests`, xUnit 2.9.2): olemassa olevat 214 testiä tarkistavat suomenkielisiä tekstejä. Kun
+  Testit (`tests/Cleaner.Tests`, xUnit 2.9.2): olemassa olevat 218 testiä tarkistavat suomenkielisiä tekstejä. Kun
   oletuskieli vaihtuu englanniksi, ne rikkoutuisivat. Luo `tests/Cleaner.Tests/TestLanguage.cs`:
   - `[ModuleInitializer]`-metodi, joka asettaa `Loc.Current = Language.Fi` ennen ensimmäistä testiä. Jos analysaattori
     varoittaa (CA2255), vaimenna se kohdennetulla `#pragma`-direktiivillä ja perustelukommentilla.
@@ -322,8 +322,7 @@ Kaksi riippumatonta tehtävää, ajetaan rinnakkain: T1 koskee vain Corea ja tes
 - Model: opus
 - Requirements: REQ-22, REQ-23, REQ-24, REQ-25
 - Files: LICENSE, README.md, README.fi.md, docs/ARCHITECTURE.md
-- Verify: `git diff --stat` → vain luetellut tiedostot; tarkista käsin, että README.md:n ja README.fi.md:n linkit
-  osoittavat toisiinsa ja LICENSE-tiedostoon (dokumenttitehtävä, ei koodia)
+- Verify: `pwsh -NoProfile -c "Test-Path LICENSE, README.fi.md; git status --porcelain -- LICENSE README.md README.fi.md docs/ARCHITECTURE.md"` → `True`, `True` ja neljä muuttunutta tai uutta tiedostoa; tarkista käsin, että README.md:n ja README.fi.md:n linkit osoittavat toisiinsa ja LICENSE-tiedostoon (dokumenttitehtävä, ei koodia)
 - Task:
   PcCleaner (Windows 11 -siivousohjelma, C# .NET 8, WinUI 3 + CLI) julkaistaan julkisena GitHub-repona
   https://github.com/Vilippo/PcCleaner. Samassa haarassa muut tehtävät lisäävät englannin kielen ohjelmaan. Tämä
@@ -408,7 +407,10 @@ public readonly record struct LocalizedText(string En, string Fi) // ToString() 
   - `manifest.txt`-tiedostojen sisältö pysyy ennallaan suomeksi, myös rivi `Käsitellyt kohteet:`, jota
     `RegistryBackup` jäsentää (rivit noin `Quarantine.cs` 203–211 ja `RegistryBackup.cs` 83–90, 110). Ne ovat
     pysyvä tiedostomuoto, ja vanhat varmuuskopiot on voitava lukea. Jätä niihin kommentti, miksi niitä ei käännetä.
-  - Tunnisteet, polut, aikaleimat ja tiedostomuodot eivät muutu. Ei julkisen rajapinnan muutoksia.
+  - Tunnisteet, polut, aikaleimat ja tiedostomuodot eivät muutu. Ei julkisen rajapinnan muutoksia, paitsi yksi:
+    `Quarantine.AccessDeniedMessage` (noin rivi 15, nyt `public const string`, ainoa lukija rivi noin 145) muuttuu
+    muotoon `public static string AccessDeniedMessage => Loc.T("Access denied (requires administrator rights)",
+    "Ei oikeuksia (tarvitsee järjestelmänvalvojan oikeudet)");`.
   - Dokumenttikommentit pysyvät suomeksi.
   - Älä koske muihin tiedostoihin, erityisesti ei `ByteFormatter.cs`, `CleanRule.cs`, `Localization/*` (valmiit).
   - Sanasto (amerikanenglanti): dry run, quarantine, leftovers, backup, uninstaller, administrator,
@@ -741,26 +743,43 @@ lopun build on jo tuottanut riippuvuuksien tulosteet.
      `MainWindow.xaml`-tiedostossa (noin 30 kpl: InfoBarit, PaneTitle, "Skannaa kaikki", ToolTipit, Header,
      PlaceholderText, napit, ComboBoxItemit "Nimi"/"Asennuspäivä, uusin ensin", "Korkean riskin kohteet",
      "Ei löydöksiä.", alapalkin napit, "Loki", "Tyhjennä") sidotaan muodossa `{x:Bind ViewModel.T.X, Mode=OneWay}`.
+     Poikkeus: DataTemplate-mallien sisällä `ViewModel` ei ratkea (esim. XAML noin rivi 144
+     `<DataTemplate x:DataType="vm:InstalledProgramViewModel">` ja sen rivin noin 167 ToolTip "Asennuspäivä").
+     Sellainen teksti tulee mallin oman näkymämallin ominaisuudesta (esim.
+     `InstalledProgramViewModel.InstallDateToolTip => Loc.T("Install date", "Asennuspäivä")`), sidottuna `Mode=OneWay`.
      Tarkista, että x:Bindin generoima koodi päivittää tyhjällä ominaisuusnimellä kaikki sidonnat; jos ei, nosta
      `PropertyChanged` jokaiselle nimelle erikseen.
   3. Kielivalitsin NavigationView-paneelin alaosaan (`PaneFooter`, "Skannaa kaikki" -napin yhteyteen): ComboBox,
      kohdat `English` ja `Suomi` (aina näin, ei käännetä), ToolTip `Language / Kieli`, valinta näyttää nykyisen
      kielen, ja valitsin on pois käytöstä aina kun sovellus on kiireinen (skannaus, puhdistus, palautus, poisto-
-     ohjelman odotus; käytä olemassa olevaa busy-tilaa, EDGE-3). Valinta asettaa `Loc.Current` ja tallentaa
-     `new AppSettings { Language = Loc.ToCode(...) }.Save()`. Tallennusvirhe → varoitus lokiin, kieli vaihtuu silti
-     (EDGE-6).
+     ohjelman odotus; käytä olemassa olevaa busy-tilaa, EDGE-3). Kun valittu kieli eroaa `Loc.Current`-arvosta,
+     valinta asettaa `Loc.Current` ja tallentaa `new AppSettings { Language = Loc.ToCode(...) }.Save()`. Valitsimen
+     alkuvalinta käynnistyksessä ei saa kirjoittaa `settings.json`-tiedostoa (EDGE-1: tiedostoa ei kirjoiteta ennen kuin
+     käyttäjä vaihtaa kielen). Tallennusvirhe → varoitus lokiin, kieli vaihtuu silti (EDGE-6).
   4. `Loc.Changed`-käsittelijä (staattinen tapahtuma: tilaa `MainViewModel`issa, peru tilaus ikkunan `Closed`-
      tapahtumassa; tapahtuma voi tulla mistä säikeestä tahansa, joten aja päivitys `DispatcherQueue.TryEnqueue`-
      kutsulla): `T.Refresh()`, ikkunan otsikko (`MainWindow.xaml.cs` asettaa nyt `Title = ViewModel.TitleText`
      kerran, päivitä se vaihdossa), ja jokaiselle `ModuleViewModel`ille uusi metodi `RefreshLanguage()`, joka nostaa
      `PropertyChanged` laskettaville ominaisuuksille (`DisplayName`, `Description`, `RiskText`, `AdminHint`,
-     `OptInHint`), laskee `StatusText`- ja `SelectionText`-tekstit uudelleen tallennetusta tilasta ja kutsuu
-     kategorioiden `CategoryViewModel.RefreshLanguage()` (`RiskText`, `SummaryText`, `HiddenText`; `SummaryText` on nyt
-     konstruktorissa laskettu, muuta laskettavaksi tai laske uudelleen). Ohjelmalistan rivit (`InstalledProgramViewModel`:
-     `InstallDateText` EN `yyyy-MM-dd`, FI nykyinen `d.M.yyyy`; `SizeText`) päivittyvät samoin. Treemapin tekstit
-     (`MainWindow.xaml.cs` noin rivit 96–153) ja juurinimiö `Kaikki asemat` (`MainViewModel` noin rivi 228) piirretään
-     uudelleen tai lasketaan seuraavalla piirrolla nykyisellä kielellä. Navigaation DataTemplate käyttää nyt
-     `x:Bind DisplayName` OneTime-tilassa (XAML noin rivit 40–41) → `Mode=OneWay`, samoin otsakkeen sidonnat.
+     `OptInHint`), laskee `StatusText`- ja `SelectionText`-tekstit uudelleen ja kutsuu kategorioiden
+     `CategoryViewModel.RefreshLanguage()` (`RiskText`, `SummaryText`, `HiddenText`; `SummaryText` on nyt
+     konstruktorissa laskettu, muuta laskettavaksi tai laske uudelleen).
+     `StatusText` ei nyt ole johdettavissa tallennetusta tilasta: `ModuleViewModel` asettaa sen konstruktorissa
+     (noin rivi 84) ja `LoadScan`-metodissa (noin rivit 114–118), ja `MainViewModel` kirjoittaa sen suoraan
+     merkkijonona (noin rivi 206 `"Valitse ohjelma listasta ..."` ja noin rivi 235 `"Skannaus peruutettu."`). Lisää
+     `ModuleViewModel`iin tilatyyppi (esim. enum `NotScanned`, `NoFindings`, `Found`, `SelectProgram`, `ScanCanceled`
+     ja tarvittavat luvut), jonka mukaan `StatusText` lasketaan nykyisellä kielellä, ja vaihda molemmat
+     `MainViewModel`in kirjoituskohdat asettamaan tila merkkijonon sijaan.
+     Ohjelmalistan rivit: `InstalledProgramViewModel` (nyt tavallinen `sealed class` ilman `INotifyPropertyChanged`)
+     muutetaan `ObservableObject`iksi, jolla on `RefreshLanguage()` (`InstallDateText` EN `yyyy-MM-dd`, FI nykyinen
+     `d.M.yyyy`; `SizeText`; tooltip-ominaisuus, ks. kohta 2), ja `MainViewModel` kutsuu sitä jokaiselle `Programs`-
+     riville kielen vaihtuessa. Treemapin tekstit (`MainWindow.xaml.cs` noin rivit 96–153) ja juurinimiö
+     `Kaikki asemat` (`MainViewModel` noin rivi 228) piirretään uudelleen tai lasketaan seuraavalla piirrolla
+     nykyisellä kielellä.
+     Sidontatilat: x:Bind on oletuksena OneTime, joten `PropertyChanged` ei tavoita niitä. Vaihda `Mode=OneWay`
+     ainakin näihin (rivit noin): navigaation DataTemplate `DisplayName`/`Description` 40–41, otsakkeen sidonnat
+     67–79, kategorian `RiskText` 225, `SummaryText` 228 ja 304, `HiddenText` 261 ja 336, ohjelmalistan
+     `InstallDateText` 163 ja `SizeText` 168, sekä kaikki muut kielestä riippuvat sidonnat, jotka löydät.
   5. Jo tuotetut moduulitulokset (kategorioiden nimet, kohteiden kuvaukset, `ErrorText`) ja jo kirjoitetut lokirivit
      jäävät ennalleen (EDGE-4). Älä yritä kääntää niitä.
   6. Kaikki muut UI:n suomenkieliset tekstit `Loc.T`-pareiksi: `MainViewModel` (noin 60 kohtaa: BusyTitle-,
@@ -825,7 +844,7 @@ lopun build on jo tuottanut riippuvuuksien tulosteet.
 ## Final verification
 
 - AC-1 [auto]: `dotnet build PcCleaner.sln` → 0 warnings, 0 errors (CON-5)
-- AC-2 [auto]: `dotnet test` → kaikki läpi (214 vanhaa + T1:n ja T12:n uudet), 0 epäonnistunutta
+- AC-2 [auto]: `dotnet test` → kaikki läpi (218 vanhaa + T1:n ja T12:n uudet), 0 epäonnistunutta
 - AC-3 [auto]: `dotnet run --project src/Cleaner.Cli --no-build -- modules` → englanninkieliset nimet;
   `dotnet run --project src/Cleaner.Cli --no-build -- --lang fi modules` → suomenkieliset nimet;
   `dotnet run --project src/Cleaner.Cli --no-build -- --lang xx modules` → paluukoodi 2;
