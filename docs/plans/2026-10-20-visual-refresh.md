@@ -20,7 +20,8 @@ paremman asettelun. Käyttäjän päätökset (kysytty 20.10.2026):
 Valinnat tallennetaan samaan `settings.json`-tiedostoon kuin kieli ja vaihtuvat heti ilman uudelleenkäynnistystä.
 Asetukset saavat oman sivun navigointipaneelin rataskuvakkeen takaa; kielivalitsin siirtyy sinne.
 
-Ulkopuolella: CLI (ei muutu), MSIX, high contrast -teeman omat värit (WinUI:n oletus riittää), uusi
+Ulkopuolella: CLI (ei muutu), MSIX, high contrast -teeman oma muotoilu (siinä käytetään Windowsin järjestelmävärejä,
+ks. REQ-4), uusi
 sovelluslogo (nykyinen luuta säilyy, vain värit seuraavat palettia), mukautettu teeman pakotus (vain tumma / vain
 vaalea), animaatiot.
 
@@ -49,6 +50,11 @@ Kokeilu tehtiin tässä worktreessä ja peruttiin. Tulokset:
 6. Koneella on valmiina fontit Segoe UI Variable (Display, Text, Small), Bahnschrift (muuttuva, painot Light–SemiBold)
    ja Cascadia Mono. Ne kuuluvat Windows 11:een, joten niitä ei pakata.
 7. Nykyinen build: `dotnet build PcCleaner.sln` 0 varoitusta / 0 virhettä, `dotnet test` 214/214 läpi. SDK 10.0.402.
+8. WinUI:n Microsoft.WinUI.props sisältää oletuksena `<Content Include="Assets/**/*.*">` (`EnableDefaultAssets`), joten kaikki
+   `src/Cleaner.UI/Assets`-kansion tiedostot kopioituvat build- ja publish-kansioon ilman csproj-rivejä (bin-kansiossa on jo
+   `Assets/PcCleaner.png`, jota csproj ei mainitse). Csproj:ta ei tarvitse muuttaa fontteja tai kuvakkeita varten.
+   Huomio: kokeilun jäljiltä `src/Cleaner.UI/bin/x64/Debug/.../Assets/Fonts/InterVariable.ttf` on jo olemassa; se ei todista
+   mitään ennen kuin bin/obj on siivottu.
 
 ## Scales
 
@@ -144,7 +150,9 @@ Ulkoasun hallinta (UI)
 - REQ-4: `Appearance.Apply(palette, font)` vaihtaa sovellusresursseihin sanakirjan, jossa on Scales-osion kaikki
   väri- ja fonttiavaimet tumman (`Default`) ja vaalean (`Light`) teemasanakirjan alla, ja ohittaa WinUI:n omat
   korostusavaimet niin, että NavigationView'n valintapalkki, AccentButtonStyle, CheckBox, RadioButtons ja ProgressBar
-  piirtyvät paletin korostusvärillä. Edellinen sanakirja poistetaan ennen uuden lisäämistä.
+  piirtyvät paletin korostusvärillä. Edellinen sanakirja poistetaan ennen uuden lisäämistä. Sanakirjassa on myös
+  `HighContrast`-teemasanakirja, jossa samat `App*`- ja `Risk*`-avaimet osoittavat Windowsin järjestelmäväreihin eikä
+  WinUI:n korostusavaimia ohiteta, jotta suuren kontrastin tila säilyy järjestelmän näköisenä.
 - REQ-5: Sovellus käynnistyy asetustiedoston paletilla ja fontilla ja Windowsin vaalea/tumma-asetuksen mukaisella
   teemalla. Teeman vaihto Windowsissa ajon aikana vaihtaa värit ilman uudelleenkäynnistystä (ThemeDictionaries hoitaa).
 - REQ-6: Paletin tai fontin vaihto asetussivulla näkyy heti koko ikkunassa (otsikkopalkki, paneeli, sisältö, alapalkki,
@@ -153,7 +161,8 @@ Ulkoasun hallinta (UI)
 - REQ-7: Otsikko- ja tehtäväpalkin kuvake seuraa palettia: `Assets/PcCleaner-<id>.ico` jokaiselle viidelle paletille,
   ja `PcCleaner.ico` (exen kuvake) on mint-värinen. Kuvakkeet tuottaa `tools/make-icon.ps1`.
 - REQ-8: Inter toimitetaan tiedostona `src/Cleaner.UI/Assets/Fonts/InterVariable.ttf` lisenssitiedoston
-  `LICENSE-Inter.txt` kanssa, ja molemmat kopioituvat build- ja publish-kansioon.
+  `LICENSE-Inter.txt` kanssa, ja molemmat kopioituvat build- ja publish-kansioon (WinUI:n oletusglob `Assets/**/*.*`,
+  todennettu kohta 8).
 
 Asetussivu
 
@@ -179,10 +188,12 @@ Asettelu
 - REQ-14: Skannauksen jälkeen (`HasScanned`) otsikon alla on kaksi laattaa: Löytyi (kohdemäärä, tai koko kun se on
   tiedossa) ja Valittu (valittu määrä, tai koko kun se on tiedossa; AccentText-väri). Laatat päivittyvät valintojen
   mukana ja katoavat `ClearScan`-kutsussa.
-- REQ-15: Kun moduulia ei ole skannattu (`Status == NotScanned`) eikä sovellus ole kiireinen, sisältöalueen keskellä on
-  tyhjä tila: moduulin kuvake 40 px TextTertiary-värillä, otsikko "Nothing scanned yet" / "Ei vielä skannattu",
-  yksi rivi selitettä ja Skannaa-painike (AccentButtonStyle, `ScanCommand`). Levytilan analyysin ja ohjelman poiston
-  omat ohjaimet pysyvät otsikon alla; tyhjä tila näkyy niiden alla, ohjelman poistossa ei lainkaan (tila on SelectProgram).
+- REQ-15: Kun moduulia ei ole skannattu (`!HasScanned && Status == NotScanned`), moduuli ei ole ohjelman poisto
+  (`Id != "uninstall"`, sen sivulla on oma ohjelmalista ja Status alkaa myös NotScanned-tilasta) eikä sovellus ole
+  kiireinen, sisältöalueen keskellä on tyhjä tila: moduulin kuvake 40 px TextTertiary-värillä, otsikko "Nothing scanned
+  yet" / "Ei vielä skannattu", yksi rivi selitettä ja Skannaa-painike (AccentButtonStyle, `ScanCommand`). Levytilan
+  analyysin omat ohjaimet pysyvät otsikon alla ja tyhjä tila näkyy niiden alla. Peruutettu skannaus (`ScanCanceled`)
+  piilottaa tyhjän tilan ja näyttää tilatekstin.
 - REQ-16: Jokainen kategoria on kortti (CardBackground, 1 px CardBorder, kulmasäde 8) ja kortin vasemmassa reunassa on
   3 px raita kategorian riskin Fill-värillä. Kortin otsikkorivillä on valintaruutu, nimi, riskiteksti (RiskX Text -väri)
   ja oikealla yhteenveto Number-fontilla. Expander avaa rivit kortin sisällä ilman omaa taustaa tai reunaa.
@@ -196,7 +207,12 @@ Asettelu
 - REQ-19: Navigointipaneeli on 240 px, aina auki, ilman toggle-nappia ja ilman PaneTitle-otsikkoa (otsikkopalkki
   nimeää sovelluksen). Paneelin tausta on PaneBackground Mican päällä. PaneFooter-alueella on Skannaa kaikki -nappi.
 - REQ-20: Treemapin lohkot käyttävät paletin kategoriavärejä, lohkon reuna on ContentBackground-värinen 1 px ja
-  lohkon teksti on #FFFFFF, kun täyttövärin suhteellinen luminanssi on alle 0,5, muuten #1A1A1A.
+  lohkon tekstin väri on #FFFFFF tai #1A1A1A sen mukaan, kummalla on suurempi WCAG-kontrastisuhde näkyvään väriin.
+  Näkyvä väri lasketaan yhdistämällä kategoriaväri lohkon alphalla (170 tai 90) ContentBackground-värin päälle
+  (`c = a·fg + (1−a)·bg` kanavittain, a = alpha/255), ja kontrasti kaavalla `(L1 + 0.05) / (L2 + 0.05)`, jossa L on
+  sRGB-linearisoitu suhteellinen luminanssi `0.2126 R' + 0.7152 G' + 0.0722 B'`. Esimerkki: amber #EF9F27 ilman
+  taustaa saa L ≈ 0,43, jolloin #1A1A1A (suhde 8,0) voittaa valkoisen (2,2). Treemap piirretään uudelleen, kun
+  Windowsin teema vaihtuu (`ActualThemeChanged`), koska tausta vaihtuu.
 - REQ-21: Kaikki uudet näkyvät tekstit ovat `UiText`-luokassa muodossa `Loc.T(en, fi)` ja päivittyvät kielen vaihtuessa
   (`Refresh`). Uudet tekstit ja niiden käännökset:
   Settings / Asetukset · Appearance / Ulkoasu · Color palette / Väripaletti · Font / Fontti · Language / Kieli ·
@@ -215,9 +231,9 @@ Asettelu
   treemap piirtyy juuresta (`TreemapRoot`), alikansiopino nollautuu. Sallittu, dokumentoidaan koodikommenttiin.
 - EDGE-3: Ulkoasun vaihto skannauksen tai puhdistuksen aikana → asetussivun paletti- ja fonttivalitsimet ovat pois
   käytöstä kiireisenä (`IsIdle`), kuten kielivalitsin, jotta näkymää ei luoda uudelleen kesken edistymisnäytön.
-- EDGE-4: Mica ei ole käytettävissä (vanha Windows 10 -versio tai etätyöpöytä) → `MicaBackdrop` jää vaikutuksettomaksi
-  ja PaneBackground piirtyy ContentBackground-värin päälle; mitään ei tarvitse tarkistaa koodissa, koska PaneBackground
-  on 70 % peittävä ja ikkunan taustaväri asetetaan ContentBackground-väriin.
+- EDGE-4: Mica ei ole käytettävissä (vanha Windows 10 -versio tai etätyöpöytä) → `MicaController.IsSupported()` on false,
+  `SystemBackdrop` jätetään asettamatta ja MainView'n juuren tausta asetetaan `AppContentBackgroundBrush`-arvoon
+  (muuten läpinäkyvä), jolloin 70 % peittävä PaneBackground piirtyy ContentBackground-värin päälle.
 - EDGE-5: Graphite-paletin korostus on neutraali (tummassa valkoinen, vaaleassa musta) → Puhdista-napin teksti on
   OnAccent-värinen ja valintapalkki valkoinen/musta; riskivärit pysyvät värillisinä.
 - EDGE-6: Vaihto kieleen kesken asetussivun → palettien ja fonttien nimet, näyteteksti ja osioiden otsikot päivittyvät
@@ -253,15 +269,16 @@ Asettelu
 
 ## Disposition
 
-- EDGE-4: ei rakennettavaa; PaneBackgroundin 70 % peittävyys ja ikkunan taustaväri (T6) kattavat tapauksen.
 - EDGE-5: arvot ovat Scales-taulukossa; T2 kirjoittaa ne, T6/T7 käyttävät avaimia. Ei erillistä logiikkaa.
 - CON-2: pysyy voimassa, kun yksikään tehtävä ei lisää PackageReference-riviä; tarkistetaan AC-1:ssä (`git diff` csproj).
 - CON-5: tarkistetaan AC-6:ssa.
 
 ## Wave 1
 
-Neljä toisistaan riippumatonta tehtävää, ajetaan rinnakkain. Tiedostot eivät leikkaa: T1 Core + testit, T2 uusi
-`Theming`-kansio, T3 fonttitiedostot + csproj, T4 `tools/` + `Assets/*.ico|png`.
+Kaksi riippumatonta tehtävää rinnakkain: T1 (Core + testit) ja T4 (`tools/` + `Assets/*.ico|png`). T1:n Verify kääntää
+Coren, moduulit ja testiprojektin, ei UI-projektia, joten T4:n kirjoittamat kuvakkeet (UI:n `ApplicationIcon` ja
+Assets-glob) eivät ole kenenkään build-syötteenä tässä aallossa. T2 ja T3 ovat wave 2:ssa, koska niiden tarkistusbuild
+kääntäisi T1:n keskeneräisen Coren.
 
 ### T1: AppSettings: palette ja font, Update-apuri
 - Status: pending
@@ -290,10 +307,19 @@ Neljä toisistaan riippumatonta tehtävää, ajetaan rinnakkain. Tiedostot eivä
   - round trip: `new AppSettings { Language = "fi", Palette = "indigo", Font = "inter" }.Save(path)` → `Load` palauttaa samat.
   - vanha tiedosto `{ "language": "fi" }` → Palette `"mint"`, Font `"bahnschrift"`, Language `"fi"`.
   - `{ "language": "en", "palette": null, "font": null }` → oletukset.
-  - `Update(path, s => s.Palette = "steel")` olemassa olevaan `{ "language": "fi", "font": "inter" }` → tiedostossa
-    language fi, font inter, palette steel.
+  - `AppSettings.Update(s => s.Palette = "steel", path)` olemassa olevaan `{ "language": "fi", "font": "inter" }` →
+    tiedostossa language fi, font inter, palette steel.
   - `Update` puuttuvaan tiedostoon luo kansion ja tiedoston oletuksilla + muutoksella.
   - Kirjoitettu JSON sisältää avaimet pienellä alkukirjaimella (`"palette"`, `"font"`), CON-1.
+
+## Wave 2
+
+Kaksi riippumatonta tehtävää rinnakkain: T2 (uusi `Theming`-kansio) ja T3 (kaksi tiedostoa `Assets/Fonts`-kansioon,
+ei csproj-muutosta). Vain T2 kääntää; T3:n Verify on tiivistetarkistus. WinUI:n Assets-glob lukee T3:n tiedostot
+T2:n buildissa, mikä on vaaratonta (kopiointi). Foreman ajaa aallon lopuksi: poista
+`src/Cleaner.UI/bin` ja `src/Cleaner.UI/obj`, sitten `dotnet build src/Cleaner.UI -c Debug -p:Platform=x64 -nologo`
+→ 0/0 ja `src/Cleaner.UI/bin/x64/Debug/net8.0-windows10.0.19041.0/win-x64/Assets/Fonts/InterVariable.ttf` ja
+`LICENSE-Inter.txt` ovat olemassa (REQ-8).
 
 ### T2: Appearance: paletit, fontit ja resurssisanakirja
 - Status: pending
@@ -342,8 +368,15 @@ Neljä toisistaan riippumatonta tehtävää, ajetaan rinnakkain. Tiedostot eivä
   Arvot: kaikki paletit, treemap-värit, riskivärit ja fontit ovat suunnitelman `## Scales`-osiossa. Kopioi ne
   sellaisenaan. ARGB-heksat, joissa on alpha (PaneBackground `#B3...`), ovat `Color.FromArgb(0xB3, r, g, b)`.
 
-  `Apply` rakentaa `ResourceDictionary`-olion, jolla on `ThemeDictionaries["Default"]` (tumma, paletin `Dark`) ja
-  `ThemeDictionaries["Light"]` (paletin `Light`). Kummassakin teemasanakirjassa on:
+  `Apply` rakentaa `ResourceDictionary`-olion, jolla on `ThemeDictionaries["Default"]` (tumma, paletin `Dark`),
+  `ThemeDictionaries["Light"]` (paletin `Light`) ja `ThemeDictionaries["HighContrast"]`. Ilman HighContrast-avainta
+  WinUI käyttäisi suuren kontrastin tilassa Default-sanakirjaa ja paletin korostusohitukset peittäisivät järjestelmän
+  värit. HighContrast-sanakirjassa ovat vain omat avaimet ja fonttiavaimet (ei WinUI:n korostusohituksia), ja värit
+  tulevat järjestelmäväreistä `Windows.UI.ViewManagement.UISettings.GetColorValue(UIColorType.*)`-kutsulla tai
+  `{ThemeResource SystemColor*Color}`-avaimia vastaavista `UIColorType`-arvoista: Accent/AccentText = Accent,
+  OnAccent = Background, Pane/Content/Card = Background, CardBorder/Divider/TextSecondary/TextTertiary = Foreground,
+  TextPrimary = Foreground, CardHover = Background, kaikki Risk*Brush Fill/Text = Foreground ja Tint = Background.
+  Default- ja Light-teemasanakirjoissa on:
 
   Omat avaimet (SolidColorBrush): `AppAccentBrush`, `AppAccentHoverBrush`, `AppAccentPressedBrush`, `AppOnAccentBrush`,
   `AppAccentTextBrush`, `AppPaneBackgroundBrush`, `AppContentBackgroundBrush`, `AppCardBackgroundBrush`,
@@ -376,16 +409,16 @@ Neljä toisistaan riippumatonta tehtävää, ajetaan rinnakkain. Tiedostot eivä
 
   Koodityyli: suomenkieliset XML-kommentit kuten muualla projektissa, `file-scoped namespace`, nullable päällä.
 
-### T3: Inter-fontti ja sisältötiedostot csproj:hin
+### T3: Inter-fontti ja lisenssi
 - Status: pending
 - Model: opus
 - Requirements: REQ-8
 - Constraints/edge: CON-2
-- Files: src/Cleaner.UI/Assets/Fonts/InterVariable.ttf, src/Cleaner.UI/Assets/Fonts/LICENSE-Inter.txt, src/Cleaner.UI/Cleaner.UI.csproj
-- Side effects: ei
+- Files: src/Cleaner.UI/Assets/Fonts/InterVariable.ttf, src/Cleaner.UI/Assets/Fonts/LICENSE-Inter.txt
 - Verify: `pwsh -NoProfile -Command "(Get-FileHash src/Cleaner.UI/Assets/Fonts/InterVariable.ttf -Algorithm SHA256).Hash"` →
-  `4989B125924991B90D05B2D16E0E388C48F7D5BB8B30539BBF9C755278D0CCAF`; `dotnet build src/Cleaner.UI -c Debug -p:Platform=x64 -nologo`
-  → 0 varoitusta ja `src/Cleaner.UI/bin/x64/Debug/net8.0-windows10.0.19041.0/win-x64/Assets/Fonts/InterVariable.ttf` on olemassa.
+  `4989B125924991B90D05B2D16E0E388C48F7D5BB8B30539BBF9C755278D0CCAF` ja sama `LICENSE-Inter.txt`-tiedostolle →
+  `262481E844521B326F5ECD053E59B98C8B2DA78C8EE1BDBB6E8174305E54935A`. Ei buildia tässä tehtävässä (T2 kääntää samassa
+  aallossa); kopioitumisen build-kansioon tarkistaa foreman aallon lopuksi puhtaalla buildilla (ks. Wave 2).
 - Task:
   Lataa Inter 4.1 -julkaisu (todennettu 20.10.2026, älä tutki uudelleen):
   `https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip`, SHA256
@@ -396,14 +429,11 @@ Neljä toisistaan riippumatonta tehtävää, ajetaan rinnakkain. Tiedostot eivä
   `src/Cleaner.UI/Assets/Fonts/LICENSE-Inter.txt` (SIL Open Font License 1.1, SHA256
   `262481E844521B326F5ECD053E59B98C8B2DA78C8EE1BDBB6E8174305E54935A`). Muita tiedostoja ei kopioida.
 
-  csproj (`src/Cleaner.UI/Cleaner.UI.csproj`): korvaa nykyinen rivi
-  `<Content Include="Assets\PcCleaner.ico" CopyToOutputDirectory="PreserveNewest" />` kolmella rivillä:
-  `<Content Include="Assets\*.ico" CopyToOutputDirectory="PreserveNewest" />` (T4 tuottaa viisi palettikuvaketta
-  samaan kansioon), `<Content Include="Assets\Fonts\*.ttf" CopyToOutputDirectory="PreserveNewest" />` ja
-  `<Content Include="Assets\Fonts\LICENSE-Inter.txt" CopyToOutputDirectory="PreserveNewest" />`. Päivitä viereinen
-  suomenkielinen kommentti kertomaan, että kuvakkeet ja fontti ladataan ajon aikana tiedostosta. Fontin XAML-viittaus on
-  `ms-appx:///Assets/Fonts/InterVariable.ttf#Inter` (toimii pakkaamattomassa sovelluksessa, kokeilu 1); sitä käyttää T2.
-  Olemassa oleva `CopyPriAndXbfToPublishDir`-kohde ei koske Content-tiedostoja, publish kopioi ne itse. Ei uusia paketteja.
+  Csproj:ta EI muuteta: WinUI:n Microsoft.WinUI.props sisältää oletuksena `<Content Include="Assets/**/*.*">`, joten
+  kaikki Assets-kansion tiedostot kopioituvat build- ja publish-kansioon (todennettu: bin-kansiossa on `Assets/PcCleaner.png`,
+  jota csproj ei mainitse). Fontin XAML-viittaus on `ms-appx:///Assets/Fonts/InterVariable.ttf#Inter` (toimii
+  pakkaamattomassa sovelluksessa, kokeilu 1); sitä käyttää T2. Ei uusia paketteja. Huomio: bin-kansiossa voi olla jo
+  kokeilun jäljiltä sama ttf; se ei ole todiste mistään.
 
 ### T4: Palettikuvakkeet ja kuvakaappaustyökalu
 - Status: pending
@@ -441,9 +471,9 @@ Neljä toisistaan riippumatonta tehtävää, ajetaan rinnakkain. Tiedostot eivä
   Lisää skriptin alkuun docstring, jossa mainitaan, että sovelluksen `requireAdministrator`-manifesti pysäyttää
   käynnistyksen UAC-kehotteeseen ja että kaappausta varten manifestiin vaihdetaan väliaikaisesti `asInvoker` (ei commitoida).
 
-## Wave 2
+## Wave 3
 
-Yksi tehtävä: T5 muokkaa MainViewModel-, ModuleViewModel- ja UiText-tiedostoja, joihin wave 3 ja 4 nojaavat.
+Yksi tehtävä: T5 muokkaa MainViewModel-, ModuleViewModel- ja UiText-tiedostoja, joihin wave 4 ja 5 nojaavat.
 
 ### T5: ViewModelit ja käynnistys: ulkoasun valinta, asetussivun tila, laattojen arvot
 - Status: pending
@@ -451,7 +481,7 @@ Yksi tehtävä: T5 muokkaa MainViewModel-, ModuleViewModel- ja UiText-tiedostoja
 - Requirements: REQ-5, REQ-6, REQ-10, REQ-14, REQ-21
 - Constraints/edge: EDGE-1, EDGE-3, EDGE-6
 - Files: src/Cleaner.UI/App.xaml.cs, src/Cleaner.UI/ViewModels/MainViewModel.cs, src/Cleaner.UI/ViewModels/ModuleViewModel.cs, src/Cleaner.UI/ViewModels/AppearanceOptionViewModel.cs, src/Cleaner.UI/Services/UiText.cs
-- Note: T6 (wave 3) muokkaa UiText.cs-tiedostoa tämän jälkeen (poistaa `PaneTitle`-ominaisuuden). Ei wave-rikkomus.
+- Note: T6 (wave 4) muokkaa UiText.cs-tiedostoa tämän jälkeen (poistaa `PaneTitle`-ominaisuuden). Ei wave-rikkomus.
 - Verify: `dotnet build src/Cleaner.UI -c Debug -p:Platform=x64 -nologo` → 0 varoitusta, 0 virhettä (MainWindow.xaml sitoo
   yhä `LanguageIndex`-ominaisuutta ja muita nykyisiä jäseniä; ne pysyvät). Manuaalinen (käyttäjä tai asInvoker-kokeilu +
   `python -I tools/snap-window.py`): sovellus käynnistyy mint-paletilla ja Bahnschrift-fontilla, napit ja valintapalkki
@@ -520,9 +550,12 @@ Yksi tehtävä: T5 muokkaa MainViewModel-, ModuleViewModel- ja UiText-tiedostoja
      `public string FoundValue` → kun `_foundBytes > 0` `ByteFormatter.Format(_foundBytes)`, muuten `_foundCount`
      muotoiltuna `Loc.Culture`-kulttuurilla (`"N0"`), ja `public string SelectedValue` → kun `SelectedBytes > 0`
      `ByteFormatter.Format(SelectedBytes)`, muuten `SelectedCount` samoin. `ShowTiles => HasScanned`.
-     `ShowEmptyState => !HasScanned && Status == ModuleScanStatus.NotScanned` (REQ-15; ohjelman poisto on SelectProgram-tilassa
-     eikä näytä sitä). Nosta `PropertyChanged` näille `LoadScan`, `ClearScan`, `UpdateSelection` ja `RefreshLanguage`
-     -kohdissa (`FoundValue` riippuu kulttuurista ja yksiköistä). `SelectedCount`/`SelectedBytes` saavat
+     `ShowEmptyState => !HasScanned && Status == ModuleScanStatus.NotScanned && Id != "uninstall"` (REQ-15: jokainen
+     moduuli alkaa NotScanned-tilasta, myös ohjelman poisto, ja `SelectProgram`/`ScanCanceled` asetetaan MainViewModelista
+     vasta ajon aikana `Status`-setterin kautta). Nosta `PropertyChanged(ShowEmptyState)` myös `Status`-setterissä (nyt se
+     nostaa vain `StatusText`) ja `HasScanned`-ominaisuudelle `[NotifyPropertyChangedFor(nameof(ShowEmptyState), nameof(ShowTiles))]`.
+     Nosta `PropertyChanged` `FoundValue`/`SelectedValue`-arvoille `LoadScan`, `ClearScan`, `UpdateSelection` ja
+     `RefreshLanguage`-kohdissa (`FoundValue` riippuu kulttuurista ja yksiköistä). `SelectedCount`/`SelectedBytes` saavat
      `[NotifyPropertyChangedFor(nameof(SelectedValue))]`. Asetussivun kuvake tulee NavigationView'n omasta
      asetuskohteesta (T6), tänne ei lisätä glyph-arvoa.
 
@@ -539,10 +572,10 @@ Yksi tehtävä: T5 muokkaa MainViewModel-, ModuleViewModel- ja UiText-tiedostoja
   Älä koske MainWindow.xaml-tiedostoon: wave 3 kirjoittaa sen uudelleen. Build pysyy vihreänä, koska kaikki nykyiset
   sidotut jäsenet säilyvät.
 
-## Wave 3
+## Wave 4
 
-Yksi tehtävä: T6 kirjoittaa MainWindow.xaml:n uudelleen ja luo MainView'n; T7 (wave 4) muokkaa samaa MainView.xaml-tiedostoa,
-joten ne eivät voi olla rinnakkain. Note: T7 (wave 4) muokkaa MainView.xaml/.cs-tiedostojen moduulisivuosaa T6:n jälkeen.
+Yksi tehtävä: T6 kirjoittaa MainWindow.xaml:n uudelleen ja luo MainView'n; T7 (wave 5) muokkaa samaa MainView.xaml-tiedostoa,
+joten ne eivät voi olla rinnakkain. Note: T7 (wave 5) muokkaa MainView.xaml/.cs-tiedostojen moduulisivuosaa T6:n jälkeen.
 
 ### T6: Ikkunan kuori: MainView, otsikkopalkki, Mica, uudelleenluonti, asetussivu, lokipaneeli
 - Status: pending
@@ -550,7 +583,7 @@ joten ne eivät voi olla rinnakkain. Note: T7 (wave 4) muokkaa MainView.xaml/.cs
 - Requirements: REQ-6, REQ-9, REQ-10, REQ-11, REQ-12, REQ-18, REQ-19
 - Constraints/edge: CON-4, CON-5, EDGE-2, EDGE-3, EDGE-4
 - Files: src/Cleaner.UI/MainWindow.xaml, src/Cleaner.UI/MainWindow.xaml.cs, src/Cleaner.UI/Views/MainView.xaml, src/Cleaner.UI/Views/MainView.xaml.cs, src/Cleaner.UI/Services/UiText.cs
-- Note: UiText.cs muokattiin T5:ssä (wave 2); tässä vain `PaneTitle` poistuu. T7 (wave 4) jatkaa Views/MainView.xaml- ja .cs-tiedostoja tämän jälkeen. Ei wave-rikkomuksia.
+- Note: UiText.cs muokattiin T5:ssä (wave 3); tässä vain `PaneTitle` poistuu. T7 (wave 5) jatkaa Views/MainView.xaml- ja .cs-tiedostoja tämän jälkeen. Ei wave-rikkomuksia.
 - Verify: `dotnet build src/Cleaner.UI -c Debug -p:Platform=x64 -nologo` → 0 varoitusta, 0 virhettä.
   Manual (ihminen tai asInvoker-kokeilu + `python -I tools/snap-window.py <exe> <out> 5`): otsikkopalkissa kuvake ja nimi,
   ikkuna raahautuu palkista, Mica näkyy paneelin läpi, rataskuvake avaa asetussivun, paletin vaihto värittää koko ikkunan
@@ -569,7 +602,8 @@ joten ne eivät voi olla rinnakkain. Note: T7 (wave 4) muokkaa MainView.xaml/.cs
   `Name`, `Swatch1..3` (SolidColorBrush?), `SwatchVisibility`, `HeadingFontFamily`, `BodyFontFamily`, `Sample`,
   `SampleVisibility`), `PaletteIndex`, `FontIndex` (int, TwoWay), `event AppearanceChanged`, `IsSettingsSelected` (bool),
   `IsIdle`, `LanguageIndex` (0 = English, 1 = Suomi). `UiText` (`ViewModel.T`) sai `SettingsTitle`, `AppearanceHeader`,
-  `PaletteHeader`, `FontHeader`, `LanguageHeader`, `Close`. T2 toi resurssiavaimet (kaikki `{ThemeResource}`):
+  `PaletteHeader`, `FontHeader`, `LanguageHeader`, `Close`. `Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported()`
+  kertoo, onko Mica käytettävissä (EDGE-4). T2 toi resurssiavaimet (kaikki `{ThemeResource}`):
   `AppAccentBrush`, `AppAccentTextBrush`, `AppOnAccentBrush`, `AppPaneBackgroundBrush`, `AppContentBackgroundBrush`,
   `AppCardBackgroundBrush`, `AppCardBorderBrush`, `AppCardHoverBrush`, `AppTextPrimaryBrush`, `AppTextSecondaryBrush`,
   `AppTextTertiaryBrush`, `AppDividerBrush`, `AppHeadingFontFamily`, `AppBodyFontFamily`, `AppNumberFontFamily`,
@@ -593,9 +627,11 @@ joten ne eivät voi olla rinnakkain. Note: T7 (wave 4) muokkaa MainView.xaml/.cs
      nappien vasemmalle puolelle. Alapalkin muu asettelu säilyy tässä tehtävässä (T7 muotoilee sen).
   2. NavigationView: `IsSettingsVisible="True"`, `IsPaneToggleButtonVisible="False"`, `IsPaneOpen="True"`,
      `OpenPaneLength="240"`, ei `PaneTitle`-arvoa (REQ-19). Poista PaneFooterista kielivalitsin-ComboBox; Skannaa kaikki jää.
-     `SelectionChanged`: jos `args.IsSettingsSelected` → `ViewModel.IsSettingsSelected = true`; muuten
-     `ViewModel.IsSettingsSelected = false; ViewModel.SelectedModule = args.SelectedItem as ModuleViewModel`.
-     Konstruktorissa alkuvalinta: `ViewModel.IsSettingsSelected ? Nav.SettingsItem : (ViewModel.SelectedModule ?? Modules[0])`
+     `SelectionChanged`: jos `args.IsSettingsSelected` → `ViewModel.IsSettingsSelected = true`; jos
+     `args.SelectedItem is ModuleViewModel m` → `ViewModel.IsSettingsSelected = false; ViewModel.SelectedModule = m`;
+     muuten (SelectedItem null, esim. mallin soveltamisen aikana) ei tehdä mitään. Alkuvalinta tehdään `Nav.Loaded`-
+     tapahtumassa, EI konstruktorissa, koska `Nav.SettingsItem` on null ennen kuin NavigationView on soveltanut mallinsa
+     (`OnApplyTemplate`): `Nav.SelectedItem = ViewModel.IsSettingsSelected ? Nav.SettingsItem : (ViewModel.SelectedModule ?? Modules[0])`
      (REQ-11). Sisältöalue: kaksi päällekkäistä Grid-elementtiä, moduulisivu `Visibility` = !IsSettingsSelected ja
      asetussivu = IsSettingsSelected (x:Bind-funktio tai `BoolToVisibility`-muunnin, kuten projektissa jo tehdään
      `Visibility="{x:Bind ViewModel.IsDiskUsageSelected}"`-sidonnoilla; WinUI muuntaa boolin suoraan).
@@ -611,11 +647,17 @@ joten ne eivät voi olla rinnakkain. Note: T7 (wave 4) muokkaa MainView.xaml/.cs
      - `SystemBackdrop = new MicaBackdrop();` `ExtendsContentIntoTitleBar = true;` ikkunan koko 1200 × 820 kuten nyt ja
        minimi 960 × 640 (`(AppWindow.Presenter as OverlappedPresenter)` → `PreferredMinimumWidth` ja
        `PreferredMinimumHeight`, Windows App SDK 1.4+). REQ-12.
-     - `BuildView()`: `var view = new MainView(this, ViewModel); Content = view; SetTitleBar(view.AppTitleBar);`
+     - `BuildView()`: jos `Content` on jo `MainView old`, kutsu ensin `old.Detach()` (irrottaa MainView'n omat
+       ViewModel-tilaukset: `PropertyChanged`-käsittelijä TreemapRootille, `LanguageRefreshed` jos tilattu, kokoelmien
+       kuuntelijat) ja `old.Bindings.StopTracking()` (x:Bind OneWay -kuuntelijat), jotta vanha näkymäpuu ei jää
+       kuuntelemaan pitkäikäistä ViewModelia ja piirtämään treemappia irrotetulle Canvasille joka vaihdossa. Sitten
+       `var view = new MainView(this, ViewModel); Content = view; SetTitleBar(view.AppTitleBar);`
        `AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", Appearance.IconFileName(Appearance.CurrentPalette)))`
        jos tiedosto on, muuten `PcCleaner.ico`. Ikkunan taustaväri (EDGE-4): juuren `Grid.Background` MainView'ssä on
-       läpinäkyvä, jotta Mica näkyy; sisältöalueen ja alapalkin taustat ovat `AppContentBackgroundBrush` (T7 asettaa ne,
-       tässä riittää, että NavigationView'n sisällön juuri-Grid saa `Background={ThemeResource AppContentBackgroundBrush}`).
+       läpinäkyvä, jotta Mica näkyy, paitsi kun `MicaController.IsSupported()` on false: silloin `SystemBackdrop` jätetään
+       asettamatta ja MainView saa konstruktoriparametrin `bool micaAvailable`, jonka ollessa false juuren tausta on
+       `{ThemeResource AppContentBackgroundBrush}`. Sisältöalueen ja alapalkin taustat ovat `AppContentBackgroundBrush`
+       (T7 asettaa ne, tässä riittää, että NavigationView'n sisällön juuri-Grid saa `Background={ThemeResource AppContentBackgroundBrush}`).
      - Konstruktori kutsuu `BuildView()` ja tilaa `ViewModel.AppearanceChanged += (_, _) => BuildView();` (REQ-6, REQ-11,
        EDGE-2: treemapin pino on MainView'n tilaa ja nollautuu; `TreemapRoot` on ViewModelissa ja piirtyy juuresta; kirjoita
        tästä kommentti). `LanguageRefreshed` päivittää yhä `Title`-arvon ja pyytää MainView'tä piirtämään treemapin
@@ -628,10 +670,11 @@ joten ne eivät voi olla rinnakkain. Note: T7 (wave 4) muokkaa MainView.xaml/.cs
   Huomio koodille: `MainView` saa `Loaded`-tapahtumassa kutsua `DrawTreemap()` jos `ViewModel.TreemapRoot != null`.
   `x:Bind`-funktiot tarvitsevat `x:DataType`-määrittelyt kuten nykyisessä XAML:ssä (`vm:ModuleViewModel` jne.).
 
-## Wave 4
+## Wave 5
 
 Kaksi riippumatonta tehtävää rinnakkain: T7 muokkaa vain `Views/MainView.xaml` ja `.cs` (T6:n jälkeen), T8 vain
-dokumentteja. Tiedostot eivät leikkaa. Note: T7 jatkaa T6:n (wave 3) luomia tiedostoja.
+dokumentteja. Tiedostot eivät leikkaa, ja T8:n Verify on rajattu omiin tiedostoihinsa, jotta T7:n keskeneräiset
+muutokset eivät näy siinä. Note: T7 jatkaa T6:n (wave 4) luomia tiedostoja.
 
 ### T7: Moduulisivun ja alapalkin uusi asettelu
 - Status: pending
@@ -639,7 +682,7 @@ dokumentteja. Tiedostot eivät leikkaa. Note: T7 jatkaa T6:n (wave 3) luomia tie
 - Requirements: REQ-13, REQ-14, REQ-15, REQ-16, REQ-17, REQ-20
 - Constraints/edge: CON-4, EDGE-5
 - Files: src/Cleaner.UI/Views/MainView.xaml, src/Cleaner.UI/Views/MainView.xaml.cs
-- Note: T6 (wave 3) loi nämä tiedostot; tämä tehtävä muokkaa niiden moduulisivu- ja alapalkkiosaa. Ei wave-rikkomus.
+- Note: T6 (wave 4) loi nämä tiedostot; tämä tehtävä muokkaa niiden moduulisivu- ja alapalkkiosaa. Ei wave-rikkomus.
 - Verify: `dotnet build src/Cleaner.UI -c Debug -p:Platform=x64 -nologo` → 0 varoitusta, 0 virhettä.
   Manual (ihminen tai asInvoker-kokeilu + `python -I tools/snap-window.py <exe> <out> 5`): ennen skannausta tyhjä tila
   keskellä Skannaa-napilla; Tiedostosiivouksen skannauksen jälkeen laatat Löytyi/Valittu ja kategoriakortit raidoilla;
@@ -669,11 +712,12 @@ dokumentteja. Tiedostot eivät leikkaa. Note: T7 jatkaa T6:n (wave 3) luomia tie
      CornerRadius 10, Padding 8/2, Background RiskX Tint, sisällä 8 px Ellipse RiskX Fill + `RiskText` 12 px RiskX Text),
      admin-merkki (`Visibility=RequiresAdmin`, Border CardBackground + 1 px CardBorder, FontIcon `` 12 px + `T.AdminBadge`,
      ToolTip `AdminHint`), valitaan erikseen -merkki (`Visibility=!SelectedByDefault`, sama tyyli, FontIcon ``,
-     `T.OptInBadge`, ToolTip `OptInHint`). Riskin väri valitaan x:Bind-funktiolla code-behindissä
-     (`RiskTintBrush(RiskLevel)`, `RiskFillBrush`, `RiskTextBrush` → `Application.Current.Resources`-haku avaimilla; hae
-     `ThemeResource`-arvot `MainView.Resources`-sanakirjan kautta tai `(Brush)Application.Current.Resources[key]`; koska
-     näkymä luodaan uudelleen teeman vaihdossa, staattinen haku on riittävä, mutta Windowsin vaalea/tumma-vaihto ajon aikana
-     ei päivitä näitä: hyväksyttävä, kirjaa kommenttiin). Vanhat caption-tekstit poistuvat.
+     `T.OptInBadge`, ToolTip `OptInHint`). Riskin värit tulevat suoraan XAML:n `{ThemeResource Risk*Brush}`-viittauksista,
+     jotta Windowsin vaalea/tumma-vaihto ajon aikana päivittää ne (REQ-5): tee kolme riskikohtaista merkkiä (Low, Medium,
+     High) kiinteillä ThemeResource-väreillä ja näytä niistä yksi x:Bind-funktioilla `IsLow(RiskLevel)`, `IsMedium`,
+     `IsHigh` → Visibility. Sama kuvio kategoriakortin raidalle ja riskitekstille (kolme elementtiä, yksi näkyvissä).
+     Älä hae väriä `Application.Current.Resources[key]`-kutsulla koodista; se jäätyisi hakuhetken teemaan. Vanhat
+     caption-tekstit poistuvat.
   2. Laatat (REQ-14): `Visibility=ShowTiles`, kaksi Borderia 160 × 64, CardBackground, 1 px CardBorder, kulmasäde 8,
      padding 14/10: arvo 22 `AppNumberFontFamily` SemiBold (`FoundValue` AppTextPrimaryBrush; `SelectedValue`
      AppAccentTextBrush), alla 12 px `T.FoundLabel`/`T.SelectedLabel` AppTextSecondaryBrush. Väli 12.
@@ -694,9 +738,16 @@ dokumentteja. Tiedostot eivät leikkaa. Note: T7 jatkaa T6:n (wave 3) luomia tie
      Pidä nykyiset sidonnat (`IsChecked` TwoWay, `IsSelected` TwoWay, `HiddenText`, `HasHidden`) ennallaan.
   5. Levytila- ja poistosivun ohjaimet pysyvät otsikon alla; anna niille sama 8 px kulmasäde ja CardBorder-reunat
      (ListView, treemap-Border). Treemap (REQ-20): korvaa `Palette`-taulukko `Appearance.CurrentPalette.Treemap`-listalla
-     `DrawTreemap`-metodissa, lohkon reuna `new SolidColorBrush((Color)Application.Current.Resources["AppContentBackgroundColor"])`
-     1 px, lohkotekstin väri luminanssin mukaan: `L = 0.2126 R' + 0.7152 G' + 0.0722 B'` sRGB-linearisoituna; `L < 0.5` →
-     #FFFFFF, muuten #1A1A1A. Kirjoita luminanssi apufunktioon.
+     `DrawTreemap`-metodissa. Taustaväri haetaan piirtohetkellä nykyisen teeman mukaan:
+     `ActualTheme == ElementTheme.Light ? Appearance.CurrentPalette.Light.ContentBackground : Appearance.CurrentPalette.Dark.ContentBackground`
+     (ei `Application.Current.Resources`-hakua, joka jäätyisi hakuhetken teemaan). Lohkon reuna on tämä väri 1 px.
+     Lohkotekstin väri (REQ-20): laske näkyvä väri yhdistämällä kategoriaväri lohkon alphalla (170 kansiolle, 90 tiedostoille)
+     taustavärin päälle kanavittain `c = a·fg + (1 − a)·bg`, a = alpha/255; laske sRGB-linearisoitu luminanssi
+     `L = 0.2126 R' + 0.7152 G' + 0.0722 B'` (R' = (c/255 ≤ 0.04045 ? c/255/12.92 : ((c/255 + 0.055)/1.055)^2.4)) ja
+     valitse #FFFFFF tai #1A1A1A sen mukaan, kummalla on suurempi kontrastisuhde `(L_vaaleampi + 0.05) / (L_tummempi + 0.05)`
+     näkyvään väriin. Esimerkki ilman taustaa: amber #EF9F27 L ≈ 0,433 → #1A1A1A (8,0 vs 2,2). Kirjoita luminanssi ja
+     kontrasti apufunktioihin. Tilaa `ActualThemeChanged` MainView'n juuressa ja kutsu `DrawTreemap()`, koska tausta ja
+     tekstin valinta riippuvat teemasta.
   6. Alapalkki (REQ-17): Grid, korkeus 56 + 4 px ProgressBar sen yläreunassa (`Visibility=IsBusy`, `Value=ProgressPercent`,
      koko leveys, ei marginaalia, `Foreground=AppAccentBrush`), tausta AppContentBackgroundBrush, yläreuna 1 px
      AppDividerBrush, padding 24/0. Vasemmalla: kun `IsBusy` → `BusyTitle` 13 SemiBold + `ProgressMessage` 12
@@ -714,7 +765,8 @@ dokumentteja. Tiedostot eivät leikkaa. Note: T7 jatkaa T6:n (wave 3) luomia tie
 - Model: opus
 - Requirements: REQ-22
 - Files: README.md, README.fi.md, docs/ARCHITECTURE.md, HANDOFF.md
-- Verify: `git diff --stat` koskee vain neljää dokumenttia; `grep -n "palette" README.md docs/ARCHITECTURE.md` → osumia;
+- Verify: `git diff --stat -- README.md README.fi.md docs/ARCHITECTURE.md HANDOFF.md` → neljä tiedostoa muuttunut
+  (T7 muokkaa samaan aikaan muita tiedostoja, siksi rajaus); `grep -n "palette" README.md docs/ARCHITECTURE.md` → osumia;
   `grep -n "Inter" README.md README.fi.md` → lisenssimaininta molemmissa.
 - Task:
   Kirjoita dokumentteihin, mitä tässä suunnitelmassa toteutetaan (ei tulevaisuusmuotoa; tehtävät T1–T7 valmistuvat samassa
@@ -746,8 +798,10 @@ dokumentteja. Tiedostot eivät leikkaa. Note: T7 jatkaa T6:n (wave 3) luomia tie
 - AC-1 [auto]: `dotnet build PcCleaner.sln -c Debug -nologo` → `0 Warning(s)`, `0 Error(s)` (nyt 0/0). Lisäksi
   `git diff main -- "*.csproj" | grep PackageReference` → ei rivejä (CON-2).
 - AC-2 [auto]: `dotnet test tests/Cleaner.Tests -nologo` → kaikki läpi, määrä vähintään 214 + T1:n uudet (nyt 214).
-- AC-3 [auto]: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner -nologo` onnistuu ja kansiossa
-  `publish\PcCleaner\Assets` on `Fonts\InterVariable.ttf`, `Fonts\LICENSE-Inter.txt` ja kuusi `.ico`-tiedostoa.
+- AC-3 [auto]: poista `src\Cleaner.UI\bin`, `src\Cleaner.UI\obj` ja `publish\PcCleaner`, sitten
+  `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner -nologo` onnistuu ja kansiossa
+  `publish\PcCleaner\Assets` on `Fonts\InterVariable.ttf`, `Fonts\LICENSE-Inter.txt` ja kuusi `.ico`-tiedostoa
+  (siivous ensin, koska kokeilun jäljiltä bin-kansiossa on jo ttf).
 - AC-4 [manual]: Käynnistä sovellus (käyttäjä hyväksyy UAC-kehotteen). Oletus: mint-paletti, Bahnschrift-otsikot, Mica
   paneelin takana, oma otsikkopalkki kuvakkeella, tyhjä tila Skannaa-napilla. Asetussivulta vaihda jokainen viidestä
   paletista: koko ikkuna (paneeli, otsikkopalkki, napit, valintapalkki, kortit) vaihtuu heti ja otsikkopalkin kuvake
