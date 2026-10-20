@@ -5,6 +5,7 @@ using Cleaner.Modules.DiskUsage;
 using Cleaner.UI.Theming;
 using Cleaner.UI.ViewModels;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -138,14 +139,15 @@ public sealed partial class MainView : UserControl
     }
 
     /// <summary>
-    /// REQ-21: WinUI antaa asetuskohteen tekstin Windowsin näyttökielellä, joten se korvataan sovelluksen kielellä.
-    /// Työkaluvihje korvataan vain, jos WinUI on asettanut sen (paneeli kiinni); auki olevalla paneelilla sitä ei ole.
-    /// Ennen mallin soveltamista SettingsItem on null, jolloin ei tehdä mitään.
+    /// REQ-21: WinUI antaa asetuskohteen tekstin ja ruudunlukijan nimen Windowsin näyttökielellä, joten ne korvataan
+    /// sovelluksen kielellä. Työkaluvihje korvataan vain, jos WinUI on asettanut sen (paneeli kiinni); auki olevalla
+    /// paneelilla sitä ei ole. Ennen mallin soveltamista SettingsItem on null, jolloin ei tehdä mitään.
     /// </summary>
     private void LocalizeSettingsItem()
     {
         if (Nav.SettingsItem is not NavigationViewItem settings) return;
         settings.Content = ViewModel.T.SettingsTitle;
+        AutomationProperties.SetName(settings, ViewModel.T.SettingsTitle);
         if (ToolTipService.GetToolTip(settings) is not null)
             ToolTipService.SetToolTip(settings, ViewModel.T.SettingsTitle);
     }

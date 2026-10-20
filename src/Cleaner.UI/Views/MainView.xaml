@@ -30,14 +30,19 @@
                     <Border Grid.Column="0" Width="3" CornerRadius="8,0,0,8"
                             Background="{ThemeResource RiskHighBrush}"
                             Visibility="{x:Bind local:MainView.IsHigh(Risk)}" />
+                    <!-- Kortin padding 12/10 (Scales): sisältö Expanderin Paddingilla. Otsikon vasen 16 px tulee mallin
+                         StaticResource-avaimesta ExpanderHeaderPadding, jota ei voi ohittaa paikallisesti, joten otsikon
+                         marginaali -4 tuo sen 12:een; MinHeight 0 antaa pystysuunnan 10 px tulla marginaalista. -->
                     <Expander Grid.Column="1"
                               HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Stretch"
                               Background="Transparent"
                               BorderThickness="0"
+                              MinHeight="0"
+                              Padding="12,10"
                               IsExpanded="False">
                         <Expander.Header>
-                            <Grid ColumnSpacing="12">
+                            <Grid ColumnSpacing="12" Margin="-4,10,0,10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -570,13 +575,16 @@
                                                       Background="Transparent"
                                                       BorderThickness="0"
                                                       CornerRadius="0,8,8,0"
+                                                      MinHeight="0"
+                                                      Padding="12,10"
                                                       IsExpanded="False">
                                                 <!-- Otsikkorivin tausta: Expanderin oma otsikkoavain ohitetaan tällä tasolla (REQ-16). -->
                                                 <Expander.Resources>
                                                     <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="{ThemeResource RiskHighTintColor}" />
                                                 </Expander.Resources>
                                                 <Expander.Header>
-                                                    <StackPanel Padding="0,8">
+                                                    <!-- Sama 12/10 kuin kategoriakortissa (ks. CategoryCardTemplate). -->
+                                                    <StackPanel Margin="-4,10,0,10">
                                                         <TextBlock Text="{x:Bind ViewModel.T.HighRiskHeader, Mode=OneWay}"
                                                                    FontFamily="{ThemeResource AppBodyFontFamily}"
                                                                    FontSize="14" FontWeight="SemiBold"
@@ -589,7 +597,6 @@
                                                     </StackPanel>
                                                 </Expander.Header>
                                                 <ItemsControl x:Name="HighRiskList"
-                                                              Margin="0,8,0,0"
                                                               ItemsSource="{x:Bind ViewModel.SelectedModule.HighRiskCategories, Mode=OneWay}"
                                                               ItemTemplate="{StaticResource CategoryCardTemplate}" />
                                             </Expander>
