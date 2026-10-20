@@ -1,16 +1,29 @@
 <#
 .SYNOPSIS
-  Generoi PC Cleanerin kuvakkeen: src\Cleaner.UI\Assets\PcCleaner.ico (16–256 px) ja PcCleaner.png (256 px).
+  Generoi PC Cleanerin kuvakkeet jokaiselle paletille kansioon src\Cleaner.UI\Assets:
+  PcCleaner-<id>.ico (16–256 px) jokaiselle $Palettes-taulukon paletille, PcCleaner.ico (exen kuvake,
+  identtinen mint-kuvakkeen kanssa) ja PcCleaner.png (256 px, mint).
   Piirretään System.Drawing-kirjastolla, joten kuvake on toistettavissa ilman kuvankäsittelyohjelmaa.
 
-  Kuva: pyöristetty sininen neliö, jossa valkoinen luuta ja kolme kipinää.
+  Kuva: pyöristetty neliö paletin liukuvärillä, jossa valkoinen luuta ja kolme kipinää.
+  Uusi paletti lisätään yhdellä rivillä $Palettes-taulukkoon.
 #>
 param(
     [string]$OutDir = (Join-Path $PSScriptRoot "..\src\Cleaner.UI\Assets")
 )
 Add-Type -AssemblyName System.Drawing
 
-function Draw-Icon([int]$size) {
+# Paletin id = liukuvärin alku- ja loppuväri (kulma 60°).
+$Palettes = [ordered]@{
+    mint     = @('#2FB388', '#0F6E56')
+    indigo   = @('#928BE3', '#453D9E')
+    steel    = @('#3884F0', '#164EAA')
+    graphite = @('#3A3A3A', '#141414')
+    sun      = @('#E8714A', '#B8471F')
+}
+$ExePalette = 'mint'
+
+function Draw-Icon([int]$size, [System.Drawing.Color]$from, [System.Drawing.Color]$to) {
     $bmp = New-Object System.Drawing.Bitmap $size, $size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
@@ -20,7 +33,7 @@ function Draw-Icon([int]$size) {
     $r = $s * 0.22                       # kulman säde
     $m = $s * 0.04                       # marginaali
 
-    # Tausta: pyöristetty neliö, liukuväri sininen
+    # Tausta: pyöristetty neliö, paletin liukuväri
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
     $rect = New-Object System.Drawing.RectangleF $m, $m, ($s - 2 * $m), ($s - 2 * $m)
     $d = $r * 2
@@ -29,9 +42,7 @@ function Draw-Icon([int]$size) {
     $path.AddArc($rect.Right - $d, $rect.Bottom - $d, $d, $d, 0, 90)
     $path.AddArc($rect.X, $rect.Bottom - $d, $d, $d, 90, 90)
     $path.CloseFigure()
-    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush $rect,
-        ([System.Drawing.Color]::FromArgb(255, 56, 132, 240)),
-        ([System.Drawing.Color]::FromArgb(255, 22, 78, 170)), 60
+    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush $rect, $from, $to, 60
     $g.FillPath($brush, $path)
 
     # Luudan varsi: paksu valkoinen viiva oikeasta yläkulmasta keskelle alas vasemmalle
@@ -52,9 +63,9 @@ function Draw-Icon([int]$size) {
     $bristles.AddPolygon($pts)
     $g.FillPath((New-Object System.Drawing.SolidBrush $white), $bristles)
 
-    # Harjasten raidat (vain isoissa koossa)
+    # Harjasten raidat (vain isoissa koossa), liukuvärin loppuväri alpha 140
     if ($size -ge 32) {
-        $linePen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(140, 22, 78, 170)), ($s * 0.025)
+        $linePen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(140, $to)), ($s * 0.025)
         $g.DrawLine($linePen, $s * 0.30, $s * 0.64, $s * 0.41, $s * 0.75)
         $g.DrawLine($linePen, $s * 0.38, $s * 0.58, $s * 0.49, $s * 0.69)
     }
@@ -88,38 +99,51 @@ function Get-PngBytes([System.Drawing.Bitmap]$bmp) {
     return ,$ms.ToArray()
 }
 
+function Write-Ico([string]$icoPath, $images) {
+    # ICO-tiedosto PNG-pakatuilla merkinnöillä (tuettu Windows Vistasta alkaen kaikissa koossa).
+    $fs = [System.IO.File]::Create($icoPath)
+    $bw = New-Object System.IO.BinaryWriter $fs
+    $bw.Write([UInt16]0)                 # reserved
+    $bw.Write([UInt16]1)                 # type: icon
+    $bw.Write([UInt16]$images.Count)
+    $offset = 6 + 16 * $images.Count
+    foreach ($img in $images) {
+        $size = $img[0]; [byte[]]$bytes = $img[1]
+        $bw.Write([Byte]($(if ($size -ge 256) { 0 } else { $size })))   # width (0 = 256)
+        $bw.Write([Byte]($(if ($size -ge 256) { 0 } else { $size })))   # height
+        $bw.Write([Byte]0)               # color count
+        $bw.Write([Byte]0)               # reserved
+        $bw.Write([UInt16]1)             # planes
+        $bw.Write([UInt16]32)            # bit count
+        $bw.Write([UInt32]$bytes.Length)
+        $bw.Write([UInt32]$offset)
+        $offset += $bytes.Length
+    }
+    foreach ($img in $images) { [byte[]]$data = $img[1]; $bw.Write($data, 0, $data.Length) }
+    $bw.Flush(); $bw.Dispose(); $fs.Dispose()
+}
+
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $sizes = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
-$images = @()
-foreach ($size in $sizes) {
-    $bmp = Draw-Icon $size
-    [byte[]]$png = Get-PngBytes $bmp
-    $images += ,@($size, $png)
-    if ($size -eq 256) { $bmp.Save((Join-Path $OutDir "PcCleaner.png"), [System.Drawing.Imaging.ImageFormat]::Png) }
-    $bmp.Dispose()
+foreach ($id in $Palettes.Keys) {
+    $from = [System.Drawing.ColorTranslator]::FromHtml($Palettes[$id][0])
+    $to = [System.Drawing.ColorTranslator]::FromHtml($Palettes[$id][1])
+    $images = @()
+    foreach ($size in $sizes) {
+        $bmp = Draw-Icon $size $from $to
+        [byte[]]$png = Get-PngBytes $bmp
+        $images += ,@($size, $png)
+        if ($size -eq 256 -and $id -eq $ExePalette) {
+            $bmp.Save((Join-Path $OutDir "PcCleaner.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+        }
+        $bmp.Dispose()
+    }
+    $icoPath = Join-Path $OutDir "PcCleaner-$id.ico"
+    Write-Ico $icoPath $images
+    Write-Output "Kirjoitettu $icoPath ($((Get-Item $icoPath).Length) tavua, $($images.Count) kokoa)"
 }
 
-# ICO-tiedosto PNG-pakatuilla merkinnöillä (tuettu Windows Vistasta alkaen kaikissa koossa).
-$icoPath = Join-Path $OutDir "PcCleaner.ico"
-$fs = [System.IO.File]::Create($icoPath)
-$bw = New-Object System.IO.BinaryWriter $fs
-$bw.Write([UInt16]0)                 # reserved
-$bw.Write([UInt16]1)                 # type: icon
-$bw.Write([UInt16]$images.Count)
-$offset = 6 + 16 * $images.Count
-foreach ($img in $images) {
-    $size = $img[0]; [byte[]]$bytes = $img[1]
-    $bw.Write([Byte]($(if ($size -ge 256) { 0 } else { $size })))   # width (0 = 256)
-    $bw.Write([Byte]($(if ($size -ge 256) { 0 } else { $size })))   # height
-    $bw.Write([Byte]0)               # color count
-    $bw.Write([Byte]0)               # reserved
-    $bw.Write([UInt16]1)             # planes
-    $bw.Write([UInt16]32)            # bit count
-    $bw.Write([UInt32]$bytes.Length)
-    $bw.Write([UInt32]$offset)
-    $offset += $bytes.Length
-}
-foreach ($img in $images) { [byte[]]$data = $img[1]; $bw.Write($data, 0, $data.Length) }
-$bw.Flush(); $bw.Dispose(); $fs.Dispose()
-
-Write-Output "Kirjoitettu $icoPath ($((Get-Item $icoPath).Length) tavua, $($images.Count) kokoa) ja PcCleaner.png"
+# Exen kuvake on tavu tavulta sama kuin oletuspaletin kuvake.
+$exeIco = Join-Path $OutDir "PcCleaner.ico"
+Copy-Item (Join-Path $OutDir "PcCleaner-$ExePalette.ico") $exeIco -Force
+Write-Output "Kirjoitettu $exeIco ($ExePalette) ja PcCleaner.png (256 px, $ExePalette)"
