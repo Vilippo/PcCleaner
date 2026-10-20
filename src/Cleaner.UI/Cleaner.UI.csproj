@@ -49,13 +49,23 @@
     <Content Include="Assets\PcCleaner.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- dotnet publish ei kopioi pakkaamattoman sovelluksen omaa .pri-tiedostoa eikä .xbf-tiedostoja
-       julkaisukansioon (Windows App SDK 1.8). Ilman niitä exe kaatuu käynnistyksessä. -->
+  <!-- dotnet publish ei kopioi pakkaamattoman sovelluksen omaa .pri-tiedostoa, .xbf-tiedostoja eikä WinUI:n
+       oletusglobin Assets-tiedostoja (fontit, palettikuvakkeet) julkaisukansioon (Windows App SDK 1.8), vaikka build
+       kopioi ne. Ilman .pri- ja .xbf-tiedostoja exe kaatuu käynnistyksessä. Alikansiot säilyvät (Views\MainView.xbf,
+       Assets\Fonts). -->
   <Target Name="CopyPriAndXbfToPublishDir" AfterTargets="Publish">
     <ItemGroup>
-      <_UiResourceFiles Include="$(OutDir)$(AssemblyName).pri;$(OutDir)*.xbf" />
+      <!-- Ilman -o-parametria PublishDir on OutDirin alla; edellisen julkaisun kopioita ei poimita uudelleen. -->
+      <_UiResourceFiles Include="$(OutDir)$(AssemblyName).pri;$(OutDir)**\*.xbf"
+                        Exclude="$(OutDir)publish\**;$(PublishDir)**" />
+      <_UiAssetFiles Include="$(OutDir)Assets\**\*" />
     </ItemGroup>
-    <Copy SourceFiles="@(_UiResourceFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_UiResourceFiles)"
+          DestinationFiles="@(_UiResourceFiles->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_UiAssetFiles)"
+          DestinationFiles="@(_UiAssetFiles->'$(PublishDir)Assets\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
