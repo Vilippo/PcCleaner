@@ -622,7 +622,7 @@ Yksi tehtävä: T3 toteuttaa SDK-kutsut T1:n rajapintaan (kääntää saman solu
 Yksi tehtävä: T4 tuo avustajan ViewModelit ja kytkee ne `MainViewModel`-luokkaan (keskeinen tiedosto).
 
 ### T4: UI:n ViewModelit, Auto-tila ja automaattinen siivous
-- Status: pending
+- Status: done 8609a18
 - Model: fable
 - Requirements: REQ-1 (UI-csproj-viittaus), REQ-12, REQ-13, REQ-14, REQ-15, REQ-16, REQ-17 (ViewModel-osuus), REQ-18, REQ-19, REQ-21 (RefreshLanguage-osuus)
 - Constraints/edge: CON-3, CON-4, CON-5, CON-6, CON-7, CON-9, EDGE-1, EDGE-2, EDGE-5, EDGE-6, EDGE-7, EDGE-8, EDGE-9, EDGE-11, EDGE-12, EDGE-13
