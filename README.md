@@ -9,9 +9,9 @@ The program runs in English and Finnish.
 ## Download and install
 
 1. Download `PcCleaner-<version>-win-x64.zip` from the [latest release](https://github.com/Vilippo/PcCleaner/releases/latest).
-2. Extract the whole zip to a folder of your choice, for example `C:\Tools\PcCleaner`. Keep all files together: the
-   program needs the files next to the exe.
-3. Run `PcCleaner.exe`.
+2. Extract the whole zip to a folder of your choice, for example `C:\Tools`. The zip contains `Start PC Cleaner.cmd`,
+   `README.txt` and the folder `PcCleaner` with all program files. Keep that folder together.
+3. Double-click `Start PC Cleaner.cmd`, or run `PcCleaner\PcCleaner.exe` directly.
 
 Requirements: 64-bit Windows 11 or Windows 10 version 2004 or newer. Nothing else needs to be installed: the .NET
 runtime and the Windows App SDK are included in the package.
@@ -55,6 +55,7 @@ PcCleaner.sln
 │   └── Cleaner.Tests/              xUnit tests (modules, services, quarantine, treemap, AI)
 ├── tools/
 │   ├── make-icon.ps1               Generates the palette icons PcCleaner-<palette>.ico and PcCleaner.ico/.png (mint)
+│   ├── make-release.ps1            Builds the self-contained release zip publish\PcCleaner-<version>-win-x64.zip
 │   └── snap-window.py              Takes a screenshot of the app window with PrintWindow
 └── docs/
     └── ARCHITECTURE.md             Technical specification (in Finnish)
@@ -84,6 +85,13 @@ Publish folder (Release, self-contained, can be copied to another computer witho
 
 ```powershell
 dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner --self-contained true
+```
+
+Release zip (`publish\PcCleaner-<version>-win-x64.zip` with the launcher, README.txt and the `PcCleaner` folder;
+prints the SHA-256 hash):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\make-release.ps1 -Version 1.0.1
 ```
 
 On the Disk usage page you can limit the scan to one folder, choose the top N and browse a treemap (a click opens the

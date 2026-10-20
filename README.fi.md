@@ -9,9 +9,9 @@ Ohjelma toimii englanniksi ja suomeksi.
 ## Lataus ja asennus
 
 1. Lataa `PcCleaner-<versio>-win-x64.zip` [uusimmasta julkaisusta](https://github.com/Vilippo/PcCleaner/releases/latest).
-2. Pura koko zip haluamaasi kansioon, esimerkiksi `C:\Tools\PcCleaner`. Pidä kaikki tiedostot yhdessä: ohjelma
-   tarvitsee exen vieressä olevat tiedostot.
-3. Käynnistä `PcCleaner.exe`.
+2. Pura koko zip haluamaasi kansioon, esimerkiksi `C:\Tools`. Zipissä ovat `Start PC Cleaner.cmd`, `README.txt` ja
+   kansio `PcCleaner`, jossa ovat kaikki ohjelman tiedostot. Pidä kansio kokonaisena.
+3. Kaksoisnapsauta `Start PC Cleaner.cmd` tai käynnistä suoraan `PcCleaner\PcCleaner.exe`.
 
 Vaatimukset: 64-bittinen Windows 11 tai Windows 10:n versio 2004 tai uudempi. Muuta ei tarvitse asentaa: .NET-ajonaika
 ja Windows App SDK ovat paketissa mukana.
@@ -58,6 +58,7 @@ PcCleaner.sln
 │   └── Cleaner.Tests/              xUnit-testit (moduulit, palvelut, karanteeni, treemap, tekoäly)
 ├── tools/
 │   ├── make-icon.ps1               Generoi palettikohtaiset kuvakkeet PcCleaner-<paletti>.ico ja PcCleaner.ico/.png (mint)
+│   ├── make-release.ps1            Tekee itsenäisen julkaisuzipin publish\PcCleaner-<versio>-win-x64.zip
 │   └── snap-window.py              Ottaa sovellusikkunasta kuvakaappauksen PrintWindow-kutsulla
 └── docs/
     └── ARCHITECTURE.md             Tekninen määrittely
@@ -87,6 +88,13 @@ Julkaisukansio (Release, itsenäinen, siirrettävissä toiselle koneelle ilman .
 
 ```powershell
 dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner --self-contained true
+```
+
+Julkaisuzip (`publish\PcCleaner-<versio>-win-x64.zip`, jossa käynnistin, README.txt ja kansio `PcCleaner`; tulostaa
+SHA-256-tiivisteen):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\make-release.ps1 -Version 1.0.1
 ```
 
 Levytilan analyysin sivulla voi rajata kansion, valita top-N:n ja selata treemapia (napsautus avaa alikansion).
