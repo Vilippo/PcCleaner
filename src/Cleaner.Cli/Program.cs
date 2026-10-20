@@ -213,7 +213,7 @@ async Task<int> RunClean()
     }
     else if (!yes)
     {
-        Console.Write($"Käsitelläänkö {items.Count} kohdetta ({ByteFormatter.Format(items.Sum(i => i.SizeBytes))})? Tiedostot poistetaan, käynnistysohjelmat poistetaan käytöstä. [k/E] ");
+        Console.Write($"Käsitelläänkö {items.Count} kohdetta ({ByteFormatter.Format(items.Sum(i => i.SizeBytes))})? Tiedostot poistetaan, käynnistysohjelmat poistetaan käytöstä, prosessit lopetetaan. [k/E] ");
         var answer = Console.ReadLine()?.Trim().ToLowerInvariant();
         if (answer is not ("k" or "kyllä" or "y" or "yes"))
         {
@@ -281,6 +281,8 @@ static void PrintHelp()
           --module <id>     Rajaa moduuliin, voi toistaa (esim. --module files --module browsers)
           --item <tunniste> Rajaa yksittäisiin kohteisiin (tunniste tai sen osa), voi toistaa.
                             Esim. --module startup --item "startup:hkcu-run:Spotify"
+                            Esim. --module processes --item "processes:<pid>:<käynnistysaika>"
+                            (tarkka tunniste skannauksen tulosteesta; pelkkä etuliite osuu kaikkiin)
           --rules <kansio>  Sääntötiedostojen kansio (oletus: ohjelman vieressä oleva rules\)
           --include-disabled  Ota mukaan myös oletuksena pois päältä olevat säännöt (Prefetch, Windows.old)
           --path <kansio>   Levytilan analyysin juuri, voi toistaa (oletus: kaikki kiinteät asemat)
@@ -293,7 +295,7 @@ static void PrintHelp()
           --yes, -y         Älä kysy vahvistusta (ajastettuun ajoon)
           --verbose, -v     Näytä edistyminen ja yksityiskohtainen loki
 
-        Moduulit 'startup', 'diskusage', 'registry' ja 'uninstall' ajetaan vain, kun ne annetaan --module-valinnalla.
+        Moduulit 'startup', 'diskusage', 'registry', 'uninstall' ja 'processes' ajetaan vain, kun ne annetaan --module-valinnalla.
         'startup' ei poista mitään, vaan poistaa kohteen käytöstä kuten Tehtävienhallinta; palautus sieltä.
         'diskusage' listaa suurimmat kansiot ja tiedostot; --apply poistaa vain --item-valitut tiedostot, ei kansioita.
         'registry' vie jokaisen muutettavan avaimen .reg-tiedostoon ennen muutosta
@@ -301,6 +303,7 @@ static void PrintHelp()
         'uninstall' ajaa ohjelman oman poisto-ohjelman ja siirtää jäänteet karanteeniin
         (%LOCALAPPDATA%\PcCleaner\quarantine\<aikaleima>\), rekisteri .reg-varmuuskopioon samalla aikaleimalla;
         palautus: pccleaner restore <aikaleima>.
+        'processes' listaa käyttäjän istunnon taustaprosessit ja lopettaa valitut; mitään ei poisteta levyltä.
 
         Kaikki poistot kirjataan tiedostoon %LOCALAPPDATA%\PcCleaner\logs\.
         Järjestelmäkansiot (Windows\Temp, SoftwareDistribution) vaativat järjestelmänvalvojan oikeudet.

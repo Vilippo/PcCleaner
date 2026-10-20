@@ -34,6 +34,7 @@ public sealed partial class ModuleViewModel : ObservableObject
         "diskusage" => "",
         "registry" => "",
         "uninstall" => "",
+        "processes" => "\uE9D9",
         _ => ""
     };
 

@@ -2,6 +2,7 @@ using Cleaner.Core.Abstractions;
 using Cleaner.Core.Logging;
 using Cleaner.Modules.DiskUsage;
 using Cleaner.Modules.Files;
+using Cleaner.Modules.Processes;
 using Cleaner.Modules.RegistryCleaner;
 using Cleaner.Modules.Startup;
 using Cleaner.Modules.Uninstall;
@@ -37,6 +38,7 @@ public static class UiModuleFactory
         modules.Add(new DiskUsageModule());
         modules.Add(new RegistryModule());
         modules.Add(new UninstallModule());
+        modules.Add(new ProcessesModule(Path.Combine(rulesDirectory, "processes", "known.json")));
 
         return modules;
     }

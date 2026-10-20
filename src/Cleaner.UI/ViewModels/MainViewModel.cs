@@ -262,7 +262,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         var isStartup = module.Id == "startup";
         var isUninstall = module.Id == "uninstall";
-        var verb = isUninstall ? "siirretään karanteeniin" : isStartup ? "poistetaan käytöstä" : "poistetaan";
+        var isProcesses = module.Id == "processes";
+        var verb = isUninstall ? "siirretään karanteeniin" : isStartup ? "poistetaan käytöstä" : isProcesses ? "lopetetaan" : "poistetaan";
 
         // 1) Kuiva ajo
         IReadOnlyList<CleanResult> dry;
@@ -314,9 +315,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             ? $"Siirretäänkö {dryRemoved} kohdetta karanteeniin?\n\nKansiot ja tiedostot siirretään kansioon %LOCALAPPDATA%\\PcCleaner\\quarantine, rekisteriavaimet viedään .reg-varmuuskopioon. Palautus: Palauta varmuuskopio... tai pccleaner restore <aikaleima>."
             : isStartup
             ? $"Poistetaanko {dryRemoved} käynnistyskohdetta käytöstä?\n\nMitään ei poisteta. Palautus onnistuu Tehtävienhallinnan Käynnistys-välilehdeltä."
+            : isProcesses
+            ? $"Lopetetaanko {dryRemoved} prosessia" + (dryBytes > 0 ? $" ({ByteFormatter.Format(dryBytes)})" : "") +
+              "?\n\nTallentamattomat tiedot katoavat, jos ohjelma on auki. Mitään ei poisteta levyltä. Ohjelman voi käynnistää uudelleen tavallisesti."
             : $"Poistetaanko {dryRemoved} kohdetta pysyvästi" + (dryBytes > 0 ? $" ({ByteFormatter.Format(dryBytes)})" : "") +
               "?\n\nTiedostot eivät mene roskakoriin. Kaikki poistot kirjataan lokiin.";
-        var confirmButton = isUninstall ? "Siirrä karanteeniin" : isStartup ? "Poista käytöstä" : "Poista pysyvästi";
+        var confirmButton = isUninstall ? "Siirrä karanteeniin" : isStartup ? "Poista käytöstä" : isProcesses ? "Lopeta prosessit" : "Poista pysyvästi";
 
         if (!await _dialogs.ConfirmAsync("Vahvista", confirmText, confirmButton))
             return;
@@ -344,7 +348,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var freed = real.Sum(r => r.FreedBytes);
         var skipped = real.Sum(r => r.Skipped.Count);
         var resultText = $"{char.ToUpper(verb[0])}{verb[1..]} {removed} kohdetta" +
-                         (freed > 0 ? $", vapautettu {ByteFormatter.Format(freed)}" : "") +
+                         (freed > 0 ? (isProcesses ? $", vapautettu muistia {ByteFormatter.Format(freed)}" : $", vapautettu {ByteFormatter.Format(freed)}") : "") +
                          (skipped > 0 ? $". Ohitettu {skipped} (katso loki)." : ".");
         if (module.Module is UninstallModule uninstall)
         {
