@@ -208,7 +208,7 @@ Kytkentä
 Yksi tehtävä: T1 luo projektin, mallit ja puhtaan logiikan, joihin kaikki muut tehtävät nojaavat.
 
 ### T1: Projekti, mallit, säännöt, suojaus ja luokittelija
-- Status: pending
+- Status: done 5904363
 - Model: fable
 - Requirements: REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9 (vain `ProcessItemId` ja kuvauksen koostaminen), REQ-10, REQ-11, REQ-21
 - Constraints/edge: CON-1, CON-2, CON-4, EDGE-2, EDGE-6, EDGE-8, EDGE-9, EDGE-10
