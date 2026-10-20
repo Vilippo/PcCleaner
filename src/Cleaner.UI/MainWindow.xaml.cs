@@ -1,4 +1,5 @@
 using Cleaner.Core.Localization;
+using Cleaner.Core.Services;
 using Cleaner.UI.Services;
 using Cleaner.UI.Theming;
 using Cleaner.UI.ViewModels;
@@ -13,7 +14,7 @@ using Windows.Graphics;
 namespace Cleaner.UI;
 
 /// <summary>
-/// Ikkunan kuori: Mica, oma otsikkopalkki, koko ja kuvake. Sisältö on <see cref="MainView"/>, jonka
+/// Ikkunan kuori: Mica, oma otsikkopalkki, koko ja sijainti (muistetaan settings.json-tiedostossa) ja kuvake. Sisältö on <see cref="MainView"/>, jonka
 /// <see cref="BuildView"/> luo ja luo uudelleen ulkoasun vaihdossa. Dialogit avataan tästä (IDialogService).
 /// </summary>
 public sealed partial class MainWindow : Window, IDialogService
@@ -35,15 +36,21 @@ public sealed partial class MainWindow : Window, IDialogService
         if (_micaAvailable) SystemBackdrop = new MicaBackdrop();
         ExtendsContentIntoTitleBar = true;
 
-        AppWindow.Resize(new SizeInt32(1200, 820));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            presenter.PreferredMinimumWidth = 960;
-            presenter.PreferredMinimumHeight = 640;
+            presenter.PreferredMinimumWidth = MinWidth;
+            presenter.PreferredMinimumHeight = MinHeight;
         }
+        var maximize = RestorePlacement();
 
         BuildView();
-        Closed += (_, _) => ViewModel.Dispose();
+        AppWindow.Changed += OnAppWindowChanged;
+        Closed += (_, _) =>
+        {
+            SavePlacement();
+            ViewModel.Dispose();
+        };
+        if (maximize && AppWindow.Presenter is OverlappedPresenter restored) restored.Maximize();
 
         // Kielen vaihto: ikkunan otsikko ja treemap nykyisellä kielellä (XAML-sidonnat päivittyvät itse).
         ViewModel.LanguageRefreshed += (_, _) =>
@@ -58,6 +65,94 @@ public sealed partial class MainWindow : Window, IDialogService
         // moduuli, tulokset, valinnat ja lokirivit ovat ViewModelissa ja säilyvät. EDGE-2: treemapin alikansiopino
         // on MainView'n tilaa ja nollautuu; TreemapRoot on ViewModelissa ja treemap piirtyy juuresta.
         ViewModel.AppearanceChanged += (_, _) => DispatcherQueue.TryEnqueue(BuildView);
+    }
+
+    // ---------- Ikkunan sijainti ja koko ----------
+
+    private const int MinWidth = 960;
+    private const int MinHeight = 640;
+
+    /// <summary>Viimeisin palautettu (ei maksimoitu eikä pienennetty) sijainti ja koko; maksimoidulle tallennetaan tämä.</summary>
+    private RectInt32 _normalBounds;
+
+    /// <summary>
+    /// Palauttaa edellisen istunnon sijainnin ja koon settings.json-tiedostosta, jos se osuu jollekin nykyiselle
+    /// näytölle; muuten oletuskoko 1200 × 820. Palauttaa true, jos ikkuna oli maksimoitu.
+    /// </summary>
+    private bool RestorePlacement()
+    {
+        var saved = AppSettings.Load().Window;
+        var areas = new List<(int X, int Y, int Width, int Height)>();
+        try
+        {
+            // FindAll palauttaa projisoidun listan; indeksointi toimii kaikissa Windows App SDK -versioissa.
+            var displays = DisplayArea.FindAll();
+            for (var i = 0; i < displays.Count; i++)
+            {
+                var work = displays[i].WorkArea;
+                areas.Add((work.X, work.Y, work.Width, work.Height));
+            }
+        }
+        catch
+        {
+            // Näyttöjä ei voitu lukea: avataan oletuskokoon.
+        }
+
+        if (WindowPlacement.Fit(saved, areas, MinWidth, MinHeight) is { } fit)
+        {
+            // Ensin siirto, sitten koko: jos kohdenäytön skaalaus eroaa, siirto laukaisee DPI-muutoksen, joka skaalaisi
+            // MoveAndResize-kutsun koon, ja koko kasvaisi joka käynnistyksellä. Erillinen Resize asettaa tallennetun koon.
+            AppWindow.Move(new PointInt32(fit.X, fit.Y));
+            AppWindow.Resize(new SizeInt32(fit.Width, fit.Height));
+        }
+        else
+        {
+            AppWindow.Resize(new SizeInt32(1200, 820));
+            saved = null;
+        }
+        _normalBounds = CurrentBounds();
+        _maximized = saved?.Maximized == true;
+        return _maximized;
+    }
+
+    /// <summary>Oliko ikkuna viimeksi maksimoitu tai palautettu; pienennys ei muuta tätä, joten tehtäväpalkista suljettu säilyttää tilansa.</summary>
+    private bool _maximized;
+
+    private RectInt32 CurrentBounds() =>
+        new(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
+
+    /// <summary>Seuraa palautetun ikkunan sijaintia ja kokoa; maksimoitu ja pienennetty tila eivät muuta sitä.</summary>
+    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (sender.Presenter is not OverlappedPresenter presenter) return;
+        if (presenter.State == OverlappedPresenterState.Maximized) _maximized = true;
+        else if (presenter.State == OverlappedPresenterState.Restored)
+        {
+            _maximized = false;
+            if (args.DidPositionChange || args.DidSizeChange) _normalBounds = CurrentBounds();
+        }
+    }
+
+    /// <summary>Tallentaa sijainnin ja koon sulkemisessa. Epäonnistunut tallennus ei saa estää sulkemista.</summary>
+    private void SavePlacement()
+    {
+        try
+        {
+            var maximized = _maximized;
+            var bounds = _normalBounds;
+            AppSettings.Update(s => s.Window = new WindowPlacement
+            {
+                X = bounds.X,
+                Y = bounds.Y,
+                Width = bounds.Width,
+                Height = bounds.Height,
+                Maximized = maximized
+            });
+        }
+        catch
+        {
+            // Asetustiedostoa ei voitu kirjoittaa: seuraava käynnistys avautuu edelliseen tallennettuun tai oletuskokoon.
+        }
     }
 
     /// <summary>

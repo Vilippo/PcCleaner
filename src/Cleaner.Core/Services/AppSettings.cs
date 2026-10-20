@@ -37,6 +37,9 @@ public sealed class AppSettings
     /// <summary>Tekoälyavustajan Auto-tila: avustaja valitsee kohteet itse. Oletus pois.</summary>
     public bool AiAutoMode { get; set; }
 
+    /// <summary>Pääikkunan sijainti ja koko edellisestä istunnosta, null = oletuskoko (<see cref="WindowPlacement.Fit"/>).</summary>
+    public WindowPlacement? Window { get; set; }
+
     /// <summary>%LOCALAPPDATA%\PcCleaner\settings.json</summary>
     public static string DefaultPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PcCleaner", "settings.json");
