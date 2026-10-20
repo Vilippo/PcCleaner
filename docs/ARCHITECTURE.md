@@ -1,6 +1,6 @@
 # PC Cleaner – tekninen määrittely
 
-Versio 0.1 · 19.10.2026
+Versio 0.2 · 20.10.2026
 
 ## 1. Tavoite
 
@@ -8,17 +8,18 @@ Oma siivousohjelma Windows 11:lle (vrt. CCleaner), jossa jokainen ominaisuus on 
 moduuli. Ydin ei tiedä moduuleista mitään etukäteen, joten uuden ominaisuuden lisääminen
 ei vaadi muutoksia olemassa olevaan koodiin.
 
-Ominaisuudet kehitysjärjestyksessä:
+Ominaisuudet kehitysjärjestyksessä. Kaikki ovat toteutettu ja käytössä sekä CLI:ssä että WinUI 3 -sovelluksessa.
 
-| # | Moduuli | Id | Tila | Riski |
-|---|---------|----|------|-------|
-| 1 | Tiedostosiivous | `files` | valmis (CLI) | Low–High |
-| 2 | Selainten välimuistit | `browsers` | valmis (CLI) | Medium |
-| 3 | Roskakori | `recyclebin` | valmis (CLI) | Low |
-| 4 | WinUI 3 -käyttöliittymä | – | seuraava | – |
-| 5 | Käynnistysohjelmat | `startup` | suunniteltu | Medium |
-| 6 | Levytilan analyysi | `diskusage` | suunniteltu | – (vain luku) |
-| 7 | Rekisterin puhdistus | `registry` | suunniteltu, viimeisenä | High |
+| # | Moduuli | Id | Tila | Riski | Luku |
+|---|---------|----|------|-------|------|
+| 1 | Tiedostosiivous | `files` | valmis | Low–High | 4 |
+| 2 | Selainten välimuistit | `browsers` | valmis | Medium | 4 |
+| 3 | Roskakori | `recyclebin` | valmis | Low | – |
+| 4 | WinUI 3 -käyttöliittymä | – | valmis (ensimmäinen versio) | – | 7 |
+| 5 | Käynnistysohjelmat | `startup` | valmis | Medium | 6.1 |
+| 6 | Levytilan analyysi | `diskusage` | valmis | High (vain luku, ei poista) | 6.2 |
+| 7 | Rekisterin puhdistus | `registry` | valmis, rajattu | High | 6.3 |
+| 8 | Ohjelman poisto | `uninstall` | valmis | High, vaatii adminin | 6.4 |
 
 ## 2. Kerrokset
 
@@ -142,7 +143,7 @@ Kerroksittain, niin että yhden pettäminen ei riitä vahinkoon:
 7. **Loki** jokaisesta poistosta tiedostoon, PID nimessä.
 8. **Roskakori** tyhjennetään `SHEmptyRecycleBin`-rajapinnalla, ei kansiota poistamalla.
 
-## 6. Tulevat moduulit – suunnitelma
+## 6. Moduulit 5–8
 
 ### 6.1 Käynnistysohjelmat (`startup`) – toteutettu
 

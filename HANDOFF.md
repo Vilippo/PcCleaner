@@ -217,8 +217,8 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
    listasi saman session). Haara yhdistetty `main`-haaraan 20.10.2026. ~~"Etsi jäänteet" yhä asennetulle
    ohjelmalle esivalitsee asennuskansion~~ korjattu 20.10.2026: kun Uninstall-avain on olemassa, mitään ei esivalita
    (`LeftoverScanner.ApplyInstalledRule`), kuvaus ja CLI kertovat syyn. ~~REQ-10:n prosessitarkistus ei koske
-   tiedostokohteita~~ korjattu 20.10.2026 (`RunningProcessCheck.FindRunningFile`, tarkka polkuvertailu). Avoimet huomiot: README:n rakennepuu ja ARCHITECTURE luvun 1 taulukko ovat
-   vanhentuneet. Seuraava: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner` päähakemistossa, jotta
+   tiedostokohteita~~ korjattu 20.10.2026 (`RunningProcessCheck.FindRunningFile`, tarkka polkuvertailu). Avoimet huomiot: ~~README:n rakennepuu ja ARCHITECTURE luvun 1 taulukko ovat
+   vanhentuneet~~ päivitetty 20.10.2026. Seuraava: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner` päähakemistossa, jotta
    työpöydän `PC Cleaner.lnk` käyttää uutta versiota (sulje sovellus ensin).
 
 ## Tunnetut puutteet / huomiot

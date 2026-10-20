@@ -7,13 +7,23 @@ Oma, modulaarinen siivousohjelma Windows 11:lle. C# / .NET 8.
 ```
 PcCleaner.sln
 ├── src/
-│   ├── Cleaner.Core/            Ydin: rajapinnat, säännöt, turvapalvelut, moottori. Ei UI:ta.
-│   ├── Cleaner.Modules.Files/   Tiedostosiivous + selainvälimuistit (sääntöpohjainen) + roskakori
-│   └── Cleaner.Cli/             Komentorivikäyttöliittymä
+│   ├── Cleaner.Core/               Ydin: ICleanerModule, mallit, säännöt (JSON), CleanerEngine, lokitus.
+│   │   └── Services/               PathGuard, SafeFileDeleter, PathExpander, ProcessChecker, ElevationHelper,
+│   │                               Quarantine, BackupSessions, Registry/ (RegistryBackup, RegistryGuard, RegistryPaths)
+│   ├── Cleaner.Modules.Files/      Tiedostosiivous + selainvälimuistit (rules/files.json, rules/browsers.json) + roskakori
+│   ├── Cleaner.Modules.Startup/    Käynnistysohjelmat: Run-avaimet, käynnistyskansiot, Task Scheduler
+│   ├── Cleaner.Modules.DiskUsage/  Levytilan analyysi (vain luku) + treemap-algoritmi
+│   ├── Cleaner.Modules.Registry/   Rekisterin puhdistus: orvot Uninstall-, tiedostopääte-, ProgId-, MUICache- ja MRU-merkinnät
+│   ├── Cleaner.Modules.Uninstall/  Ohjelman poisto: poisto-ohjelman ajo, jäännöshaku, karanteeni
+│   ├── Cleaner.Cli/                Komentorivi: scan, clean, modules, uninstall, restore (ModuleFactory)
+│   └── Cleaner.UI/                 WinUI 3 -sovellus PcCleaner.exe: MainWindow, ViewModels/, Services/ (UiModuleFactory)
 ├── tests/
-│   └── Cleaner.Tests/           xUnit-testit
+│   └── Cleaner.Tests/              xUnit-testit (moduulit, palvelut, karanteeni, treemap)
+├── tools/
+│   └── make-icon.ps1               Generoi sovelluskuvakkeen src/Cleaner.UI/Assets/PcCleaner.ico
 └── docs/
-    └── ARCHITECTURE.md          Tekninen määrittely
+    ├── ARCHITECTURE.md             Tekninen määrittely
+    └── plans/                      Toteutussuunnitelmat
 ```
 
 ## Vaatimukset
@@ -120,4 +130,4 @@ Katso kentät tiedostosta `docs/ARCHITECTURE.md`.
 
 1. Luo projekti `src/Cleaner.Modules.<Nimi>/`, viittaa `Cleaner.Core`-projektiin.
 2. Toteuta `ICleanerModule`.
-3. Rekisteröi moduuli `ModuleFactory.CreateAll`-metodissa (CLI) ja myöhemmin WinUI-sovelluksen vastaavassa.
+3. Rekisteröi moduuli `ModuleFactory.CreateAll`-metodissa (CLI) ja `UiModuleFactory.CreateAll`-metodissa (WinUI).
