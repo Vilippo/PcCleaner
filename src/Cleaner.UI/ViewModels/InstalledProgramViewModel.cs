@@ -12,6 +12,7 @@ public sealed class InstalledProgramViewModel
     public string Version => Program.Version ?? "";
     public string Publisher => Program.Publisher ?? "";
     public string SizeText => Program.EstimatedSizeBytes > 0 ? ByteFormatter.Format(Program.EstimatedSizeBytes) : "";
+    public string InstallDateText => Program.InstallDate?.ToString("d.M.yyyy") ?? "";
 
     public InstalledProgramViewModel(InstalledProgram program)
     {

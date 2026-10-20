@@ -12,4 +12,14 @@ public sealed record InstalledProgram(
     string? QuietUninstallString,
     string? DisplayIcon,
     long EstimatedSizeBytes,   // EstimatedSize (KB) * 1024, 0 jos puuttuu
-    bool IsMsi);               // WindowsInstaller == 1 tai UninstallString-exe on msiexec.exe
+    bool IsMsi,                // WindowsInstaller == 1 tai UninstallString-exe on msiexec.exe
+    DateOnly? InstallDate = null); // InstallDate-arvo (yyyyMMdd), null jos puuttuu tai ei jäsenny
+
+/// <summary>Ohjelmalistan järjestys (UI ja CLI käyttävät samaa).</summary>
+public enum ProgramSortOrder
+{
+    /// <summary>Nimen mukaan, kirjainkoosta riippumatta.</summary>
+    Name,
+    /// <summary>Asennuspäivä uusin ensin; ohjelmat ilman päivää listan loppuun nimen mukaan.</summary>
+    InstallDateDescending
+}

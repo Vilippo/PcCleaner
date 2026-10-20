@@ -30,6 +30,7 @@ var programValue = Values("--program").LastOrDefault();
 bool leftoversOnly = Flag("--leftovers-only");
 bool quiet = Flag("--quiet");
 bool all = Flag("--all");
+var sortValue = Values("--sort").LastOrDefault();
 var rulesDir = Values("--rules").FirstOrDefault()
                ?? Path.Combine(AppContext.BaseDirectory, "rules");
 
@@ -100,7 +101,16 @@ try
                 Console.Error.WriteLine("Uninstall-moduulia ei ole käytettävissä.");
                 return 2;
             }
-            var uninstallOptions = new UninstallCommandOptions(programValue, leftoversOnly, quiet, apply, all, yes, itemFilters);
+            ProgramSortOrder sort;
+            switch (sortValue?.ToLowerInvariant())
+            {
+                case null: case "name": case "nimi": sort = ProgramSortOrder.Name; break;
+                case "date": case "installdate": case "paiva": case "päivä": sort = ProgramSortOrder.InstallDateDescending; break;
+                default:
+                    Console.Error.WriteLine($"--sort hyväksyy arvot name tai date, sai '{sortValue}'.");
+                    return 2;
+            }
+            var uninstallOptions = new UninstallCommandOptions(programValue, leftoversOnly, quiet, apply, all, yes, itemFilters, sort);
             return await UninstallCommand.RunAsync(uninstallOptions, context, log, uninstallModule);
         }
 
@@ -263,7 +273,7 @@ static void PrintHelp()
           pccleaner clean  [valinnat]            Kuiva ajo: näytä mitä poistettaisiin
           pccleaner clean  --apply [valinnat]    Poista oikeasti (kysyy vahvistuksen)
           pccleaner restore [aikaleima]          Listaa varmuuskopiot (rekisteri + karanteeni) tai palauta yksi
-          pccleaner uninstall                    Listaa asennetut ohjelmat
+          pccleaner uninstall [--sort date]      Listaa asennetut ohjelmat (oletus nimen mukaan)
           pccleaner uninstall --program <nimi> [--leftovers-only] [--quiet] [--apply] [--all]
                                                  Aja poisto-ohjelma ja siirrä jäänteet karanteeniin
 
@@ -279,6 +289,7 @@ static void PrintHelp()
           --leftovers-only  uninstall: älä aja poisto-ohjelmaa, etsi vain jäänteet
           --quiet           uninstall: käytä hiljaista poistokomentoa, jos ohjelmalla on sellainen
           --all             uninstall --apply: siirrä kaikki jäänteet, ei vain esivalittuja (*)
+          --sort <name|date> uninstall: listan järjestys, date = asennuspäivä uusin ensin (päivättömät lopussa)
           --yes, -y         Älä kysy vahvistusta (ajastettuun ajoon)
           --verbose, -v     Näytä edistyminen ja yksityiskohtainen loki
 

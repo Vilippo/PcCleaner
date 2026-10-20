@@ -77,6 +77,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string ProgramFilter { get; set; }
 
+    /// <summary>Ohjelmalistan järjestys ComboBoxin indeksinä: 0 = nimi, 1 = asennuspäivä uusin ensin.</summary>
+    [ObservableProperty]
+    public partial int ProgramSortIndex { get; set; }
+
+    private ProgramSortOrder ProgramSort => ProgramSortIndex == 1 ? ProgramSortOrder.InstallDateDescending : ProgramSortOrder.Name;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(UninstallProgramCommand), nameof(ScanLeftoversCommand))]
     public partial InstalledProgramViewModel? SelectedProgram { get; set; }
@@ -448,13 +454,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     partial void OnProgramFilterChanged(string value) => ApplyProgramFilter();
 
+    partial void OnProgramSortIndexChanged(int value) => ApplyProgramFilter();
+
     private void ApplyProgramFilter()
     {
         var selectedKey = SelectedProgram?.Program.KeyPath;
         var filter = ProgramFilter.Trim();
 
         Programs.Clear();
-        foreach (var program in _allPrograms)
+        foreach (var program in InstalledProgramReader.Sort(_allPrograms, ProgramSort))
         {
             if (filter.Length == 0 ||
                 program.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||

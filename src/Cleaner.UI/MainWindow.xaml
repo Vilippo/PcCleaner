@@ -118,8 +118,21 @@
                     </StackPanel>
                     <!-- Ohjelman poisto: haku, ohjelmalista ja poistonapit -->
                     <StackPanel Visibility="{x:Bind ViewModel.IsUninstallSelected, Mode=OneWay}" Spacing="8" Margin="0,8,0,0">
-                        <TextBox PlaceholderText="Hae ohjelmaa nimellä tai julkaisijalla"
-                                 Text="{x:Bind ViewModel.ProgramFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" PlaceholderText="Hae ohjelmaa nimellä tai julkaisijalla"
+                                     Text="{x:Bind ViewModel.ProgramFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <ComboBox Grid.Column="1" MinWidth="220"
+                                      Header=""
+                                      SelectedIndex="{x:Bind ViewModel.ProgramSortIndex, Mode=TwoWay}"
+                                      ToolTipService.ToolTip="Listan järjestys">
+                                <ComboBoxItem Content="Nimi" />
+                                <ComboBoxItem Content="Asennuspäivä, uusin ensin" />
+                            </ComboBox>
+                        </Grid>
                         <ListView ItemsSource="{x:Bind ViewModel.Programs, Mode=OneWay}"
                                   SelectedItem="{x:Bind ViewModel.SelectedProgram, Mode=TwoWay}"
                                   MaxHeight="260"
@@ -134,6 +147,7 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="120" />
                                             <ColumnDefinition Width="200" />
+                                            <ColumnDefinition Width="80" />
                                             <ColumnDefinition Width="90" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis"
@@ -146,7 +160,12 @@
                                                    VerticalAlignment="Center"
                                                    Style="{StaticResource CaptionTextBlockStyle}"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <TextBlock Grid.Column="3" Text="{x:Bind SizeText}" HorizontalAlignment="Right"
+                                        <TextBlock Grid.Column="3" Text="{x:Bind InstallDateText}"
+                                                   VerticalAlignment="Center"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   ToolTipService.ToolTip="Asennuspäivä" />
+                                        <TextBlock Grid.Column="4" Text="{x:Bind SizeText}" HorizontalAlignment="Right"
                                                    VerticalAlignment="Center"
                                                    Style="{StaticResource CaptionTextBlockStyle}" />
                                     </Grid>

@@ -221,6 +221,8 @@ poisto-ohjelman, odottaa sen valmistumista ja etsii jäänteet. "Etsi jäänteet
 
 - `InstalledProgramReader` lukee Uninstall-juuret `HKLM\SOFTWARE\...\Uninstall`, `HKLM\SOFTWARE\WOW6432Node\...\Uninstall` ja
   `HKCU\Software\...\Uninstall`. Pois jäävät `SystemComponent = 1`, tyhjä `DisplayName` ja `ParentKeyName`-arvolliset päivitykset.
+  `InstallDate`-arvo (`yyyyMMdd`, myös `yyyy-MM-dd`) jäsennetään `DateOnly`-tyypiksi; `InstalledProgramReader.Sort` järjestää
+  listan nimen tai asennuspäivän mukaan (uusin ensin, päivättömät loppuun). UI:n ComboBox ja CLI:n `--sort` käyttävät sitä.
 - `UninstallRunner` ajaa `QuietUninstallString`-komennon hiljaisessa tilassa, muuten `UninstallString`. MSI-ohjelmalle se ajaa
   `msiexec /x {GUID}`, hiljaisena lisäksi `/qb-` (ei koskaan `/qn`). Se odottaa prosessin päättymistä ja kysyy sen jälkeen 2 s
   välein enintään 60 s, onko Uninstall-avain kadonnut (`KeyRemoved`). Peruutus lopettaa odotuksen eikä tapa poisto-ohjelmaa.

@@ -61,7 +61,8 @@ dotnet run -- clean --module startup --item "startup:hkcu-run:Spotify" --apply  
 dotnet run -- scan --module diskusage --path C:\Users\%USERNAME% --top 10         # suurimmat kansiot ja tiedostot
 dotnet run -- scan --module registry                                             # orvot rekisterimerkinnät (vain luku)
 dotnet run -- clean --module registry --item "registry:mru:" --apply              # tyhjennä MRU-listat, varmuuskopio ensin
-dotnet run -- uninstall                                                           # listaa asennetut ohjelmat
+dotnet run -- uninstall                                                           # listaa asennetut ohjelmat nimen mukaan
+dotnet run -- uninstall --sort date                                               # sama, asennuspäivä uusin ensin
 dotnet run -- uninstall --program "7-Zip"                                         # aja poisto-ohjelma, listaa jäänteet kuivana
 dotnet run -- uninstall --program "7-Zip" --quiet                                 # sama hiljaisella poistokomennolla
 dotnet run -- uninstall --program "7-Zip" --leftovers-only                        # vain jäänteiden haku, ei poisto-ohjelmaa

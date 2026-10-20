@@ -7,7 +7,7 @@ using Cleaner.Modules.Uninstall;
 namespace Cleaner.Cli;
 
 public sealed record UninstallCommandOptions(string? Program, bool LeftoversOnly, bool Quiet, bool Apply, bool All, bool Yes,
-    IReadOnlyList<string> ItemFilters);
+    IReadOnlyList<string> ItemFilters, ProgramSortOrder Sort = ProgramSortOrder.Name);
 
 /// <summary>
 /// pccleaner uninstall: listaa asennetut ohjelmat, tai valitulle ohjelmalle aja poisto-ohjelma,
@@ -18,7 +18,7 @@ public static class UninstallCommand
 {
     public static async Task<int> RunAsync(UninstallCommandOptions options, CleanerContext context, ICleanerLogger log, UninstallModule module)
     {
-        var programs = module.ListPrograms();
+        var programs = InstalledProgramReader.Sort(module.ListPrograms(), options.Sort);
 
         if (options.Program is null)
         {
@@ -148,11 +148,12 @@ public static class UninstallCommand
 
     private static void PrintPrograms(IReadOnlyList<InstalledProgram> programs)
     {
-        Console.WriteLine($"{"Nimi",-40} {"Versio",-16} {"Julkaisija",-30} {"Koko",10}  Avain");
+        Console.WriteLine($"{"Nimi",-40} {"Versio",-16} {"Julkaisija",-30} {"Asennettu",-10} {"Koko",10}  Avain");
         foreach (var p in programs)
         {
             var size = p.EstimatedSizeBytes > 0 ? ByteFormatter.Format(p.EstimatedSizeBytes) : "";
-            Console.WriteLine($"{Fit(p.Name, 40),-40} {Fit(p.Version ?? "", 16),-16} {Fit(p.Publisher ?? "", 30),-30} {size,10}  {p.KeyPath}");
+            var date = p.InstallDate?.ToString("yyyy-MM-dd") ?? "";
+            Console.WriteLine($"{Fit(p.Name, 40),-40} {Fit(p.Version ?? "", 16),-16} {Fit(p.Publisher ?? "", 30),-30} {date,-10} {size,10}  {p.KeyPath}");
         }
         Console.WriteLine($"({programs.Count} ohjelmaa)");
     }

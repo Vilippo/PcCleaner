@@ -72,10 +72,33 @@ public static class InstalledProgramReader
             QuietUninstallString: GetString(key, "QuietUninstallString"),
             DisplayIcon: GetString(key, "DisplayIcon"),
             EstimatedSizeBytes: sizeBytes,
-            IsMsi: isMsi);
+            IsMsi: isMsi,
+            InstallDate: ParseInstallDate(GetString(key, "InstallDate")));
     }
 
     private static string? GetString(RegistryKey key, string name) => key.GetValue(name) as string;
+
+    private static readonly string[] InstallDateFormats = { "yyyyMMdd", "yyyy-MM-dd", "yyyy/MM/dd", "yyyy.MM.dd" };
+
+    /// <summary>InstallDate on yleensä "yyyyMMdd"; muut yleiset muodot hyväksytään, muu → null.</summary>
+    public static DateOnly? ParseInstallDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var text = value.Trim();
+        return DateOnly.TryParseExact(text, InstallDateFormats, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var date) ? date : null;
+    }
+
+    /// <summary>Järjestää listan: nimen mukaan tai asennuspäivä uusin ensin (päivättömät loppuun nimen mukaan).</summary>
+    public static IReadOnlyList<InstalledProgram> Sort(IEnumerable<InstalledProgram> programs, ProgramSortOrder order) => order switch
+    {
+        ProgramSortOrder.InstallDateDescending => programs
+            .OrderBy(p => p.InstallDate is null ? 1 : 0)
+            .ThenByDescending(p => p.InstallDate ?? DateOnly.MinValue)
+            .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList(),
+        _ => programs.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList()
+    };
 
     private static string? CleanLocation(string? location)
     {
