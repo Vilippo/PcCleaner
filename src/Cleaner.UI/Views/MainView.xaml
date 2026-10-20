@@ -135,8 +135,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Oma otsikkopalkki: raahausalue (MainWindow.SetTitleBar), läpinäkyvä jotta Mica näkyy (REQ-12). -->
-        <Grid x:Name="AppTitleBar" x:FieldModifier="public" Grid.Row="0" Height="36" Background="Transparent">
+        <!-- Oma otsikkopalkki: raahausalue (MainWindow.SetTitleBar), sama puoliläpinäkyvä pintasävy kuin paneelilla Mican päällä (REQ-12). -->
+        <Grid x:Name="AppTitleBar" x:FieldModifier="public" Grid.Row="0" Height="36" Background="{ThemeResource AppPaneBackgroundBrush}">
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,0,0,0" VerticalAlignment="Center">
                 <Image Width="16" Height="16" Source="{x:Bind IconSource}" VerticalAlignment="Center" />
                 <TextBlock Text="{x:Bind ViewModel.TitleText, Mode=OneWay}"
@@ -543,34 +543,6 @@
                         <!-- Tyhjä tila (REQ-15) ja kategoriakortit (REQ-16) jakavat saman rivin; tyhjä tila näkyy vain
                              ennen ensimmäistä skannausta, jolloin kortteja ei ole. -->
                         <Grid Grid.Row="2" Margin="0,12,0,0">
-                            <StackPanel HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Spacing="12"
-                                        Visibility="{x:Bind EmptyStateVisibility(ViewModel.SelectedModule.ShowEmptyState, ViewModel.IsIdle), Mode=OneWay}">
-                                <FontIcon Glyph="{x:Bind ViewModel.SelectedModule.Glyph, Mode=OneWay}"
-                                          FontSize="40"
-                                          HorizontalAlignment="Center"
-                                          Foreground="{ThemeResource AppTextTertiaryBrush}" />
-                                <TextBlock Text="{x:Bind ViewModel.T.EmptyStateTitle, Mode=OneWay}"
-                                           HorizontalAlignment="Center"
-                                           FontFamily="{ThemeResource AppHeadingFontFamily}"
-                                           FontSize="18" FontWeight="SemiBold"
-                                           Foreground="{ThemeResource AppTextPrimaryBrush}" />
-                                <TextBlock Text="{x:Bind ViewModel.T.EmptyStateBody, Mode=OneWay}"
-                                           HorizontalAlignment="Center"
-                                           MaxWidth="420"
-                                           TextWrapping="Wrap"
-                                           TextAlignment="Center"
-                                           FontFamily="{ThemeResource AppBodyFontFamily}"
-                                           FontSize="13"
-                                           Foreground="{ThemeResource AppTextSecondaryBrush}" />
-                                <Button Content="{x:Bind ViewModel.T.Scan, Mode=OneWay}"
-                                        HorizontalAlignment="Center"
-                                        MinWidth="140"
-                                        Style="{StaticResource AccentButtonStyle}"
-                                        Command="{x:Bind ViewModel.ScanCommand}" />
-                            </StackPanel>
-
                             <ScrollViewer>
                                 <StackPanel>
 
@@ -631,6 +603,35 @@
                                                Foreground="{ThemeResource AppTextSecondaryBrush}" />
                                 </StackPanel>
                             </ScrollViewer>
+
+                            <!-- Tyhjä tila on ScrollViewerin jälkeen, jotta se on päällimmäisenä: ScrollViewerin läpinäkyvä tausta nielaisisi muuten Skannaa-napin klikkaukset. -->
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Spacing="12"
+                                        Visibility="{x:Bind EmptyStateVisibility(ViewModel.SelectedModule.ShowEmptyState, ViewModel.IsIdle), Mode=OneWay}">
+                                <FontIcon Glyph="{x:Bind ViewModel.SelectedModule.Glyph, Mode=OneWay}"
+                                          FontSize="40"
+                                          HorizontalAlignment="Center"
+                                          Foreground="{ThemeResource AppTextTertiaryBrush}" />
+                                <TextBlock Text="{x:Bind ViewModel.T.EmptyStateTitle, Mode=OneWay}"
+                                           HorizontalAlignment="Center"
+                                           FontFamily="{ThemeResource AppHeadingFontFamily}"
+                                           FontSize="18" FontWeight="SemiBold"
+                                           Foreground="{ThemeResource AppTextPrimaryBrush}" />
+                                <TextBlock Text="{x:Bind ViewModel.T.EmptyStateBody, Mode=OneWay}"
+                                           HorizontalAlignment="Center"
+                                           MaxWidth="420"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"
+                                           FontFamily="{ThemeResource AppBodyFontFamily}"
+                                           FontSize="13"
+                                           Foreground="{ThemeResource AppTextSecondaryBrush}" />
+                                <Button Content="{x:Bind ViewModel.T.Scan, Mode=OneWay}"
+                                        HorizontalAlignment="Center"
+                                        MinWidth="140"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        Command="{x:Bind ViewModel.ScanCommand}" />
+                            </StackPanel>
                         </Grid>
                     </Grid>
 

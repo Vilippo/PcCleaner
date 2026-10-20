@@ -101,7 +101,7 @@ public static class Appearance
         return Fonts.FirstOrDefault(f => string.Equals(f.Id, key, StringComparison.OrdinalIgnoreCase)) ?? DefaultFont;
     }
 
-    /// <summary>Paletin ikkuna- ja exe-kuvakkeen tiedostonimi Assets-kansiossa.</summary>
+    /// <summary>Paletin ikkuna- ja tehtäväpalkkikuvakkeen tiedostonimi Assets-kansiossa.</summary>
     public static string IconFileName(Palette palette) => $"PcCleaner-{palette.Id}.ico";
 
     /// <summary>

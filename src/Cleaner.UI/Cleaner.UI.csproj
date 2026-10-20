@@ -8,7 +8,7 @@
     <RootNamespace>Cleaner.UI</RootNamespace>
     <AssemblyName>PcCleaner</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <!-- Exen kuvake (Resurssienhallinta, tehtäväpalkki). Generoitu: tools\make-icon.ps1 -->
+    <!-- Exen kuvake (Resurssienhallinta), aina mint. Generoitu: tools\make-icon.ps1 -->
     <ApplicationIcon>Assets\PcCleaner.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <!-- Ilman tätä "dotnet publish src\Cleaner.UI" ajaa AnyCPU-alustalla, jolloin XAML- ja PRI-vaiheet jäävät pois

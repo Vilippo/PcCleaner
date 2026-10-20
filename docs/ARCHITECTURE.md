@@ -410,11 +410,13 @@ Turvamekanismit:
   (DiskUsage-projekti, puhdas laskenta, testattu) antaa suorakulmiot, `MainView` piirtää ne Canvasille Border-lohkoina:
   nimi ja koko, ToolTip, napsautus avaa alikansion, "Ylös" palaa. Useampi asema yhdistetään `DirectoryNode.Combine`-solmuksi.
 - Julkaisu: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner`. Csproj asettaa `Platform=x64`-oletuksen
-  (muuten XAML/PRI-vaiheet jäävät pois) ja kopioi `PcCleaner.pri`- ja `.xbf`-tiedostot julkaisukansioon
-  (`CopyPriAndXbfToPublishDir`), koska publish ei tee sitä pakkaamattomalle sovellukselle.
+  (muuten XAML/PRI-vaiheet jäävät pois). Kohde `CopyPriAndXbfToPublishDir` kopioi julkaisukansioon
+  `PcCleaner.pri`-tiedoston, kaikki `*.xbf`-tiedostot alikansioineen (`Views\MainView.xbf`) ja `Assets\**`-tiedostot,
+  koska publish ei tee sitä pakkaamattomalle sovellukselle.
 - Kuvake: `tools\make-icon.ps1` piirtää sen System.Drawing-kirjastolla (PNG-pakatut merkinnät 16–256 px), yksi
-  kuvake jokaiselle paletille (ks. 7.1). `<ApplicationIcon>` antaa exe-kuvakkeen `PcCleaner.ico`; otsikko- ja
-  tehtäväpalkin kuvake asetetaan `AppWindow.SetIcon`-kutsulla tiedostosta, joka kopioidaan exen viereen (`Content`).
+  kuvake jokaiselle paletille (ks. 7.1). `<ApplicationIcon>` antaa exe-kuvakkeen `PcCleaner.ico`. Otsikkopalkin kuvake on
+  MainView'n oman otsikkopalkin Image (`ms-appx:///Assets/PcCleaner-<id>.ico`). `AppWindow.SetIcon` asettaa
+  tehtäväpalkin ja ikkunan kuvakkeen tiedostosta exen vieressä.
 - Ei vielä: MSIX. Rivikohtainen admin-harmaannus puuttuu, koska `CleanItem` ei kanna admin-lippua; moduulitason vihje on.
 
 ### 7.1 Ulkoasu
@@ -429,7 +431,9 @@ Turvamekanismit:
 - Fontit: Bahnschrift ja Segoe UI Variable kuuluvat Windows 11:een. Inter 4.1 pakataan sovellukseen tiedostona
   `Assets/Fonts/InterVariable.ttf` (muuttuva fontti, viittaus `ms-appx:///Assets/Fonts/InterVariable.ttf#Inter`)
   lisenssin `LICENSE-Inter.txt` (SIL Open Font License 1.1) kanssa. WinUI:n oletusglob `Assets/**/*.*` kopioi
-  molemmat build- ja publish-kansioon ilman csproj-rivejä.
+  molemmat build-kansioon ilman csproj-rivejä. `dotnet publish` tarvitsee csproj-kohteen
+  `CopyPriAndXbfToPublishDir`, joka kopioi `PcCleaner.pri`-tiedoston, kaikki `*.xbf`-tiedostot alikansioineen
+  (`Views\MainView.xbf`) ja `Assets\**`-tiedostot julkaisukansioon.
 - `Appearance.Apply(palette, font)` rakentaa `ResourceDictionary`-olion ja vaihtaa sen
   `Application.Current.Resources.MergedDictionaries`-listaan. Edellisen kutsun sanakirja poistetaan ennen uuden
   lisäämistä. Teemasanakirjat ovat `Default` (tumma), `Light` ja `HighContrast`, joten vaalea/tumma seuraa Windowsin
@@ -469,9 +473,11 @@ Turvamekanismit:
   `PcCleaner.ico`.
 - Mica ja otsikkopalkki: `MainWindow` asettaa `SystemBackdrop = new MicaBackdrop()` ja
   `ExtendsContentIntoTitleBar = true`. MainView'n otsikkopalkki (36 px, `AppTitleBar`, paletin kuvake 16 px ja
-  `TitleText`) on raahausalue (`SetTitleBar`). Navigointipaneelin tausta `AppPaneBackgroundBrush` on 70 % peittävä
-  Mican päällä. Kun `MicaController.IsSupported()` on false, Micaa ei aseteta ja näkymän juuren tausta on
-  `AppContentBackgroundBrush`.
+  `TitleText`) on raahausalue (`SetTitleBar`). Navigointipaneelin tausta tulee siitä, että `Appearance`
+  ohittaa WinUI:n avaimet `NavigationViewDefaultPaneBackground` ja `NavigationViewExpandedPaneBackground` paletin
+  PaneBackground-värillä (70 % peittävä Mican päällä). Otsikkopalkki käyttää samaa väriä avaimella
+  `AppPaneBackgroundBrush`, joten ne näkyvät yhtenä pintana. Kun `MicaController.IsSupported()` on false, Micaa ei
+  aseteta ja näkymän juuren tausta on `AppContentBackgroundBrush`.
 - Lokipaneeli: `SplitView` oikealla (`PanePlacement=Right`, `DisplayMode=Overlay`, 420 px). Alapalkin lokinappi avaa
   ja sulkee sen. Paneelissa on otsikko, sulkemisnappi, lokirivit Mono-fontilla 12 px, Tyhjennä-nappi ja
   lokitiedoston polku.

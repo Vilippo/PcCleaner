@@ -84,8 +84,12 @@ public sealed partial class MainView : UserControl
         FontRadios.ItemsSource = null;
     }
 
-    /// <summary>Kielen vaihto: otsikkopalkin teksti päivittyy x:Bind-sidonnalla, treemap piirretään uudelleen.</summary>
-    public void RefreshLanguage() => DrawTreemap();
+    /// <summary>Kielen vaihto: otsikkopalkin teksti päivittyy x:Bind-sidonnalla, treemap ja asetuskohde päivitetään tässä.</summary>
+    public void RefreshLanguage()
+    {
+        LocalizeSettingsItem();
+        DrawTreemap();
+    }
 
     /// <summary>Lokipaneeli auki tai kiinni (REQ-18).</summary>
     public void ToggleLog() => LogSplitView.IsPaneOpen = !LogSplitView.IsPaneOpen;
@@ -130,6 +134,20 @@ public sealed partial class MainView : UserControl
         Nav.SelectedItem = ViewModel.IsSettingsSelected
             ? Nav.SettingsItem
             : ViewModel.SelectedModule ?? ViewModel.Modules.FirstOrDefault();
+        LocalizeSettingsItem();
+    }
+
+    /// <summary>
+    /// REQ-21: WinUI antaa asetuskohteen tekstin Windowsin näyttökielellä, joten se korvataan sovelluksen kielellä.
+    /// Työkaluvihje korvataan vain, jos WinUI on asettanut sen (paneeli kiinni); auki olevalla paneelilla sitä ei ole.
+    /// Ennen mallin soveltamista SettingsItem on null, jolloin ei tehdä mitään.
+    /// </summary>
+    private void LocalizeSettingsItem()
+    {
+        if (Nav.SettingsItem is not NavigationViewItem settings) return;
+        settings.Content = ViewModel.T.SettingsTitle;
+        if (ToolTipService.GetToolTip(settings) is not null)
+            ToolTipService.SetToolTip(settings, ViewModel.T.SettingsTitle);
     }
 
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
