@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Modules.Startup;
 
@@ -74,7 +75,7 @@ internal static class TaskSchedulerSource
     private static dynamic CreateService()
     {
         var type = Type.GetTypeFromProgID("Schedule.Service")
-                   ?? throw new InvalidOperationException("Task Scheduler -palvelua (Schedule.Service) ei löydy.");
+                   ?? throw new InvalidOperationException(Loc.T("Task Scheduler service (Schedule.Service) not found.", "Task Scheduler -palvelua (Schedule.Service) ei löydy."));
         dynamic service = Activator.CreateInstance(type)!;
         service.Connect();
         return service;
@@ -99,7 +100,7 @@ internal static class TaskSchedulerSource
         for (int j = 1; j <= count; j++)
         {
             dynamic action = actions.Item(j);
-            if ((int)action.Type != TaskActionExec) { parts.Add("(muu kuin ohjelman käynnistys)"); continue; }
+            if ((int)action.Type != TaskActionExec) { parts.Add(Loc.T("(not a program launch)", "(muu kuin ohjelman käynnistys)")); continue; }
             string path = action.Path ?? "";
             string args = action.Arguments ?? "";
             parts.Add(string.IsNullOrWhiteSpace(args) ? path : $"{path} {args}");

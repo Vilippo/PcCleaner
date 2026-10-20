@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using Cleaner.Core.Localization;
 using Microsoft.Win32;
 
 namespace Cleaner.Modules.Startup;
@@ -24,7 +25,7 @@ public enum StartupSourceKind
 [SupportedOSPlatform("windows")]
 public sealed record StartupSource(
     string Key,
-    string DisplayName,
+    LocalizedText DisplayName,
     StartupSourceKind Kind,
     RegistryHive Hive,
     string Location,
@@ -40,16 +41,16 @@ public sealed record StartupSource(
     /// <summary>Windowsin vakiolähteet samassa järjestyksessä kuin Tehtävienhallinta ne näyttää.</summary>
     public static IReadOnlyList<StartupSource> Defaults() => new[]
     {
-        new StartupSource("hkcu-run", "Rekisteri, käyttäjä (HKCU Run)",
+        new StartupSource("hkcu-run", new LocalizedText("Registry, current user (HKCU Run)", "Rekisteri, käyttäjä (HKCU Run)"),
             StartupSourceKind.RegistryRun, RegistryHive.CurrentUser, RunSubKey, ApprovedRunSubKey, RequiresAdmin: false),
-        new StartupSource("hklm-run", "Rekisteri, kaikki käyttäjät (HKLM Run)",
+        new StartupSource("hklm-run", new LocalizedText("Registry, all users (HKLM Run)", "Rekisteri, kaikki käyttäjät (HKLM Run)"),
             StartupSourceKind.RegistryRun, RegistryHive.LocalMachine, RunSubKey, ApprovedRunSubKey, RequiresAdmin: true),
-        new StartupSource("hklm-run32", "Rekisteri, 32-bittiset (HKLM Wow6432Node Run)",
+        new StartupSource("hklm-run32", new LocalizedText("Registry, 32-bit (HKLM Wow6432Node Run)", "Rekisteri, 32-bittiset (HKLM Wow6432Node Run)"),
             StartupSourceKind.RegistryRun, RegistryHive.LocalMachine, Run32SubKey, ApprovedRun32SubKey, RequiresAdmin: true),
-        new StartupSource("folder-user", "Käynnistyskansio, käyttäjä",
+        new StartupSource("folder-user", new LocalizedText("Startup folder, current user", "Käynnistyskansio, käyttäjä"),
             StartupSourceKind.Folder, RegistryHive.CurrentUser,
             Environment.GetFolderPath(Environment.SpecialFolder.Startup), ApprovedFolderSubKey, RequiresAdmin: false),
-        new StartupSource("folder-common", "Käynnistyskansio, kaikki käyttäjät",
+        new StartupSource("folder-common", new LocalizedText("Startup folder, all users", "Käynnistyskansio, kaikki käyttäjät"),
             StartupSourceKind.Folder, RegistryHive.LocalMachine,
             Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup), ApprovedFolderSubKey, RequiresAdmin: true),
     };

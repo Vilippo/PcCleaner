@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Cleaner.Core.Abstractions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 using Microsoft.Win32;
 
@@ -18,8 +19,8 @@ namespace Cleaner.Modules.Startup;
 public sealed class StartupModule : ICleanerModule
 {
     public string Id => "startup";
-    public string DisplayName => "Käynnistysohjelmat";
-    public string Description => "Poistaa käytöstä kirjautuessa käynnistyvät ohjelmat. Ei poista mitään.";
+    public string DisplayName => Loc.T("Startup programs", "Käynnistysohjelmat");
+    public string Description => Loc.T("Disables programs that start at sign-in. Does not delete anything.", "Poistaa käytöstä kirjautuessa käynnistyvät ohjelmat. Ei poista mitään.");
     public RiskLevel Risk => RiskLevel.Medium;
     public bool RequiresAdmin => false;
 
@@ -28,7 +29,7 @@ public sealed class StartupModule : ICleanerModule
 
     private const string IdPrefix = "startup";
     private const string TaskSourceKey = "task";
-    private const string TaskCategory = "Ajoitetut tehtävät (kirjautuminen)";
+    private static string TaskCategory => Loc.T("Scheduled tasks (logon)", "Ajoitetut tehtävät (kirjautuminen)");
 
     private readonly Dictionary<string, StartupSource> _sources;
     private readonly bool _includeScheduledTasks;
@@ -60,7 +61,7 @@ public sealed class StartupModule : ICleanerModule
         foreach (var source in _sources.Values)
         {
             ct.ThrowIfCancellationRequested();
-            context.Report((int)(100.0 * step++ / total), source.DisplayName);
+            context.Report((int)(100.0 * step++ / total), source.DisplayName.ToString());
 
             try
             {
@@ -69,14 +70,14 @@ public sealed class StartupModule : ICleanerModule
                 {
                     if (IsDisabled(source, entry.Name))
                     {
-                        context.Logger.Debug($"{source.DisplayName}: '{entry.Name}' on jo pois käytöstä.");
+                        context.Logger.Debug(Loc.T($"{source.DisplayName}: '{entry.Name}' is already disabled.", $"{source.DisplayName}: '{entry.Name}' on jo pois käytöstä."));
                         continue;
                     }
 
                     result.Items.Add(new CleanItem(
                         Id: MakeItemId(source.Key, entry.Name),
                         ModuleId: Id,
-                        Category: source.DisplayName,
+                        Category: source.DisplayName.ToString(),
                         Path: entry.Location,
                         SizeBytes: 0,
                         Description: entry.Command,
@@ -85,7 +86,7 @@ public sealed class StartupModule : ICleanerModule
             }
             catch (Exception ex)
             {
-                var msg = $"{source.DisplayName}: lukeminen epäonnistui: {ex.Message}";
+                var msg = Loc.T($"{source.DisplayName}: reading failed: {ex.Message}", $"{source.DisplayName}: lukeminen epäonnistui: {ex.Message}");
                 context.Logger.Warning(msg);
                 result.Errors.Add(msg);
             }
@@ -112,7 +113,7 @@ public sealed class StartupModule : ICleanerModule
             }
             catch (Exception ex)
             {
-                var msg = $"{TaskCategory}: lukeminen epäonnistui: {ex.Message}";
+                var msg = Loc.T($"{TaskCategory}: reading failed: {ex.Message}", $"{TaskCategory}: lukeminen epäonnistui: {ex.Message}");
                 context.Logger.Warning(msg);
                 result.Errors.Add(msg);
             }
@@ -134,20 +135,20 @@ public sealed class StartupModule : ICleanerModule
                         Category: StoreStartupTaskSource.Category,
                         Path: _storeTasks.RegistryPath(task.PackageFamily, task.TaskId),
                         SizeBytes: 0,
-                        Description: $"{task.DisplayName} ({task.PackageFamily}, tehtävä {task.TaskId})",
+                        Description: Loc.T($"{task.DisplayName} ({task.PackageFamily}, task {task.TaskId})", $"{task.DisplayName} ({task.PackageFamily}, tehtävä {task.TaskId})"),
                         Risk: RiskLevel.Medium));
                 }
             }
             catch (Exception ex)
             {
-                var msg = $"{StoreStartupTaskSource.Category}: lukeminen epäonnistui: {ex.Message}";
+                var msg = Loc.T($"{StoreStartupTaskSource.Category}: reading failed: {ex.Message}", $"{StoreStartupTaskSource.Category}: lukeminen epäonnistui: {ex.Message}");
                 context.Logger.Warning(msg);
                 result.Errors.Add(msg);
             }
         }
 
-        context.Report(100, "Valmis");
-        context.Logger.Info($"{DisplayName}: löytyi {result.Count} käytössä olevaa kohdetta");
+        context.Report(100, Loc.T("Done", "Valmis"));
+        context.Logger.Info(Loc.T($"{DisplayName}: found {result.Count} enabled items", $"{DisplayName}: löytyi {result.Count} käytössä olevaa kohdetta"));
         return result;
     }
 
@@ -218,13 +219,13 @@ public sealed class StartupModule : ICleanerModule
 
             if (!string.Equals(item.ModuleId, Id, StringComparison.OrdinalIgnoreCase))
             {
-                result.Skipped.Add((item, "Kohde ei kuulu tälle moduulille"));
+                result.Skipped.Add((item, Loc.T("Item does not belong to this module", "Kohde ei kuulu tälle moduulille")));
                 continue;
             }
 
             if (!TryParseItemId(item.Id, out var sourceKey, out var name))
             {
-                result.Skipped.Add((item, "Virheellinen tunniste"));
+                result.Skipped.Add((item, Loc.T("Invalid item id", "Virheellinen tunniste")));
                 continue;
             }
 
@@ -237,12 +238,14 @@ public sealed class StartupModule : ICleanerModule
             else
             {
                 result.Skipped.Add((item, reason));
-                context.Logger.Warning($"Ohitettu {item.Path}: {reason}");
+                context.Logger.Warning(Loc.T($"Skipped {item.Path}: {reason}", $"Ohitettu {item.Path}: {reason}"));
             }
         }
 
-        context.Report(100, "Valmis");
-        context.Logger.Info($"{DisplayName}: {(context.DryRun ? "poistettaisiin käytöstä" : "poistettiin käytöstä")} {result.Removed.Count} kohdetta, ohitettu {result.Skipped.Count}");
+        context.Report(100, Loc.T("Done", "Valmis"));
+        context.Logger.Info(Loc.T(
+            $"{DisplayName}: {(context.DryRun ? "would disable" : "disabled")} {result.Removed.Count} items, skipped {result.Skipped.Count}",
+            $"{DisplayName}: {(context.DryRun ? "poistettaisiin käytöstä" : "poistettiin käytöstä")} {result.Removed.Count} kohdetta, ohitettu {result.Skipped.Count}"));
         return result;
     }
 
@@ -250,25 +253,27 @@ public sealed class StartupModule : ICleanerModule
     {
         if (!_sources.TryGetValue(sourceKey, out var source))
         {
-            reason = $"Tuntematon lähde '{sourceKey}'";
+            reason = Loc.T($"Unknown source '{sourceKey}'", $"Tuntematon lähde '{sourceKey}'");
             return false;
         }
 
         if (source.RequiresAdmin && !context.IsElevated)
         {
-            reason = "Tarvitsee järjestelmänvalvojan oikeudet";
+            reason = Loc.T("Requires administrator rights", "Tarvitsee järjestelmänvalvojan oikeudet");
             return false;
         }
 
         if (!EntryExists(source, name))
         {
-            reason = "Kohdetta ei enää ole";
+            reason = Loc.T("Item no longer exists", "Kohdetta ei enää ole");
             return false;
         }
 
         if (context.DryRun)
         {
-            context.Logger.Debug($"[KUIVA] Poistettaisiin käytöstä: {source.HiveLabel}\\{source.ApprovedSubKey}\\{name}");
+            context.Logger.Debug(Loc.T(
+                $"[DRY RUN] Would disable: {source.HiveLabel}\\{source.ApprovedSubKey}\\{name}",
+                $"[KUIVA] Poistettaisiin käytöstä: {source.HiveLabel}\\{source.ApprovedSubKey}\\{name}"));
             reason = "";
             return true;
         }
@@ -278,13 +283,13 @@ public sealed class StartupModule : ICleanerModule
             using var baseKey = RegistryKey.OpenBaseKey(source.Hive, RegistryView.Default);
             using var key = baseKey.CreateSubKey(source.ApprovedSubKey, writable: true);
             key.SetValue(name, StartupApproved.BuildDisabledValue(now), RegistryValueKind.Binary);
-            context.Logger.Info($"Poistettu käytöstä: {source.DisplayName} / {name}");
+            context.Logger.Info(Loc.T($"Disabled: {source.DisplayName} / {name}", $"Poistettu käytöstä: {source.DisplayName} / {name}"));
             reason = "";
             return true;
         }
         catch (UnauthorizedAccessException)
         {
-            reason = "Ei oikeuksia";
+            reason = Loc.T("Access denied", "Ei oikeuksia");
         }
         catch (Exception ex)
         {
@@ -297,13 +302,13 @@ public sealed class StartupModule : ICleanerModule
     {
         if (!TaskSchedulerSource.Exists(taskPath))
         {
-            reason = "Tehtävää ei enää ole";
+            reason = Loc.T("Task no longer exists", "Tehtävää ei enää ole");
             return false;
         }
 
         if (context.DryRun)
         {
-            context.Logger.Debug($"[KUIVA] Poistettaisiin käytöstä ajoitettu tehtävä: {taskPath}");
+            context.Logger.Debug(Loc.T($"[DRY RUN] Would disable scheduled task: {taskPath}", $"[KUIVA] Poistettaisiin käytöstä ajoitettu tehtävä: {taskPath}"));
             reason = "";
             return true;
         }
@@ -311,13 +316,13 @@ public sealed class StartupModule : ICleanerModule
         try
         {
             TaskSchedulerSource.Disable(taskPath);
-            context.Logger.Info($"Poistettu käytöstä ajoitettu tehtävä: {taskPath}");
+            context.Logger.Info(Loc.T($"Disabled scheduled task: {taskPath}", $"Poistettu käytöstä ajoitettu tehtävä: {taskPath}"));
             reason = "";
             return true;
         }
         catch (UnauthorizedAccessException)
         {
-            reason = "Ei oikeuksia (tehtävä vaatii järjestelmänvalvojan)";
+            reason = Loc.T("Access denied (task requires administrator)", "Ei oikeuksia (tehtävä vaatii järjestelmänvalvojan)");
         }
         catch (Exception ex)
         {
@@ -330,35 +335,35 @@ public sealed class StartupModule : ICleanerModule
     {
         if (_storeTasks is null)
         {
-            reason = "StartupTask-lähde ei ole käytössä";
+            reason = Loc.T("StartupTask source is not enabled", "StartupTask-lähde ei ole käytössä");
             return false;
         }
         if (!StoreStartupTaskSource.TryParseName(name, out var family, out var taskId))
         {
-            reason = "Virheellinen tunniste";
+            reason = Loc.T("Invalid item id", "Virheellinen tunniste");
             return false;
         }
 
         var state = _storeTasks.GetState(family, taskId);
         if (state is null)
         {
-            reason = "Kohdetta ei enää ole";
+            reason = Loc.T("Item no longer exists", "Kohdetta ei enää ole");
             return false;
         }
         if (state == StoreStartupTaskSource.TaskState.EnabledByPolicy)
         {
-            reason = "Käytäntö pakottaa käyttöön";
+            reason = Loc.T("Enabled by policy", "Käytäntö pakottaa käyttöön");
             return false;
         }
         if (state != StoreStartupTaskSource.TaskState.Enabled)
         {
-            reason = "On jo pois käytöstä";
+            reason = Loc.T("Already disabled", "On jo pois käytöstä");
             return false;
         }
 
         if (context.DryRun)
         {
-            context.Logger.Debug($"[KUIVA] Poistettaisiin käytöstä StartupTask: {family} / {taskId}");
+            context.Logger.Debug(Loc.T($"[DRY RUN] Would disable StartupTask: {family} / {taskId}", $"[KUIVA] Poistettaisiin käytöstä StartupTask: {family} / {taskId}"));
             reason = "";
             return true;
         }
@@ -366,13 +371,13 @@ public sealed class StartupModule : ICleanerModule
         try
         {
             _storeTasks.Disable(family, taskId);
-            context.Logger.Info($"Poistettu käytöstä StartupTask: {family} / {taskId}");
+            context.Logger.Info(Loc.T($"Disabled StartupTask: {family} / {taskId}", $"Poistettu käytöstä StartupTask: {family} / {taskId}"));
             reason = "";
             return true;
         }
         catch (UnauthorizedAccessException)
         {
-            reason = "Ei oikeuksia";
+            reason = Loc.T("Access denied", "Ei oikeuksia");
         }
         catch (Exception ex)
         {

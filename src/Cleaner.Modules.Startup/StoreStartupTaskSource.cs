@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
+using Cleaner.Core.Localization;
 using Microsoft.Win32;
 
 namespace Cleaner.Modules.Startup;
@@ -19,7 +20,7 @@ namespace Cleaner.Modules.Startup;
 public sealed class StoreStartupTaskSource
 {
     public const string Key = "storetask";
-    public const string Category = "Store-sovellukset (StartupTask)";
+    public static string Category => Loc.T("Store apps (StartupTask)", "Store-sovellukset (StartupTask)");
     public const string StateValueName = "State";
     public const string DefaultSystemAppDataSubKey =
         @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData";
@@ -133,7 +134,7 @@ public sealed class StoreStartupTaskSource
     private void WriteState(string packageFamily, string taskId, TaskState state)
     {
         using var key = Registry.CurrentUser.OpenSubKey($@"{_systemAppDataSubKey}\{packageFamily}\{taskId}", writable: true)
-            ?? throw new IOException("Avainta ei ole.");
+            ?? throw new IOException(Loc.T("Key does not exist.", "Avainta ei ole."));
         key.SetValue(StateValueName, (int)state, RegistryValueKind.DWord);
     }
 
