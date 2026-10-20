@@ -6,6 +6,34 @@ Modulaarinen siivousohjelma Windows 11:lle. C# / .NET 8. Graafinen WinUI 3 -sove
 PC Cleaner on julkinen avoimen lähdekoodin projekti (https://github.com/Vilippo/PcCleaner), MIT-lisenssi.
 Ohjelma toimii englanniksi ja suomeksi.
 
+## Lataus ja asennus
+
+1. Lataa `PcCleaner-<versio>-win-x64.zip` [uusimmasta julkaisusta](https://github.com/Vilippo/PcCleaner/releases/latest).
+2. Pura koko zip haluamaasi kansioon, esimerkiksi `C:\Tools\PcCleaner`. Pidä kaikki tiedostot yhdessä: ohjelma
+   tarvitsee exen vieressä olevat tiedostot.
+3. Käynnistä `PcCleaner.exe`.
+
+Vaatimukset: 64-bittinen Windows 11 tai Windows 10:n versio 2004 tai uudempi. Muuta ei tarvitse asentaa: .NET-ajonaika
+ja Windows App SDK ovat paketissa mukana.
+
+Ensimmäisellä käynnistyskerralla:
+
+- Windows kysyy järjestelmänvalvojan oikeudet (UAC) joka kerta. Sovellus tarvitsee ne järjestelmäkansioihin ja
+  HKLM-rekisteriavaimiin.
+- Exe ei ole allekirjoitettu, joten Microsoft Defender SmartScreen voi näyttää ilmoituksen "Windows suojasi
+  tietokonettasi". Valitse "Lisätietoja" ja sitten "Suorita silti". Jos haluat tarkistaa latauksen ensin,
+  julkaisutiedoissa on zipin SHA-256-tiiviste (`Get-FileHash .\PcCleaner-<versio>-win-x64.zip`).
+
+Mitään ei poisteta ennen vahvistustasi, ja jokainen siivous alkaa kuivalla ajolla. Katso
+[Turvallisuusperiaatteet](#turvallisuusperiaatteet). Tekoälyavustaja on vapaaehtoinen ja tarvitsee oman
+Anthropic-API-avaimesi, katso [Tekoälyavustaja](#tekoälyavustaja).
+
+Sovellus tallentaa tietonsa kansioon `%LOCALAPPDATA%\PcCleaner`: `settings.json`, `logs`, `quarantine` ja
+`registry-backups`. Poista ohjelma poistamalla sen kansio. Poista myös `%LOCALAPPDATA%\PcCleaner`, jos et tarvitse
+lokeja tai varmuuskopioita.
+
+Julkaisussa on vain graafinen sovellus. Komentoriviä varten käännä ohjelma lähdekoodista (ks. alla).
+
 ## Rakenne
 
 ```
@@ -32,8 +60,7 @@ PcCleaner.sln
 │   ├── make-icon.ps1               Generoi palettikohtaiset kuvakkeet PcCleaner-<paletti>.ico ja PcCleaner.ico/.png (mint)
 │   └── snap-window.py              Ottaa sovellusikkunasta kuvakaappauksen PrintWindow-kutsulla
 └── docs/
-    ├── ARCHITECTURE.md             Tekninen määrittely
-    └── plans/                      Toteutussuunnitelmat
+    └── ARCHITECTURE.md             Tekninen määrittely
 ```
 
 ## Vaatimukset
@@ -56,10 +83,10 @@ Windows App SDK -ajonaika kopioituu ohjelman viereen, erillistä asennusta ei ta
 Graafinen sovellus pyytää aina järjestelmänvalvojan oikeudet (UAC), jotta järjestelmäkansiot ja HKLM-avaimet
 ovat käsiteltävissä. Komentorivi toimii tavallisena käyttäjänä.
 
-Julkaisukansio (Release, siirrettävissä toiselle koneelle, vaatii .NET 8 -ajonajan):
+Julkaisukansio (Release, itsenäinen, siirrettävissä toiselle koneelle ilman .NET-asennusta):
 
 ```powershell
-dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner
+dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner --self-contained true
 ```
 
 Levytilan analyysin sivulla voi rajata kansion, valita top-N:n ja selata treemapia (napsautus avaa alikansion).

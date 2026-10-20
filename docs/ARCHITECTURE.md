@@ -428,7 +428,7 @@ Turvamekanismit:
   (mint, indigo, steel, graphite, sun; oletus mint) ja `Fonts` (bahnschrift, segoe, inter; oletus bahnschrift).
   `Palette` sisältää lokalisoidun nimen, 14 väriä tummalle ja vaalealle tilalle (`PaletteColors`) ja kuusi
   treemap-väriä. `FontChoice` sisältää otsikko-, leipäteksti- ja lukufontin; lokin fontti on kaikissa
-  `Cascadia Mono, Consolas`. Arvot ovat suunnitelman `docs/plans/2026-10-20-visual-refresh.md` osiossa Scales.
+  `Cascadia Mono, Consolas`. Arvot ovat tiedostossa `src/Cleaner.UI/Theming/Appearance.cs`.
   `ResolvePalette` ja `ResolveFont` palauttavat oletuksen tuntemattomalle, tyhjälle tai null-arvolle kirjainkoosta
   riippumatta.
 - Fontit: Bahnschrift ja Segoe UI Variable kuuluvat Windows 11:een. Inter 4.1 pakataan sovellukseen tiedostona

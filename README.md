@@ -6,6 +6,31 @@ A modular cleanup tool for Windows 11. C# / .NET 8. WinUI 3 desktop app and a co
 PC Cleaner is a public open source project (https://github.com/Vilippo/PcCleaner) under the MIT license.
 The program runs in English and Finnish.
 
+## Download and install
+
+1. Download `PcCleaner-<version>-win-x64.zip` from the [latest release](https://github.com/Vilippo/PcCleaner/releases/latest).
+2. Extract the whole zip to a folder of your choice, for example `C:\Tools\PcCleaner`. Keep all files together: the
+   program needs the files next to the exe.
+3. Run `PcCleaner.exe`.
+
+Requirements: 64-bit Windows 11 or Windows 10 version 2004 or newer. Nothing else needs to be installed: the .NET
+runtime and the Windows App SDK are included in the package.
+
+Things you will see on the first start:
+
+- Windows asks for administrator rights (UAC) every time. The app needs them for system folders and HKLM registry keys.
+- The exe is not code-signed, so Microsoft Defender SmartScreen may show "Windows protected your PC". Choose
+  "More info" and then "Run anyway". If you want to check the download first, the release notes list the SHA-256 hash
+  of the zip (`Get-FileHash .\PcCleaner-<version>-win-x64.zip`).
+
+Nothing is deleted before you confirm, and every cleanup starts with a dry run. See [Safety principles](#safety-principles).
+The AI assistant is optional and needs your own Anthropic API key, see [AI assistant](#ai-assistant).
+
+The app keeps its data in `%LOCALAPPDATA%\PcCleaner`: `settings.json`, `logs`, `quarantine` and `registry-backups`.
+To uninstall, delete the program folder. Delete `%LOCALAPPDATA%\PcCleaner` too if you do not need the logs or backups.
+
+The release contains only the desktop app. To use the command line, build it from source (see below).
+
 ## Structure
 
 ```
@@ -32,8 +57,7 @@ PcCleaner.sln
 │   ├── make-icon.ps1               Generates the palette icons PcCleaner-<palette>.ico and PcCleaner.ico/.png (mint)
 │   └── snap-window.py              Takes a screenshot of the app window with PrintWindow
 └── docs/
-    ├── ARCHITECTURE.md             Technical specification (in Finnish)
-    └── plans/                      Implementation plans (in Finnish)
+    └── ARCHITECTURE.md             Technical specification (in Finnish)
 ```
 
 ## Requirements
@@ -56,10 +80,10 @@ The Windows App SDK runtime is copied next to the program, so no separate instal
 The desktop app always asks for administrator rights (UAC) so that it can handle system folders and HKLM keys.
 The command line runs as a normal user.
 
-Publish folder (Release, can be copied to another computer, requires the .NET 8 runtime):
+Publish folder (Release, self-contained, can be copied to another computer without installing .NET):
 
 ```powershell
-dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner
+dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner --self-contained true
 ```
 
 On the Disk usage page you can limit the scan to one folder, choose the top N and browse a treemap (a click opens the
