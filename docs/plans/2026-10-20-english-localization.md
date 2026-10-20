@@ -228,7 +228,7 @@ Läpileikkaavat rajoitteet. Jokainen niitä koskeva tehtäväteksti toistaa ne, 
 Kaksi riippumatonta tehtävää, ajetaan rinnakkain: T1 koskee vain Corea ja testiprojektia, T2 vain dokumentteja.
 
 ### T1: Lokalisoinnin ydin, asetukset ja testien kielialustus
-- Status: pending
+- Status: done b2a6c66
 - Model: opus
 - Requirements: REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-26
 - Constraints/edge: EDGE-1
@@ -318,7 +318,7 @@ Kaksi riippumatonta tehtävää, ajetaan rinnakkain: T1 koskee vain Corea ja tes
   Rajoitteet: älä muuta olemassa olevia testejä. Kommentit ovat suomeksi kuten muualla koodissa. Build 0 varoitusta.
 
 ### T2: LICENSE, README.md englanniksi, README.fi.md ja ARCHITECTURE.md
-- Status: pending
+- Status: done eb97e08
 - Model: opus
 - Requirements: REQ-22, REQ-23, REQ-24, REQ-25
 - Files: LICENSE, README.md, README.fi.md, docs/ARCHITECTURE.md
