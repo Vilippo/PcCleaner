@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\Cleaner.Modules.DiskUsage\Cleaner.Modules.DiskUsage.csproj" />
     <ProjectReference Include="..\..\src\Cleaner.Modules.Registry\Cleaner.Modules.Registry.csproj" />
     <ProjectReference Include="..\..\src\Cleaner.Modules.Uninstall\Cleaner.Modules.Uninstall.csproj" />
+    <ProjectReference Include="..\..\src\Cleaner.Modules.Processes\Cleaner.Modules.Processes.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- Toolhelp32 ja prosessikahvat ovat kernel32-kutsuja .NET:n mukana, ei NuGet-paketteja. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cleaner.Core\Cleaner.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Sääntötiedosto kopioidaan ohjelman viereen alikansioon rules\processes.
+         Juuressa rules\*.json luetaan tiedostosääntöinä (Shipped_rule_files_are_valid). -->
+    <None Include="rules\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Testit asettavat ProcessGuard.WindowsDirectory-arvon. -->
+    <InternalsVisibleTo Include="Cleaner.Tests" />
+  </ItemGroup>
+
+</Project>
