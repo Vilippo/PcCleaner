@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 
 namespace Cleaner.Core.Rules;
@@ -11,14 +13,28 @@ public sealed class CleanRule
     /// <summary>Vakaa tunniste, esim. "windows-temp".</summary>
     public required string Id { get; init; }
 
-    /// <summary>Käyttäjälle näkyvä nimi.</summary>
+    /// <summary>Käyttäjälle näkyvä nimi englanniksi.</summary>
     public required string Name { get; init; }
 
-    /// <summary>Ryhmä käyttöliittymässä, esim. "Windows", "Sovellukset".</summary>
-    public string Category { get; init; } = "Yleinen";
+    /// <summary>Nimi suomeksi (JSON "nameFi"). Puuttuessa käytetään <see cref="Name"/>-arvoa.</summary>
+    public string? NameFi { get; init; }
 
-    /// <summary>Miksi tämä on turvallista poistaa.</summary>
+    /// <summary>Ryhmä käyttöliittymässä, esim. "Windows", "Apps".</summary>
+    public string Category { get; init; } = "General";
+
+    /// <summary>Miksi tämä on turvallista poistaa, englanniksi.</summary>
     public string Description { get; init; } = "";
+
+    /// <summary>Kuvaus suomeksi (JSON "descriptionFi"). Puuttuessa käytetään <see cref="Description"/>-arvoa.</summary>
+    public string? DescriptionFi { get; init; }
+
+    /// <summary>Nimi nykyisellä kielellä.</summary>
+    [JsonIgnore]
+    public string DisplayName => Loc.T(Name, NameFi ?? Name);
+
+    /// <summary>Kuvaus nykyisellä kielellä.</summary>
+    [JsonIgnore]
+    public string DisplayDescription => Loc.T(Description, DescriptionFi ?? Description);
 
     /// <summary>
     /// Polut, joista etsitään. Ympäristömuuttujat sallittu: %TEMP%, %LOCALAPPDATA%, %WINDIR%.
