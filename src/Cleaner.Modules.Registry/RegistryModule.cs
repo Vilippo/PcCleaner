@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Cleaner.Core.Abstractions;
+using Cleaner.Core.Localization;
 using Cleaner.Core.Models;
 using Cleaner.Core.Services;
 using Microsoft.Win32;
@@ -21,16 +22,18 @@ namespace Cleaner.Modules.RegistryCleaner;
 public sealed class RegistryModule : ICleanerModule
 {
     public string Id => "registry";
-    public string DisplayName => "Rekisterin puhdistus";
-    public string Description => "Orvot Uninstall-merkinnät, tiedostotyyppikytkökset, MUICache ja viimeksi käytettyjen listat. Varmuuskopio ennen jokaista muutosta.";
+    public string DisplayName => Loc.T("Registry cleanup", "Rekisterin puhdistus");
+    public string Description => Loc.T(
+        "Orphaned Uninstall entries, file type associations, MUICache and recently used lists. Backup before every change.",
+        "Orvot Uninstall-merkinnät, tiedostotyyppikytkökset, MUICache ja viimeksi käytettyjen listat. Varmuuskopio ennen jokaista muutosta.");
     public RiskLevel Risk => RiskLevel.High;
     public bool RequiresAdmin => false;
     public bool SelectedByDefault => false;
 
-    public const string UninstallCategory = "Uninstall-merkinnät (orvot)";
-    public const string AssociationCategory = "Tiedostotyyppikytkökset (orvot)";
-    public const string MuiCacheCategory = "MUICache (orvot)";
-    public const string MruCategory = "Viimeksi käytetyt (MRU)";
+    public static string UninstallCategory => Loc.T("Uninstall entries (orphaned)", "Uninstall-merkinnät (orvot)");
+    public static string AssociationCategory => Loc.T("File type associations (orphaned)", "Tiedostotyyppikytkökset (orvot)");
+    public static string MuiCacheCategory => Loc.T("MUICache (orphaned)", "MUICache (orvot)");
+    public static string MruCategory => Loc.T("Recently used (MRU)", "Viimeksi käytetyt (MRU)");
 
     private const string IdPrefix = "registry";
     private const char ValueSeparator = '|';
@@ -122,14 +125,14 @@ public sealed class RegistryModule : ICleanerModule
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                var msg = $"{steps[i].Name}: lukeminen epäonnistui: {ex.Message}";
+                var msg = Loc.T($"{steps[i].Name}: read failed: {ex.Message}", $"{steps[i].Name}: lukeminen epäonnistui: {ex.Message}");
                 context.Logger.Warning(msg);
                 result.Errors.Add(msg);
             }
         }
 
-        context.Report(100, "Valmis");
-        context.Logger.Info($"{DisplayName}: löytyi {result.Count} kohdetta");
+        context.Report(100, Loc.T("Done", "Valmis"));
+        context.Logger.Info(Loc.T($"{DisplayName}: found {result.Count} items", $"{DisplayName}: löytyi {result.Count} kohdetta"));
         return result;
     }
 
@@ -164,7 +167,7 @@ public sealed class RegistryModule : ICleanerModule
                 var keyPath = RegistryPaths.Combine(root, name);
                 result.Items.Add(new CleanItem(
                     MakeItemId(ItemKind.Uninstall, keyPath), Id, UninstallCategory, keyPath, 0,
-                    $"{display}: poisto-ohjelmaa ei ole: {exe}", RiskLevel.Medium));
+                    Loc.T($"{display}: uninstaller does not exist: {exe}", $"{display}: poisto-ohjelmaa ei ole: {exe}"), RiskLevel.Medium));
             }
         }
     }
@@ -199,7 +202,7 @@ public sealed class RegistryModule : ICleanerModule
 
                     result.Items.Add(new CleanItem(
                         MakeItemId(ItemKind.Extension, keyPath), Id, AssociationCategory, keyPath, 0,
-                        $"Tiedostotyyppi {name} viittaa ProgId:hen '{progId}', jota ei ole.", RiskLevel.High));
+                        Loc.T($"File type {name} points to ProgId '{progId}', which does not exist.", $"Tiedostotyyppi {name} viittaa ProgId:hen '{progId}', jota ei ole."), RiskLevel.High));
                     continue;
                 }
 
@@ -213,7 +216,7 @@ public sealed class RegistryModule : ICleanerModule
 
                 result.Items.Add(new CleanItem(
                     MakeItemId(ItemKind.ProgId, keyPath), Id, AssociationCategory, keyPath, 0,
-                    $"ProgId {name}: avauskomennon ohjelmaa ei ole: {exe}", RiskLevel.High));
+                    Loc.T($"ProgId {name}: open command program does not exist: {exe}", $"ProgId {name}: avauskomennon ohjelmaa ei ole: {exe}"), RiskLevel.High));
             }
         }
     }
@@ -245,7 +248,7 @@ public sealed class RegistryModule : ICleanerModule
 
             result.Items.Add(new CleanItem(
                 MakeItemId(ItemKind.MuiCache, _o.MuiCacheKey, valueName), Id, MuiCacheCategory, _o.MuiCacheKey, 0,
-                $"Arvo '{valueName}': ohjelmaa ei ole: {exe}", RiskLevel.Low));
+                Loc.T($"Value '{valueName}': program does not exist: {exe}", $"Arvo '{valueName}': ohjelmaa ei ole: {exe}"), RiskLevel.Low));
         }
     }
 
@@ -263,7 +266,7 @@ public sealed class RegistryModule : ICleanerModule
             var name = keyPath[(keyPath.LastIndexOf('\\') + 1)..];
             result.Items.Add(new CleanItem(
                 MakeItemId(ItemKind.Mru, keyPath), Id, MruCategory, keyPath, 0,
-                $"{name}: {entries} merkintää. Yksityisyys: lista tyhjennetään, avain säilyy.", RiskLevel.Low));
+                Loc.T($"{name}: {entries} items. Privacy: the list is cleared, the key is kept.", $"{name}: {entries} merkintää. Yksityisyys: lista tyhjennetään, avain säilyy."), RiskLevel.Low));
         }
     }
 
@@ -297,13 +300,13 @@ public sealed class RegistryModule : ICleanerModule
 
             if (!string.Equals(item.ModuleId, Id, StringComparison.OrdinalIgnoreCase))
             {
-                result.Skipped.Add((item, "Kohde ei kuulu tälle moduulille"));
+                result.Skipped.Add((item, Loc.T("Item does not belong to this module", "Kohde ei kuulu tälle moduulille")));
                 continue;
             }
 
             if (!TryParseItemId(item.Id, out var kind, out var keyPath, out var valueName))
             {
-                result.Skipped.Add((item, "Virheellinen tunniste"));
+                result.Skipped.Add((item, Loc.T("Invalid item id", "Virheellinen tunniste")));
                 continue;
             }
 
@@ -314,35 +317,35 @@ public sealed class RegistryModule : ICleanerModule
                 || (!exactOnly && !IsDirectChildOfAny(keyPath, RootsFor(kind)))
                 || (exactOnly && !RootsFor(kind).Any(r => r.Equals(keyPath, StringComparison.OrdinalIgnoreCase))))
             {
-                if (reason.Length == 0) reason = "Kohde ei ole sallitun juuren suora lapsi.";
-                context.Logger.Warning($"ESTETTY {keyPath}: {reason}");
+                if (reason.Length == 0) reason = Loc.T("Item is not a direct child of an allowed root.", "Kohde ei ole sallitun juuren suora lapsi.");
+                context.Logger.Warning(Loc.T($"BLOCKED {keyPath}: {reason}", $"ESTETTY {keyPath}: {reason}"));
                 result.Skipped.Add((item, reason));
                 continue;
             }
 
             if (RegistryPaths.TryParse(keyPath, out var hive, out _) && hive != RegistryHive.CurrentUser && !context.IsElevated)
             {
-                result.Skipped.Add((item, "Tarvitsee järjestelmänvalvojan oikeudet"));
+                result.Skipped.Add((item, Loc.T("Requires administrator rights", "Tarvitsee järjestelmänvalvojan oikeudet")));
                 continue;
             }
 
             if (!Exists(kind, keyPath, valueName))
             {
-                result.Skipped.Add((item, "Kohdetta ei enää ole"));
+                result.Skipped.Add((item, Loc.T("Item no longer exists", "Kohdetta ei enää ole")));
                 continue;
             }
 
             if (context.DryRun)
             {
-                context.Logger.Debug($"[KUIVA] {Describe(kind)}: {keyPath}{(valueName is null ? "" : " / " + valueName)}");
+                context.Logger.Debug($"{Loc.T("[DRY RUN] ", "[KUIVA] ")}{Describe(kind)}: {keyPath}{(valueName is null ? "" : " / " + valueName)}");
                 result.Removed.Add(item);
                 continue;
             }
 
             if (!backup.TryExport(keyPath, out var error))
             {
-                context.Logger.Warning($"Ohitettu {keyPath}: {error}");
-                result.Skipped.Add((item, $"Varmuuskopio epäonnistui: {error}"));
+                context.Logger.Warning(Loc.T($"Skipped {keyPath}: {error}", $"Ohitettu {keyPath}: {error}"));
+                result.Skipped.Add((item, Loc.T($"Backup failed: {error}", $"Varmuuskopio epäonnistui: {error}")));
                 continue;
             }
 
@@ -355,7 +358,7 @@ public sealed class RegistryModule : ICleanerModule
             }
             catch (UnauthorizedAccessException)
             {
-                result.Skipped.Add((item, "Ei oikeuksia"));
+                result.Skipped.Add((item, Loc.T("Access denied", "Ei oikeuksia")));
             }
             catch (Exception ex)
             {
@@ -367,11 +370,15 @@ public sealed class RegistryModule : ICleanerModule
         {
             backup.WriteManifest(processed);
             LastBackupDirectory = backup.Directory;
-            context.Logger.Info($"Rekisterivarmuuskopio: {backup.Directory} (palautus: pccleaner restore {backup.Timestamp})");
+            context.Logger.Info(Loc.T(
+                $"Registry backup: {backup.Directory} (restore: pccleaner restore {backup.Timestamp})",
+                $"Rekisterivarmuuskopio: {backup.Directory} (palautus: pccleaner restore {backup.Timestamp})"));
         }
 
-        context.Report(100, "Valmis");
-        context.Logger.Info($"{DisplayName}: {(context.DryRun ? "käsiteltäisiin" : "käsitelty")} {result.Removed.Count} kohdetta, ohitettu {result.Skipped.Count}");
+        context.Report(100, Loc.T("Done", "Valmis"));
+        context.Logger.Info(Loc.T(
+            $"{DisplayName}: {(context.DryRun ? "would process" : "processed")} {result.Removed.Count} items, skipped {result.Skipped.Count}",
+            $"{DisplayName}: {(context.DryRun ? "käsiteltäisiin" : "käsitelty")} {result.Removed.Count} kohdetta, ohitettu {result.Skipped.Count}"));
         return result;
     }
 
@@ -400,11 +407,11 @@ public sealed class RegistryModule : ICleanerModule
 
     private static string Describe(ItemKind kind) => kind switch
     {
-        ItemKind.Uninstall => "Poistettu Uninstall-avain",
-        ItemKind.Extension => "Poistettu tiedostotyyppiavain",
-        ItemKind.ProgId => "Poistettu ProgId-avain",
-        ItemKind.MuiCache => "Poistettu MUICache-arvo",
-        ItemKind.Mru => "Tyhjennetty MRU-lista",
+        ItemKind.Uninstall => Loc.T("Deleted Uninstall key", "Poistettu Uninstall-avain"),
+        ItemKind.Extension => Loc.T("Deleted file type key", "Poistettu tiedostotyyppiavain"),
+        ItemKind.ProgId => Loc.T("Deleted ProgId key", "Poistettu ProgId-avain"),
+        ItemKind.MuiCache => Loc.T("Deleted MUICache value", "Poistettu MUICache-arvo"),
+        ItemKind.Mru => Loc.T("Cleared MRU list", "Tyhjennetty MRU-lista"),
         _ => "?"
     };
 
@@ -429,14 +436,14 @@ public sealed class RegistryModule : ICleanerModule
 
             case ItemKind.MuiCache:
             {
-                using var key = RegistryPaths.OpenWritable(keyPath) ?? throw new IOException("Avainta ei voitu avata kirjoitettavaksi.");
+                using var key = RegistryPaths.OpenWritable(keyPath) ?? throw new IOException(Loc.T("Could not open the key for writing.", "Avainta ei voitu avata kirjoitettavaksi."));
                 key.DeleteValue(valueName!, throwOnMissingValue: false);
                 break;
             }
 
             case ItemKind.Mru:
             {
-                using var key = RegistryPaths.OpenWritable(keyPath) ?? throw new IOException("Avainta ei voitu avata kirjoitettavaksi.");
+                using var key = RegistryPaths.OpenWritable(keyPath) ?? throw new IOException(Loc.T("Could not open the key for writing.", "Avainta ei voitu avata kirjoitettavaksi."));
                 foreach (var v in key.GetValueNames()) key.DeleteValue(v, throwOnMissingValue: false);
                 foreach (var s in key.GetSubKeyNames()) key.DeleteSubKeyTree(s, throwOnMissingSubKey: false);
                 break;
@@ -447,7 +454,7 @@ public sealed class RegistryModule : ICleanerModule
     private static void DeleteKeyTree(string keyPath)
     {
         if (!RegistryPaths.TryParse(keyPath, out var hive, out var sub) || sub.Length == 0)
-            throw new ArgumentException($"Virheellinen polku: {keyPath}");
+            throw new ArgumentException(Loc.T($"Invalid path: {keyPath}", $"Virheellinen polku: {keyPath}"));
 
         var lastSep = sub.LastIndexOf('\\');
         var parentPath = lastSep < 0 ? "" : sub[..lastSep];
@@ -455,7 +462,7 @@ public sealed class RegistryModule : ICleanerModule
 
         using var baseKey = RegistryKey.OpenBaseKey(hive, RegistryView.Default);
         using var parent = parentPath.Length == 0 ? baseKey : baseKey.OpenSubKey(parentPath, writable: true);
-        if (parent is null) throw new IOException($"Yläavainta ei voitu avata: {parentPath}");
+        if (parent is null) throw new IOException(Loc.T($"Could not open parent key: {parentPath}", $"Yläavainta ei voitu avata: {parentPath}"));
         parent.DeleteSubKeyTree(name, throwOnMissingSubKey: false);
     }
 }
