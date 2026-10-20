@@ -322,7 +322,7 @@ T2:n buildissa, mikä on vaaratonta (kopiointi). Foreman ajaa aallon lopuksi: po
 `LICENSE-Inter.txt` ovat olemassa (REQ-8).
 
 ### T2: Appearance: paletit, fontit ja resurssisanakirja
-- Status: pending
+- Status: done f75bfd1
 - Model: opus
 - Requirements: REQ-3, REQ-4
 - Constraints/edge: CON-4, EDGE-5
