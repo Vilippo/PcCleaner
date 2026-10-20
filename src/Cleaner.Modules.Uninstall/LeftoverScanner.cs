@@ -431,6 +431,7 @@ public sealed class LeftoverScanner
         {
             var full = NormalizePath(path);
             if (full is null || _paths.Contains(full) || IsUnderAddedFolder(full) || IsParentOfAddedFolder(full)) return;
+            (preselected, description) = ApplyInstalledRule(preselected, description);
 
             _paths.Add(full);
             _folders.Add(full);
@@ -443,11 +444,22 @@ public sealed class LeftoverScanner
         {
             var full = NormalizePath(path);
             if (full is null || _paths.Contains(full) || IsUnderAddedFolder(full)) return;
+            (preselected, description) = ApplyInstalledRule(preselected, description);
 
             _paths.Add(full);
             long size = 0;
             try { size = new FileInfo(full).Length; } catch (Exception) { }
             _items.Add(new CleanItem(LeftoverItemId.MakeFile(full), _moduleId, category, full, size, description, risk, preselected));
+        }
+
+        /// <summary>
+        /// Kun Uninstall-avain on yhä olemassa, ohjelma on asennettu ja sen kansiot ja pikakuvakkeet ovat käytössä:
+        /// mitään ei esivalita, jotta Puhdista ei siirrä toimivaa ohjelmaa karanteeniin. Kuvaus kertoo syyn.
+        /// </summary>
+        private (bool Preselected, string Description) ApplyInstalledRule(bool preselected, string description)
+        {
+            if (_keyRemoved || !preselected) return (preselected, description);
+            return (false, description + " (ohjelma on yhä asennettu, ei esivalittu)");
         }
 
         private void AddKey(string keyPath, string description)

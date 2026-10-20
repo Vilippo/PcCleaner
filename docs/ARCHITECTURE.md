@@ -257,6 +257,8 @@ LocalAppData\Programs, Roaming ja LocalLow. Pikakuvakkeet haetaan Käynnistä-va
 | Rekisteriarvot | merkkijonoarvo, joka alkaa `InstallLocation`-polulla, juurten alla enintään 6 tason syvyydessä (`Classes`, `Microsoft`, `Policies`, `WOW6432Node`, `Clients`, `RegisteredApplications` ja `RegistryGuard`-kieltosegmentit ohitetaan) sekä Run-avaimissa | High | ei |
 
 Kategorian kaikilla kohteilla on sama riski. Sama polku tai avain tulee vain kerran, ensimmäinen osuva sääntö voittaa.
+Jos ohjelman Uninstall-avain on yhä olemassa (jäänteet haettiin asennetulle ohjelmalle), mitään ei esivalita ja kuvaukseen
+lisätään "(ohjelma on yhä asennettu, ei esivalittu)", jotta Puhdista ei siirrä toimivaa ohjelmaa karanteeniin.
 Jokaisen kohteen kuvaus kertoo osumasyyn, esim. "Pikakuvake osoittaa kansioon C:\...". Skannaus käy kansiot ja avaimet
 aina samassa järjestyksessä eikä muuta mitään.
 

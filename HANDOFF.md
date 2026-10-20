@@ -214,8 +214,9 @@ pikakuvake `PC Cleaner.lnk` (kohde publish-exe, kuvake exestä). Käynnistetty p
 8. ~~Startup-moduuli (luku 6.1)~~ tehty. ~~DiskUsage (6.2)~~ tehty. ~~Registry (6.3)~~ tehty.
 9. ~~Ohjelman poisto (6.4)~~ toteutettu 19.10.2026 haarassa `feature/uninstall-module`, AC-5 ja AC-6 tehty käyttäjän
    koneella 20.10.2026 (korotettu UI, pieni testiohjelma poistettu, jäänteet karanteeniin ja takaisin, `pccleaner restore`
-   listasi saman session). Haara yhdistetty `main`-haaraan 20.10.2026. Avoimet huomiot: "Etsi jäänteet" yhä asennetulle
-   ohjelmalle esivalitsee asennuskansion (suunnitelman mukaan, mutta Puhdista siirtäisi toimivan ohjelman karanteeniin);
+   listasi saman session). Haara yhdistetty `main`-haaraan 20.10.2026. ~~"Etsi jäänteet" yhä asennetulle
+   ohjelmalle esivalitsee asennuskansion~~ korjattu 20.10.2026: kun Uninstall-avain on olemassa, mitään ei esivalita
+   (`LeftoverScanner.ApplyInstalledRule`), kuvaus ja CLI kertovat syyn. Avoimet huomiot:
    REQ-10:n prosessitarkistus ei koske tiedostokohteita; README:n rakennepuu ja ARCHITECTURE luvun 1 taulukko ovat
    vanhentuneet. Seuraava: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner` päähakemistossa, jotta
    työpöydän `PC Cleaner.lnk` käyttää uutta versiota (sulje sovellus ensin).

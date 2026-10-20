@@ -297,6 +297,21 @@ public sealed class LeftoverScannerTests : IDisposable
         Assert.DoesNotContain(removed, i => i.Path.Equals(UninstallKey, StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void Nothing_is_preselected_while_program_is_still_installed()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var installed = ScanAll(keyRemoved: false);
+        Assert.NotEmpty(installed);
+        Assert.All(installed, i => Assert.Equal(false, i.Preselected));
+        var install = Single(installed, Install);
+        Assert.Contains("yhä asennettu", install.Description);
+
+        var removed = new LeftoverScanner(Options()).Scan(Program(Install), keyRemoved: true, ModuleId, null, default);
+        Assert.Contains(removed, i => i.Preselected == true);
+        Assert.DoesNotContain("yhä asennettu", Single(removed, Install).Description);
+    }
+
     // ---------- Reunatapaukset ----------
 
     [Fact]

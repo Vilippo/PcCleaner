@@ -89,6 +89,8 @@ public static class UninstallCommand
             Console.WriteLine($"  ! {err}");
         if (scan.Count == 0)
             Console.WriteLine("  (ei jäänteitä)");
+        else if (!module.TargetKeyRemoved)
+            Console.WriteLine("  Ohjelma on yhä asennettu: mitään ei esivalita. Käytä --item <tunniste> tai --all, jos haluat silti siirtää kohteita.");
         Console.WriteLine();
 
         if (!options.Apply)
