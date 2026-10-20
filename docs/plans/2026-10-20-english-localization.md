@@ -663,7 +663,7 @@ uutta testitiedostoa. Kaikki rakentavat vain oman projektinsa `-p:BuildProjectRe
 lopun build on jo tuottanut riippuvuuksien tulosteet.
 
 ### T10: CLI: --lang ja tekstit
-- Status: pending
+- Status: done 79060d4
 - Model: opus
 - Requirements: REQ-15, REQ-16, REQ-17
 - Constraints/edge: EDGE-5
@@ -710,7 +710,7 @@ lopun build on jo tuottanut riippuvuuksien tulosteet.
   rakentavat UI- ja testiprojektia. `dotnet run --no-build` ajaa juuri rakennetun exen.
 
 ### T11: Graafinen sovellus: kielivalitsin, välitön vaihto ja tekstit
-- Status: pending
+- Status: done cc22348
 - Model: opus
 - Requirements: REQ-18, REQ-19, REQ-20, REQ-21
 - Constraints/edge: EDGE-3, EDGE-4, EDGE-6
@@ -804,7 +804,7 @@ lopun build on jo tuottanut riippuvuuksien tulosteet.
   testiympäristössä ilman UAC-hyväksyntää; raportoi käsin tarkistettavat kohdat.
 
 ### T12: Englanninkieliset moduulitestit
-- Status: pending
+- Status: done 6c3bdd9
 - Model: opus
 - Requirements: REQ-27
 - Files: tests/Cleaner.Tests/EnglishTextTests.cs
