@@ -1,6 +1,6 @@
 # PC Cleaner – tekninen määrittely
 
-Versio 0.3 · 20.10.2026
+Versio 0.4 · 20.10.2026
 
 Lisenssi: MIT, ks. `LICENSE` repon juuressa.
 
@@ -382,18 +382,23 @@ Turvamekanismit:
 - Avoimet ohjelmat ovat High-riskin kohteita eikä niitä esivalita koskaan. Moduuli ei ole mukana "skannaa kaikki" -ajossa.
 - Prosessia ei käynnistetä uudelleen. Loki nimillä ja poluilla riittää palautusohjeeksi.
 
-## 7. WinUI 3 -käyttöliittymä – toteutettu (ensimmäinen versio)
+## 7. WinUI 3 -käyttöliittymä – toteutettu
 
 - Projekti `src/Cleaner.UI`: Windows App SDK 1.8 (self-contained, `WindowsPackageType=None`, x64),
   `net8.0-windows10.0.19041.0`, `CommunityToolkit.Mvvm` 8.4 (partial-ominaisuudet, `[RelayCommand]`).
   Moduulit `UiModuleFactory`-luokan kautta; se lataa kaikki säännöt, myös `enabledByDefault: false`.
 - `app.manifest`: `requireAdministrator` (käyttäjän päätös 19.10.2026), UI käynnistyy aina korotettuna. InfoBar ja
   "Käynnistä uudelleen järjestelmänvalvojana" ovat yhä koodissa tavallisen käyttäjän varalle.
-- `MainWindow.xaml`: InfoBar (tavallinen käyttäjä + nappi "Restart as administrator" / "Käynnistä uudelleen
-  järjestelmänvalvojana", ShellExecute `runas`), NavigationView moduuleille ja sen PaneFooter-alueella kielivalitsin
-  (English/Suomi), oikealla moduulin otsikko, huomautukset, kategoriat Expandereina (valintaruutu kategorialle ja
-  riveille), erillinen oletuksena suljettu "High-risk items" / "Korkean riskin kohteet" -lohko, alapalkissa
-  ProgressBar + Cancel/Peruuta, valinnan yhteenveto, **Scan**/**Skannaa** ja **Clean**/**Puhdista**, lokinäkymä.
+- `MainWindow` on ikkunan kuori: Mica, oma otsikkopalkki, koko 1200 × 820 (minimi 960 × 640) ja `IDialogService`.
+  Sen sisältö on `Views/MainView` (UserControl, ks. 7.1): otsikkopalkki, InfoBar (tavallinen käyttäjä + nappi
+  "Restart as administrator" / "Käynnistä uudelleen järjestelmänvalvojana", ShellExecute `runas`), NavigationView
+  moduuleille (240 px, aina auki, ei toggle-nappia, PaneFooter-alueella Scan all / Skannaa kaikki, rataskuvake avaa
+  asetussivun: paletti, fontti ja kielivalitsin English/Suomi), oikealla moduulin otsikko ja merkkirivi (riski,
+  järjestelmänvalvoja, valitaan erikseen), skannauksen jälkeen laatat Löytyi/Valittu, ennen skannausta tyhjä tila
+  Skannaa-napilla, kategoriat kortteina riskiraidalla ja Expanderilla (valintaruutu kategorialle ja riveille),
+  erillinen oletuksena suljettu "High-risk items" / "Korkean riskin kohteet" -kortti. Alapalkissa (56 px) valinnan
+  yhteenveto, kiireisenä 4 px ProgressBar yläreunassa ja Cancel/Peruuta, Scan/Skannaa, Clean/Puhdista ja lokinappi,
+  joka avaa lokipaneelin oikealta.
 - ViewModelit: `MainViewModel` (engine, komennot, `Progress<T>` → ProgressBar, `CancellationTokenSource` → Peruuta),
   `ModuleViewModel` (viimeisin `ScanResult` kategorioina, valinnan summa), `CategoryViewModel`
   (enintään 500 näkyvää riviä, kolmitilainen valintaruutu), `ItemViewModel`.
@@ -402,15 +407,74 @@ Turvamekanismit:
 - Oletusvalinta: `Risk != High && (Preselected ?? SelectedByDefault)`. Startup-, diskusage- ja registry-kohteet ovat
   aina aluksi valitsematta; uninstall valitsee vain kohteet, joille skanneri asettaa `Preselected = true`.
 - Levytilan analyysin sivu: kansio (TextBox + FolderPicker), Top-N (NumberBox) ja treemap. `Treemap.Squarify`
-  (DiskUsage-projekti, puhdas laskenta, testattu) antaa suorakulmiot, `MainWindow` piirtää ne Canvasille Border-lohkoina:
+  (DiskUsage-projekti, puhdas laskenta, testattu) antaa suorakulmiot, `MainView` piirtää ne Canvasille Border-lohkoina:
   nimi ja koko, ToolTip, napsautus avaa alikansion, "Ylös" palaa. Useampi asema yhdistetään `DirectoryNode.Combine`-solmuksi.
 - Julkaisu: `dotnet publish src\Cleaner.UI -c Release -o publish\PcCleaner`. Csproj asettaa `Platform=x64`-oletuksen
   (muuten XAML/PRI-vaiheet jäävät pois) ja kopioi `PcCleaner.pri`- ja `.xbf`-tiedostot julkaisukansioon
   (`CopyPriAndXbfToPublishDir`), koska publish ei tee sitä pakkaamattomalle sovellukselle.
-- Kuvake: `tools\make-icon.ps1` piirtää sen System.Drawing-kirjastolla ja kirjoittaa `Assets\PcCleaner.ico`
-  (PNG-pakatut merkinnät 16–256 px) ja `PcCleaner.png`. `<ApplicationIcon>` antaa exe-kuvakkeen; otsikko- ja
+- Kuvake: `tools\make-icon.ps1` piirtää sen System.Drawing-kirjastolla (PNG-pakatut merkinnät 16–256 px), yksi
+  kuvake jokaiselle paletille (ks. 7.1). `<ApplicationIcon>` antaa exe-kuvakkeen `PcCleaner.ico`; otsikko- ja
   tehtäväpalkin kuvake asetetaan `AppWindow.SetIcon`-kutsulla tiedostosta, joka kopioidaan exen viereen (`Content`).
 - Ei vielä: MSIX. Rivikohtainen admin-harmaannus puuttuu, koska `CleanItem` ei kanna admin-lippua; moduulitason vihje on.
+
+### 7.1 Ulkoasu
+
+- `Cleaner.UI.Theming.Appearance` (staattinen luokka, kansio `src/Cleaner.UI/Theming`) tarjoaa listat `Palettes`
+  (mint, indigo, steel, graphite, sun; oletus mint) ja `Fonts` (bahnschrift, segoe, inter; oletus bahnschrift).
+  `Palette` sisältää lokalisoidun nimen, 14 väriä tummalle ja vaalealle tilalle (`PaletteColors`) ja kuusi
+  treemap-väriä. `FontChoice` sisältää otsikko-, leipäteksti- ja lukufontin; lokin fontti on kaikissa
+  `Cascadia Mono, Consolas`. Arvot ovat suunnitelman `docs/plans/2026-10-20-visual-refresh.md` osiossa Scales.
+  `ResolvePalette` ja `ResolveFont` palauttavat oletuksen tuntemattomalle, tyhjälle tai null-arvolle kirjainkoosta
+  riippumatta.
+- Fontit: Bahnschrift ja Segoe UI Variable kuuluvat Windows 11:een. Inter 4.1 pakataan sovellukseen tiedostona
+  `Assets/Fonts/InterVariable.ttf` (muuttuva fontti, viittaus `ms-appx:///Assets/Fonts/InterVariable.ttf#Inter`)
+  lisenssin `LICENSE-Inter.txt` (SIL Open Font License 1.1) kanssa. WinUI:n oletusglob `Assets/**/*.*` kopioi
+  molemmat build- ja publish-kansioon ilman csproj-rivejä.
+- `Appearance.Apply(palette, font)` rakentaa `ResourceDictionary`-olion ja vaihtaa sen
+  `Application.Current.Resources.MergedDictionaries`-listaan. Edellisen kutsun sanakirja poistetaan ennen uuden
+  lisäämistä. Teemasanakirjat ovat `Default` (tumma), `Light` ja `HighContrast`, joten vaalea/tumma seuraa Windowsin
+  asetusta myös ajon aikana. `Default` ja `Light` ohittavat WinUI:n korostusavaimet (`SystemAccentColor*`,
+  `AccentFillColor*Brush`, `NavigationViewSelectionIndicatorForeground` ym.), jolloin valintapalkki,
+  AccentButtonStyle, CheckBox, RadioButtons ja ProgressBar piirtyvät paletin korostusvärillä. `HighContrast` osoittaa
+  omat avaimet Windowsin järjestelmäväreihin eikä ohita korostusavaimia.
+- Resurssiavaimet: värit `App*Brush` (esim. `AppAccentBrush`, `AppPaneBackgroundBrush`, `AppContentBackgroundBrush`,
+  `AppTextPrimaryBrush`) ja samat Color-avaimina ilman `Brush`-päätettä, riskivärit `Risk*Brush` (`RiskLowBrush`,
+  `RiskLowTintBrush`, `RiskLowTextBrush` ja samat Medium- ja High-tasoille, samat kaikissa paleteissa) ja fontit
+  `App*FontFamily` (`AppHeadingFontFamily`, `AppBodyFontFamily`, `AppNumberFontFamily`, `AppMonoFontFamily`). WinUI:n
+  `ContentControlThemeFontFamily` on Body-fontti. XAML viittaa avaimiin `{ThemeResource}`-viittauksina eikä
+  kovakoodaa heksavärejä tai fonttinimiä. Poikkeus on treemapin lohkoteksti: koodi valitsee #FFFFFF tai #1A1A1A sen
+  mukaan, kummalla on suurempi WCAG-kontrasti lohkon näkyvään väriin.
+- Uudelleenluonti: sanakirjan vaihto ajon aikana päivittää ohjaimet mutta ei TextBlock-tyylejä (`TitleTextBlockStyle`,
+  `BodyTextBlockStyle`), jotka jäisivät vanhaan fonttiin. Siksi `MainWindow.BuildView()` luo `MainView`-näkymän
+  uudelleen `MainViewModel.AppearanceChanged`-tapahtumassa. Vanha näkymä irrottaa ensin tilauksensa (`Detach`,
+  `Bindings.StopTracking()`). Valittu sivu, moduuli, skannaustulokset, valinnat ja lokirivit ovat ViewModelissa ja
+  säilyvät. Expanderien tila, vieritys, lokipaneelin auki-tila ja treemapin alikansiopino nollautuvat, ja treemap
+  piirtyy juuresta.
+- Asetussivu: NavigationView'n asetuskohde (rataskuvake, `IsSettingsVisible`) asettaa
+  `MainViewModel.IsSettingsSelected`. Osiot ovat Ulkoasu ja Kieli. Paletti valitaan `RadioButtons`-listasta (nimi ja
+  kolme 16 px värinäytettä), fontti `RadioButtons`-listasta (nimi ja näyteteksti omalla fontillaan) ja kieli
+  `RadioButtons`-listasta English/Suomi. Rivit ovat `AppearanceOptionViewModel`-olioita (`PaletteOptions`,
+  `FontOptions`), valinta on `PaletteIndex`/`FontIndex`. Valitsimet ovat pois käytöstä kiireisenä (`IsIdle`). Kielen
+  vaihto päivittää sivun tekstit ilman uudelleenluontia.
+- `settings.json` (`%LOCALAPPDATA%\PcCleaner\settings.json`, `AppSettings`): kentät `language`, `palette` (oletus
+  `mint`) ja `font` (oletus `bahnschrift`). Puuttuva tai null-kenttä antaa oletuksen, joten vanha `{ "language": "fi" }`
+  kelpaa. Core ei validoi arvoja. Tuntemattoman arvon (esim. `"palette": "neon"`) UI ratkaisee oletukseksi, eikä
+  tiedostoa kirjoiteta käynnistyksessä. `App.OnLaunched` kutsuu `Appearance.Apply` ennen ikkunan luontia. Muutos
+  tallennetaan `AppSettings.Update`-kutsulla, joka lataa tiedoston, muuttaa yhden kentän ja tallentaa, joten muut
+  kentät säilyvät. Tallennuksen epäonnistuminen kirjataan varoituksena lokiin eikä estä vaihtoa.
+- Kuvakkeet: `tools\make-icon.ps1` kirjoittaa `Assets\PcCleaner-<id>.ico` jokaiselle paletille (sama luuta, taustan
+  liukuväri paletin mukaan, värit skriptin hajautustaulukossa), `PcCleaner.ico` identtisenä mint-tiedoston kanssa ja
+  `PcCleaner.png` (256 px, mint). Exen kuvake on siksi aina mint. Otsikko- ja tehtäväpalkin kuvake on
+  `Appearance.IconFileName(palette)`, ja `BuildView` asettaa sen joka kerta; jos tiedostoa ei ole, käytetään
+  `PcCleaner.ico`.
+- Mica ja otsikkopalkki: `MainWindow` asettaa `SystemBackdrop = new MicaBackdrop()` ja
+  `ExtendsContentIntoTitleBar = true`. MainView'n otsikkopalkki (36 px, `AppTitleBar`, paletin kuvake 16 px ja
+  `TitleText`) on raahausalue (`SetTitleBar`). Navigointipaneelin tausta `AppPaneBackgroundBrush` on 70 % peittävä
+  Mican päällä. Kun `MicaController.IsSupported()` on false, Micaa ei aseteta ja näkymän juuren tausta on
+  `AppContentBackgroundBrush`.
+- Lokipaneeli: `SplitView` oikealla (`PanePlacement=Right`, `DisplayMode=Overlay`, 420 px). Alapalkin lokinappi avaa
+  ja sulkee sen. Paneelissa on otsikko, sulkemisnappi, lokirivit Mono-fontilla 12 px, Tyhjennä-nappi ja
+  lokitiedoston polku.
 
 ## 8. Testaus
 

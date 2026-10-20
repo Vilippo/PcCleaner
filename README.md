@@ -22,11 +22,14 @@ PcCleaner.sln
 │   ├── Cleaner.Modules.Uninstall/  Uninstall programs: runs the uninstaller, finds leftovers, quarantine
 │   ├── Cleaner.Modules.Processes/  Processes: classifies and ends background processes in the user session (rules/processes/known.json)
 │   ├── Cleaner.Cli/                Command line: scan, clean, modules, uninstall, restore (ModuleFactory)
-│   └── Cleaner.UI/                 WinUI 3 app PcCleaner.exe: MainWindow, ViewModels/, Services/ (UiModuleFactory)
+│   └── Cleaner.UI/                 WinUI 3 app PcCleaner.exe: MainWindow, Views/ (MainView), ViewModels/,
+│       │                           Services/ (UiModuleFactory), Theming/ (Appearance: palettes and fonts)
+│       └── Assets/Fonts/           InterVariable.ttf and LICENSE-Inter.txt
 ├── tests/
 │   └── Cleaner.Tests/              xUnit tests (modules, services, quarantine, treemap)
 ├── tools/
-│   └── make-icon.ps1               Generates the app icon src/Cleaner.UI/Assets/PcCleaner.ico
+│   ├── make-icon.ps1               Generates the palette icons PcCleaner-<palette>.ico and PcCleaner.ico/.png (mint)
+│   └── snap-window.py              Takes a screenshot of the app window with PrintWindow
 └── docs/
     ├── ARCHITECTURE.md             Technical specification (in Finnish)
     └── plans/                      Implementation plans (in Finnish)
@@ -132,15 +135,40 @@ administrator. Without it they are skipped.
 
 The default language is English. The Windows display language does not affect it.
 
-- In the desktop app, the selector `English`/`Suomi` at the bottom of the navigation pane changes the language
-  immediately, without a restart, and saves the choice to `%LOCALAPPDATA%\PcCleaner\settings.json`. The selector is
-  disabled while the app scans, cleans, restores or waits for an uninstaller.
+- In the desktop app, the selector `English`/`Suomi` on the settings page changes the language immediately, without
+  a restart, and saves the choice to `%LOCALAPPDATA%\PcCleaner\settings.json`. The selector is disabled while the app
+  scans, cleans, restores or waits for an uninstaller.
 - On the command line, `--lang en|fi` sets the language for one run and overrides the saved choice, for example
   `dotnet run -- --lang fi scan`. Without the flag the command line uses the language in `settings.json`, or English
   if the file does not exist. The command line never writes `settings.json`.
 
 Results that were already scanned (category names, item descriptions) and log lines already written keep the language
 they were created in. They switch to the new language on the next scan.
+
+## Appearance
+
+The gear icon in the navigation pane opens the settings page. It has a color palette, a font and the language.
+
+- Palettes: Mint (default), Indigo, Steel, Graphite and Sun. Every palette has a light and a dark version, and the app
+  follows the light or dark setting in Windows. In high contrast mode the app uses the Windows system colors.
+- Fonts: Bahnschrift and Segoe UI Variable (default, Bahnschrift for headings and numbers), Segoe UI Variable, and
+  Inter. Bahnschrift and Segoe UI Variable come with Windows 11. Inter is included with the app.
+- A change applies to the whole window immediately, without a restart. The selectors are disabled while the app is busy.
+- The title bar and taskbar icon follow the palette. The exe icon is always mint.
+
+The choices are saved to `%LOCALAPPDATA%\PcCleaner\settings.json` in the fields `language`, `palette` and `font`:
+
+```json
+{
+  "language": "fi",
+  "palette": "indigo",
+  "font": "inter"
+}
+```
+
+Palette values are `mint`, `indigo`, `steel`, `graphite` and `sun`. Font values are `bahnschrift`, `segoe` and `inter`.
+A missing or unknown value gives the default (`mint`, `bahnschrift`), and the file is not rewritten at startup.
+Saving one setting keeps the other fields.
 
 ## Safety principles
 
@@ -175,3 +203,6 @@ The fields are described in `docs/ARCHITECTURE.md`.
 
 PC Cleaner is released under the MIT License. See [LICENSE](LICENSE). The software is provided "as is", without
 warranty of any kind, and you use it at your own risk.
+
+The Inter font (`src/Cleaner.UI/Assets/Fonts/InterVariable.ttf`) is licensed under the SIL Open Font License 1.1.
+See `src/Cleaner.UI/Assets/Fonts/LICENSE-Inter.txt`.

@@ -22,11 +22,14 @@ PcCleaner.sln
 │   ├── Cleaner.Modules.Uninstall/  Ohjelman poisto: poisto-ohjelman ajo, jäännöshaku, karanteeni
 │   ├── Cleaner.Modules.Processes/  Prosessit: käyttäjän istunnon taustaprosessien luokittelu ja lopetus (rules/processes/known.json)
 │   ├── Cleaner.Cli/                Komentorivi: scan, clean, modules, uninstall, restore (ModuleFactory)
-│   └── Cleaner.UI/                 WinUI 3 -sovellus PcCleaner.exe: MainWindow, ViewModels/, Services/ (UiModuleFactory)
+│   └── Cleaner.UI/                 WinUI 3 -sovellus PcCleaner.exe: MainWindow, Views/ (MainView), ViewModels/,
+│       │                           Services/ (UiModuleFactory), Theming/ (Appearance: paletit ja fontit)
+│       └── Assets/Fonts/           InterVariable.ttf ja LICENSE-Inter.txt
 ├── tests/
 │   └── Cleaner.Tests/              xUnit-testit (moduulit, palvelut, karanteeni, treemap)
 ├── tools/
-│   └── make-icon.ps1               Generoi sovelluskuvakkeen src/Cleaner.UI/Assets/PcCleaner.ico
+│   ├── make-icon.ps1               Generoi palettikohtaiset kuvakkeet PcCleaner-<paletti>.ico ja PcCleaner.ico/.png (mint)
+│   └── snap-window.py              Ottaa sovellusikkunasta kuvakaappauksen PrintWindow-kutsulla
 └── docs/
     ├── ARCHITECTURE.md             Tekninen määrittely
     └── plans/                      Toteutussuunnitelmat
@@ -132,7 +135,7 @@ käynnistetty järjestelmänvalvojana. Ilman sitä ne vain ohitetaan.
 
 Oletuskieli on englanti. Windowsin kieli ei vaikuta siihen.
 
-- Graafisessa sovelluksessa navigaatiopaneelin alaosassa on valitsin `English`/`Suomi`. Se vaihtaa kielen heti
+- Graafisessa sovelluksessa asetussivulla on valitsin `English`/`Suomi`. Se vaihtaa kielen heti
   ilman uudelleenkäynnistystä ja tallentaa valinnan tiedostoon `%LOCALAPPDATA%\PcCleaner\settings.json`.
   Valitsin on pois käytöstä, kun ohjelma skannaa, puhdistaa, palauttaa tai odottaa poisto-ohjelmaa.
 - Komentorivillä lippu `--lang en|fi` valitsee kielen yhdelle ajolle ja ohittaa tallennetun valinnan, esimerkiksi
@@ -141,6 +144,31 @@ Oletuskieli on englanti. Windowsin kieli ei vaikuta siihen.
 
 Jo skannatut tulokset (kategorioiden nimet, kohteiden kuvaukset) ja jo kirjoitetut lokirivit jäävät kielelle, jolla
 ne syntyivät. Ne päivittyvät uudelle kielelle seuraavalla skannauksella.
+
+## Ulkoasu
+
+Navigointipaneelin rataskuvake avaa asetussivun. Siellä valitaan väripaletti, fontti ja kieli.
+
+- Paletit: Minttu (oletus), Indigo, Teräs, Grafiitti ja Aurinko. Jokaisella paletilla on vaalea ja tumma versio, ja
+  sovellus seuraa Windowsin vaalea/tumma-asetusta. Suuren kontrastin tilassa sovellus käyttää Windowsin järjestelmävärejä.
+- Fontit: Bahnschrift ja Segoe UI Variable (oletus, Bahnschrift otsikoissa ja luvuissa), Segoe UI Variable ja Inter.
+  Bahnschrift ja Segoe UI Variable kuuluvat Windows 11:een. Inter tulee sovelluksen mukana.
+- Vaihto näkyy heti koko ikkunassa ilman uudelleenkäynnistystä. Valitsimet ovat pois käytöstä, kun sovellus on kiireinen.
+- Otsikko- ja tehtäväpalkin kuvake seuraa palettia. Exen kuvake on aina minttu.
+
+Valinnat tallentuvat tiedostoon `%LOCALAPPDATA%\PcCleaner\settings.json` kenttiin `language`, `palette` ja `font`:
+
+```json
+{
+  "language": "fi",
+  "palette": "indigo",
+  "font": "inter"
+}
+```
+
+Paletin arvot ovat `mint`, `indigo`, `steel`, `graphite` ja `sun`. Fontin arvot ovat `bahnschrift`, `segoe` ja `inter`.
+Puuttuva tai tuntematon arvo antaa oletuksen (`mint`, `bahnschrift`), eikä sovellus kirjoita tiedostoa käynnistyksessä.
+Yhden asetuksen tallennus säilyttää muut kentät.
 
 ## Turvallisuusperiaatteet
 
@@ -176,3 +204,6 @@ Katso kentät tiedostosta `docs/ARCHITECTURE.md`.
 
 PC Cleaner on julkaistu MIT-lisenssillä, ks. [LICENSE](LICENSE). Ohjelma toimitetaan sellaisenaan ilman
 minkäänlaista takuuta, ja käyttö on omalla vastuulla.
+
+Inter-fontti (`src/Cleaner.UI/Assets/Fonts/InterVariable.ttf`) on SIL Open Font License 1.1 -lisenssillä, ks.
+`src/Cleaner.UI/Assets/Fonts/LICENSE-Inter.txt`.
