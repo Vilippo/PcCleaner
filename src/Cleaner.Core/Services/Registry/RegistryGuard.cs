@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Core.Services;
 
@@ -25,13 +26,13 @@ public static class RegistryGuard
     {
         if (!RegistryPaths.TryParse(path, out _, out var sub))
         {
-            reason = "Virheellinen rekisteripolku.";
+            reason = Loc.T("Invalid registry path.", "Virheellinen rekisteripolku.");
             return false;
         }
 
         if (sub.Length == 0)
         {
-            reason = "Hiven juurta ei koskaan poisteta.";
+            reason = Loc.T("The hive root is never deleted.", "Hiven juurta ei koskaan poisteta.");
             return false;
         }
 
@@ -39,7 +40,7 @@ public static class RegistryGuard
         {
             if (ForbiddenSegments.Any(f => f.Equals(segment, StringComparison.OrdinalIgnoreCase)))
             {
-                reason = $"Suojattu avain polussa: {segment}";
+                reason = Loc.T($"Protected key in path: {segment}", $"Suojattu avain polussa: {segment}");
                 return false;
             }
         }
@@ -60,7 +61,7 @@ public static class RegistryGuard
             }
         }
 
-        reason = "Polku ei ole minkään sallitun juuren alla.";
+        reason = Loc.T("Path is not under any allowed root.", "Polku ei ole minkään sallitun juuren alla.");
         return false;
     }
 }

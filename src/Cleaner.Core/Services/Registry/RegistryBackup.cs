@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using Cleaner.Core.Logging;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Core.Services;
 
@@ -45,7 +46,7 @@ public sealed class RegistryBackup
         var longPath = RegistryPaths.ToLongForm(keyPath);
         if (longPath is null)
         {
-            error = "Virheellinen rekisteripolku.";
+            error = Loc.T("Invalid registry path.", "Virheellinen rekisteripolku.");
             return false;
         }
 
@@ -58,18 +59,19 @@ public sealed class RegistryBackup
             if (exitCode != 0 || !File.Exists(file))
             {
                 _counter--;
-                error = $"reg export epäonnistui ({exitCode}): {output}";
+                var code = exitCode.ToString(Loc.Culture);
+                error = Loc.T($"reg export failed ({code}): {output}", $"reg export epäonnistui ({code}): {output}");
                 return false;
             }
 
             _exported.Add(keyPath);
             _manifest.Add($"{Path.GetFileName(file)}\t{keyPath}");
-            _log.Debug($"Varmuuskopio: {keyPath} → {file}");
+            _log.Debug(Loc.T($"Backup: {keyPath} → {file}", $"Varmuuskopio: {keyPath} → {file}"));
             return true;
         }
         catch (Exception ex)
         {
-            error = $"Varmuuskopio epäonnistui: {ex.Message}";
+            error = Loc.T($"Backup failed: {ex.Message}", $"Varmuuskopio epäonnistui: {ex.Message}");
             return false;
         }
     }
@@ -78,6 +80,9 @@ public sealed class RegistryBackup
     public void WriteManifest(IEnumerable<string> processedItems)
     {
         if (!HasFiles) return;
+        // manifest.txt on pysyvä tiedostomuoto: sisältö pysyy suomeksi kielestä riippumatta. List() jäsentää
+        // erotinrivin "Käsitellyt kohteet:", joten vanhat ja uudet varmuuskopiot luetaan samalla tavalla.
+        // Älä käännä näitä rivejä.
         var lines = new List<string>
         {
             $"PC Cleaner rekisterivarmuuskopio {Timestamp}",
@@ -107,8 +112,9 @@ public sealed class RegistryBackup
             if (File.Exists(manifest))
             {
                 var lines = File.ReadAllLines(manifest);
+                // Erotinrivi on manifestin pysyvää suomenkielistä muotoa (ks. WriteManifest), sitä ei käännetä.
                 var items = lines.SkipWhile(l => l != "Käsitellyt kohteet:").Skip(1).Count(l => l.Length > 0);
-                summary = $"{items} kohdetta";
+                summary = Loc.T($"{items} items", $"{items} kohdetta");
             }
             list.Add(new BackupInfo(Path.GetFileName(dir), dir, files, summary));
         }
@@ -124,7 +130,7 @@ public sealed class RegistryBackup
 
         if (!System.IO.Directory.Exists(dir))
         {
-            messages.Add($"Varmuuskopiota ei ole: {dir}");
+            messages.Add(Loc.T($"Backup not found: {dir}", $"Varmuuskopiota ei ole: {dir}"));
             return new RestoreResult(0, 0, messages);
         }
 
@@ -135,12 +141,15 @@ public sealed class RegistryBackup
             if (exitCode == 0)
             {
                 ok++;
-                log.Info($"Palautettu: {Path.GetFileName(file)}");
+                log.Info(Loc.T($"Restored: {Path.GetFileName(file)}", $"Palautettu: {Path.GetFileName(file)}"));
             }
             else
             {
                 failed++;
-                var msg = $"{Path.GetFileName(file)}: reg import epäonnistui ({exitCode}) {output}";
+                var code = exitCode.ToString(Loc.Culture);
+                var msg = Loc.T(
+                    $"{Path.GetFileName(file)}: reg import failed ({code}) {output}",
+                    $"{Path.GetFileName(file)}: reg import epäonnistui ({code}) {output}");
                 messages.Add(msg);
                 log.Warning(msg);
             }
@@ -167,7 +176,7 @@ public sealed class RegistryBackup
         if (!process.WaitForExit(60_000))
         {
             try { process.Kill(); } catch { }
-            return (-1, "aikakatkaisu");
+            return (-1, Loc.T("timed out", "aikakatkaisu"));
         }
         var output = (stdout + " " + stderr).Replace("\r", " ").Replace("\n", " ").Trim();
         return (process.ExitCode, output);

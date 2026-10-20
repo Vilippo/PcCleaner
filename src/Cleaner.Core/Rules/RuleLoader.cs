@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Core.Rules;
 
@@ -17,7 +18,7 @@ public static class RuleLoader
     public static RuleSet LoadFromFile(string path)
     {
         if (!File.Exists(path))
-            throw new FileNotFoundException($"Sääntötiedostoa ei löydy: {path}", path);
+            throw new FileNotFoundException(Loc.T($"Rule file not found: {path}", $"Sääntötiedostoa ei löydy: {path}"), path);
 
         var json = File.ReadAllText(path);
         return LoadFromJson(json, path);
@@ -26,7 +27,7 @@ public static class RuleLoader
     public static RuleSet LoadFromJson(string json, string sourceName = "<json>")
     {
         var set = JsonSerializer.Deserialize<RuleSet>(json, Options)
-                  ?? throw new InvalidDataException($"Sääntötiedosto on tyhjä: {sourceName}");
+                  ?? throw new InvalidDataException(Loc.T($"Rule file is empty: {sourceName}", $"Sääntötiedosto on tyhjä: {sourceName}"));
 
         Validate(set, sourceName);
         return set;
@@ -38,13 +39,13 @@ public static class RuleLoader
         foreach (var rule in set.Rules)
         {
             if (string.IsNullOrWhiteSpace(rule.Id))
-                throw new InvalidDataException($"{sourceName}: säännöltä puuttuu Id.");
+                throw new InvalidDataException(Loc.T($"{sourceName}: rule is missing an Id.", $"{sourceName}: säännöltä puuttuu Id."));
             if (!ids.Add(rule.Id))
-                throw new InvalidDataException($"{sourceName}: sääntö-Id '{rule.Id}' esiintyy kahdesti.");
+                throw new InvalidDataException(Loc.T($"{sourceName}: rule Id '{rule.Id}' appears twice.", $"{sourceName}: sääntö-Id '{rule.Id}' esiintyy kahdesti."));
             if (rule.Paths.Count == 0)
-                throw new InvalidDataException($"{sourceName}: säännöllä '{rule.Id}' ei ole polkuja.");
+                throw new InvalidDataException(Loc.T($"{sourceName}: rule '{rule.Id}' has no paths.", $"{sourceName}: säännöllä '{rule.Id}' ei ole polkuja."));
             if (rule.MinAgeHours < 0)
-                throw new InvalidDataException($"{sourceName}: säännön '{rule.Id}' MinAgeHours ei voi olla negatiivinen.");
+                throw new InvalidDataException(Loc.T($"{sourceName}: rule '{rule.Id}' MinAgeHours cannot be negative.", $"{sourceName}: säännön '{rule.Id}' MinAgeHours ei voi olla negatiivinen."));
         }
     }
 }

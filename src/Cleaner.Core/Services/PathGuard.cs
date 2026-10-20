@@ -1,3 +1,5 @@
+using Cleaner.Core.Localization;
+
 namespace Cleaner.Core.Services;
 
 /// <summary>
@@ -51,7 +53,7 @@ public static class PathGuard
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            reason = "Tyhjä polku.";
+            reason = Loc.T("Empty path.", "Tyhjä polku.");
             return false;
         }
 
@@ -59,7 +61,7 @@ public static class PathGuard
         try { full = Normalize(Path.GetFullPath(path)); }
         catch (Exception ex)
         {
-            reason = $"Virheellinen polku: {ex.Message}";
+            reason = Loc.T($"Invalid path: {ex.Message}", $"Virheellinen polku: {ex.Message}");
             return false;
         }
 
@@ -67,7 +69,7 @@ public static class PathGuard
         var root = Normalize(Path.GetPathRoot(full) ?? "");
         if (full == root)
         {
-            reason = "Levyn juurta ei poisteta.";
+            reason = Loc.T("The drive root is never deleted.", "Levyn juurta ei poisteta.");
             return false;
         }
 
@@ -75,13 +77,13 @@ public static class PathGuard
         {
             if (full == forbidden)
             {
-                reason = $"Suojattu kansio: {path}";
+                reason = Loc.T($"Protected folder: {path}", $"Suojattu kansio: {path}");
                 return false;
             }
             // Polku on suojatun kansion YLÄPUOLELLA (esim. C:\Users kun UserProfile on C:\Users\Matti).
             if (forbidden.StartsWith(full + "\\", StringComparison.Ordinal))
             {
-                reason = $"Polku sisältää suojatun kansion: {path}";
+                reason = Loc.T($"Path contains a protected folder: {path}", $"Polku sisältää suojatun kansion: {path}");
                 return false;
             }
         }

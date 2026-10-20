@@ -1,4 +1,5 @@
 using Cleaner.Core.Logging;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Core.Services;
 
@@ -23,13 +24,13 @@ public sealed class SafeFileDeleter
     {
         if (!PathGuard.IsSafeToDelete(path, out failReason))
         {
-            _log.Warning($"ESTETTY {path}: {failReason}");
+            _log.Warning(Loc.T($"BLOCKED {path}: {failReason}", $"ESTETTY {path}: {failReason}"));
             return false;
         }
 
         if (_dryRun)
         {
-            _log.Debug($"[KUIVA] Poistettaisiin tiedosto: {path}");
+            _log.Debug(Loc.T($"[DRY RUN] Would delete file: {path}", $"[KUIVA] Poistettaisiin tiedosto: {path}"));
             failReason = "";
             return true;
         }
@@ -41,7 +42,7 @@ public sealed class SafeFileDeleter
                 File.SetAttributes(path, attrs & ~FileAttributes.ReadOnly);
 
             File.Delete(path);
-            _log.Info($"Poistettu tiedosto: {path}");
+            _log.Info(Loc.T($"Deleted file: {path}", $"Poistettu tiedosto: {path}"));
             failReason = "";
             return true;
         }
@@ -53,19 +54,19 @@ public sealed class SafeFileDeleter
         }
         catch (UnauthorizedAccessException)
         {
-            failReason = "Ei oikeuksia";
+            failReason = Loc.T("Access denied", "Ei oikeuksia");
         }
         catch (IOException ex)
         {
             // Tyypillisesti tiedosto on toisen prosessin käytössä.
-            failReason = $"Käytössä tai IO-virhe: {ex.Message}";
+            failReason = Loc.T($"In use or I/O error: {ex.Message}", $"Käytössä tai IO-virhe: {ex.Message}");
         }
         catch (Exception ex)
         {
             failReason = ex.Message;
         }
 
-        _log.Warning($"Ohitettu {path}: {failReason}");
+        _log.Warning(Loc.T($"Skipped {path}: {failReason}", $"Ohitettu {path}: {failReason}"));
         return false;
     }
 
@@ -74,7 +75,7 @@ public sealed class SafeFileDeleter
     {
         if (!PathGuard.IsSafeToDelete(path, out var reason))
         {
-            _log.Warning($"ESTETTY {path}: {reason}");
+            _log.Warning(Loc.T($"BLOCKED {path}: {reason}", $"ESTETTY {path}: {reason}"));
             return false;
         }
 
@@ -85,17 +86,17 @@ public sealed class SafeFileDeleter
 
             if (_dryRun)
             {
-                _log.Debug($"[KUIVA] Poistettaisiin tyhjä kansio: {path}");
+                _log.Debug(Loc.T($"[DRY RUN] Would delete empty folder: {path}", $"[KUIVA] Poistettaisiin tyhjä kansio: {path}"));
                 return true;
             }
 
             Directory.Delete(path, recursive: false);
-            _log.Info($"Poistettu tyhjä kansio: {path}");
+            _log.Info(Loc.T($"Deleted empty folder: {path}", $"Poistettu tyhjä kansio: {path}"));
             return true;
         }
         catch (Exception ex)
         {
-            _log.Debug($"Kansion poisto ohitettu {path}: {ex.Message}");
+            _log.Debug(Loc.T($"Skipped deleting folder {path}: {ex.Message}", $"Kansion poisto ohitettu {path}: {ex.Message}"));
             return false;
         }
     }

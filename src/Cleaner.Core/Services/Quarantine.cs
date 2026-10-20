@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Cleaner.Core.Logging;
+using Cleaner.Core.Localization;
 
 [assembly: InternalsVisibleTo("Cleaner.Tests")]
 
@@ -12,7 +13,7 @@ namespace Cleaner.Core.Services;
 /// </summary>
 public sealed class Quarantine
 {
-    public const string AccessDeniedMessage = "Ei oikeuksia (tarvitsee järjestelmänvalvojan oikeudet)";
+    public static string AccessDeniedMessage => Loc.T("Access denied (requires administrator rights)", "Ei oikeuksia (tarvitsee järjestelmänvalvojan oikeudet)");
 
     public sealed record Entry(string Index, string OriginalPath, string QuarantinedPath, bool IsDirectory);
     public sealed record SessionInfo(string Timestamp, string Directory, int EntryCount);
@@ -53,7 +54,7 @@ public sealed class Quarantine
         quarantinedPath = "";
         if (!PathGuard.IsSafeToDelete(path, out error))
         {
-            _log.Warning($"ESTETTY {path}: {error}");
+            _log.Warning(Loc.T($"BLOCKED {path}: {error}", $"ESTETTY {path}: {error}"));
             return false;
         }
 
@@ -61,13 +62,13 @@ public sealed class Quarantine
         try { source = Path.GetFullPath(path).TrimEnd('\\', '/'); }
         catch (Exception ex)
         {
-            error = $"Virheellinen polku: {ex.Message}";
+            error = Loc.T($"Invalid path: {ex.Message}", $"Virheellinen polku: {ex.Message}");
             return false;
         }
 
         if (isDirectory ? !System.IO.Directory.Exists(source) : !File.Exists(source))
         {
-            error = $"Polkua ei ole: {source}";
+            error = Loc.T($"Path does not exist: {source}", $"Polkua ei ole: {source}");
             return false;
         }
 
@@ -84,20 +85,22 @@ public sealed class Quarantine
             case MoveResult.Moved:
                 Record();
                 quarantinedPath = target;
-                _log.Info($"Karanteeniin: {source} → {target}");
+                _log.Info(Loc.T($"Moved to quarantine: {source} → {target}", $"Karanteeniin: {source} → {target}"));
                 return true;
 
             case MoveResult.CopiedButSourceRemains:
                 // Kopio on kokonaan karanteenissa: paikka on käytetty ja merkintä kirjataan, jotta palautus löytää sen.
                 Record();
                 quarantinedPath = target;
-                error = $"Alkuperäisen poisto epäonnistui, kopio on karanteenissa: {target}. {error}";
-                _log.Warning($"Karanteenisiirto kesken {source}: {error}");
+                error = Loc.T(
+                    $"Failed to delete the original, the copy is in quarantine: {target}. {error}",
+                    $"Alkuperäisen poisto epäonnistui, kopio on karanteenissa: {target}. {error}");
+                _log.Warning(Loc.T($"Quarantine move incomplete {source}: {error}", $"Karanteenisiirto kesken {source}: {error}"));
                 return false;
 
             default:
                 if (!sessionExisted) TryDeleteEmptyDirectory(Directory);
-                _log.Warning($"Karanteenisiirto epäonnistui {source}: {error}");
+                _log.Warning(Loc.T($"Quarantine move failed {source}: {error}", $"Karanteenisiirto epäonnistui {source}: {error}"));
                 return false;
         }
 
@@ -146,7 +149,7 @@ public sealed class Quarantine
         }
         catch (Exception ex)
         {
-            error = copied ? ex.Message : $"Siirto epäonnistui: {ex.Message}";
+            error = copied ? ex.Message : Loc.T($"Move failed: {ex.Message}", $"Siirto epäonnistui: {ex.Message}");
         }
 
         // Kopio valmis, mutta lähteen poisto epäonnistui: kopiota ei poisteta, koska lähde voi olla
@@ -198,6 +201,8 @@ public sealed class Quarantine
     public void WriteManifest(IEnumerable<string> processedItems)
     {
         if (!HasEntries) return;
+        // manifest.txt on pysyvä tiedostomuoto: sisältö pysyy suomeksi kielestä riippumatta, jotta
+        // vanhat ja uudet karanteenit luetaan samalla tavalla. Älä käännä näitä rivejä.
         var lines = new List<string>
         {
             $"PC Cleaner karanteeni {Timestamp}",
@@ -258,7 +263,7 @@ public sealed class Quarantine
 
         if (!File.Exists(Path.Combine(dir, "manifest.txt")))
         {
-            messages.Add($"Karanteenia ei ole: {dir}");
+            messages.Add(Loc.T($"Quarantine not found: {dir}", $"Karanteenia ei ole: {dir}"));
             return new RestoreResult(0, 0, messages);
         }
 
@@ -271,7 +276,9 @@ public sealed class Quarantine
             if (!quarantined.StartsWith(sessionPrefix, StringComparison.OrdinalIgnoreCase))
             {
                 skipped++;
-                Report($"Ohitettu, karanteenipolku ei ole session kansiossa: {manifestEntry.QuarantinedPath}");
+                Report(Loc.T(
+                    $"Skipped, quarantine path is not inside the session folder: {manifestEntry.QuarantinedPath}",
+                    $"Ohitettu, karanteenipolku ei ole session kansiossa: {manifestEntry.QuarantinedPath}"));
                 continue;
             }
             var entry = manifestEntry with { QuarantinedPath = quarantined };
@@ -282,21 +289,21 @@ public sealed class Quarantine
             if (!present)
             {
                 skipped++;
-                Report($"Ohitettu, karanteenikohdetta ei löydy: {entry.QuarantinedPath}");
+                Report(Loc.T($"Skipped, quarantined item not found: {entry.QuarantinedPath}", $"Ohitettu, karanteenikohdetta ei löydy: {entry.QuarantinedPath}"));
                 continue;
             }
 
             if (System.IO.Directory.Exists(entry.OriginalPath) || File.Exists(entry.OriginalPath))
             {
                 skipped++;
-                Report($"Ohitettu, polku on jo olemassa: {entry.OriginalPath}");
+                Report(Loc.T($"Skipped, path already exists: {entry.OriginalPath}", $"Ohitettu, polku on jo olemassa: {entry.OriginalPath}"));
                 continue;
             }
 
             if (!PathGuard.IsSafeToDelete(entry.QuarantinedPath, out var reason))
             {
                 skipped++;
-                Report($"ESTETTY {entry.QuarantinedPath}: {reason}");
+                Report(Loc.T($"BLOCKED {entry.QuarantinedPath}: {reason}", $"ESTETTY {entry.QuarantinedPath}: {reason}"));
                 continue;
             }
 
@@ -305,15 +312,15 @@ public sealed class Quarantine
             if (moved == MoveResult.NotMoved)
             {
                 skipped++;
-                Report($"Palautus epäonnistui {entry.OriginalPath}: {error}");
+                Report(Loc.T($"Restore failed {entry.OriginalPath}: {error}", $"Palautus epäonnistui {entry.OriginalPath}: {error}"));
                 continue;
             }
 
             restored++;
-            log.Info($"Palautettu: {entry.OriginalPath}");
+            log.Info(Loc.T($"Restored: {entry.OriginalPath}", $"Palautettu: {entry.OriginalPath}"));
             if (moved == MoveResult.CopiedButSourceRemains)
             {
-                Report($"Karanteenikopiota ei voitu poistaa {entry.QuarantinedPath}: {error}");
+                Report(Loc.T($"Could not delete the quarantine copy {entry.QuarantinedPath}: {error}", $"Karanteenikopiota ei voitu poistaa {entry.QuarantinedPath}: {error}"));
                 continue;
             }
 

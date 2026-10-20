@@ -1,5 +1,6 @@
 using Cleaner.Core.Abstractions;
 using Cleaner.Core.Models;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Core.Engine;
 
@@ -35,9 +36,11 @@ public sealed class CleanerEngine
             ct.ThrowIfCancellationRequested();
 
             if (module.RequiresAdmin && !context.IsElevated)
-                context.Logger.Warning($"Moduuli '{module.Id}' tarvitsee järjestelmänvalvojan oikeudet – osa kohteista voi jäädä löytymättä.");
+                context.Logger.Warning(Loc.T(
+                    $"Module '{module.Id}' requires administrator rights. Some items may not be found.",
+                    $"Moduuli '{module.Id}' tarvitsee järjestelmänvalvojan oikeudet – osa kohteista voi jäädä löytymättä."));
 
-            context.Logger.Info($"Skannataan: {module.DisplayName}");
+            context.Logger.Info(Loc.T($"Scanning: {module.DisplayName}", $"Skannataan: {module.DisplayName}"));
             try
             {
                 results.Add(await module.ScanAsync(context, ct).ConfigureAwait(false));
@@ -45,7 +48,7 @@ public sealed class CleanerEngine
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                context.Logger.Error($"Moduuli '{module.Id}' kaatui skannauksessa: {ex}");
+                context.Logger.Error(Loc.T($"Module '{module.Id}' crashed during scan: {ex}", $"Moduuli '{module.Id}' kaatui skannauksessa: {ex}"));
                 var failed = new ScanResult { ModuleId = module.Id };
                 failed.Errors.Add(ex.Message);
                 results.Add(failed);
@@ -73,11 +76,15 @@ public sealed class CleanerEngine
             var module = GetModule(group.Key);
             if (module is null)
             {
-                context.Logger.Error($"Tuntematon moduuli '{group.Key}' – {group.Count()} kohdetta ohitettu.");
+                context.Logger.Error(Loc.T(
+                    $"Unknown module '{group.Key}'. {group.Count()} items skipped.",
+                    $"Tuntematon moduuli '{group.Key}' – {group.Count()} kohdetta ohitettu."));
                 continue;
             }
 
-            context.Logger.Info($"{(context.DryRun ? "[KUIVA] " : "")}Puhdistetaan: {module.DisplayName} ({group.Count()} kohdetta)");
+            context.Logger.Info(Loc.T(
+                $"{(context.DryRun ? "[DRY RUN] " : "")}Cleaning: {module.DisplayName} ({group.Count()} items)",
+                $"{(context.DryRun ? "[KUIVA] " : "")}Puhdistetaan: {module.DisplayName} ({group.Count()} kohdetta)"));
             try
             {
                 results.Add(await module.CleanAsync(group.ToList(), context, ct).ConfigureAwait(false));
@@ -85,7 +92,7 @@ public sealed class CleanerEngine
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                context.Logger.Error($"Moduuli '{module.Id}' kaatui puhdistuksessa: {ex}");
+                context.Logger.Error(Loc.T($"Module '{module.Id}' crashed during cleaning: {ex}", $"Moduuli '{module.Id}' kaatui puhdistuksessa: {ex}"));
                 var failed = new CleanResult { ModuleId = module.Id, WasDryRun = context.DryRun };
                 failed.Errors.Add(ex.Message);
                 results.Add(failed);
@@ -102,7 +109,9 @@ public sealed class CleanerEngine
         var list = new List<ICleanerModule>();
         foreach (var id in ids)
         {
-            var m = GetModule(id) ?? throw new ArgumentException($"Tuntematon moduuli: '{id}'. Käytettävissä: {string.Join(", ", _modules.Keys)}");
+            var m = GetModule(id) ?? throw new ArgumentException(Loc.T(
+                $"Unknown module: '{id}'. Available: {string.Join(", ", _modules.Keys)}",
+                $"Tuntematon moduuli: '{id}'. Käytettävissä: {string.Join(", ", _modules.Keys)}"));
             list.Add(m);
         }
         return list.Count == 0 ? _modules.Values.ToList() : list;

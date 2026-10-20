@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Cleaner.Core.Logging;
+using Cleaner.Core.Localization;
 
 namespace Cleaner.Core.Services;
 
@@ -37,7 +38,7 @@ public static class BackupSessions
         var hasQuarantine = System.IO.Directory.Exists(Path.Combine(quarantineRoot ?? Quarantine.DefaultRoot, timestamp));
 
         if (!hasRegistry && !hasQuarantine)
-            return new RestoreResult(0, 0, 0, 0, new[] { $"Varmuuskopiota ei ole: {timestamp}" });
+            return new RestoreResult(0, 0, 0, 0, new[] { Loc.T($"Backup not found: {timestamp}", $"Varmuuskopiota ei ole: {timestamp}") });
 
         var messages = new List<string>();
         int imported = 0, failed = 0, restored = 0, skipped = 0;
@@ -64,8 +65,8 @@ public static class BackupSessions
     private static string Summarize(int registryFiles, int quarantineEntries)
     {
         var parts = new List<string>();
-        if (registryFiles > 0) parts.Add($"{registryFiles} .reg-tiedostoa");
-        if (quarantineEntries > 0) parts.Add($"{quarantineEntries} karanteenikohdetta");
+        if (registryFiles > 0) parts.Add(Loc.T($"{registryFiles} .reg files", $"{registryFiles} .reg-tiedostoa"));
+        if (quarantineEntries > 0) parts.Add(Loc.T($"{quarantineEntries} quarantine items", $"{quarantineEntries} karanteenikohdetta"));
         return string.Join(", ", parts);
     }
 }
