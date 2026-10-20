@@ -11,7 +11,7 @@ public static class ProcessGuard
     /// <summary>Windows-kansio. Testit ylikirjoittavat tämän.</summary>
     internal static string WindowsDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
 
-    /// <summary>Syy suomeksi tai null, kun prosessia saa listata ja lopettaa.</summary>
+    /// <summary>Syy nykyisellä kielellä (Loc.T) tai null, kun prosessia saa listata ja lopettaa.</summary>
     public static string? Protects(ProcessInfo info, ProcessSnapshot snapshot)
     {
         // OwnParentPid kattaa myös jo päättyneen vanhemman; OwnAncestorPids koko elossa olevan ketjun (pääte, jonka

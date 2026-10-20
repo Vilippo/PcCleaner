@@ -2,7 +2,7 @@ using Cleaner.Core.Localization;
 
 namespace Cleaner.Modules.Processes;
 
-/// <summary>Kategorioiden nimet ja kohteen kuvaus suomeksi.</summary>
+/// <summary>Kategorioiden nimet ja kohteen kuvaus nykyisellä kielellä (Loc.T).</summary>
 public static class ProcessDescription
 {
     private const string Separator = " · ";

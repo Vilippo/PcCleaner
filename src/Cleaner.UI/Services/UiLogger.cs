@@ -26,7 +26,7 @@ public sealed class UiLogger : ICleanerLogger
     public void Log(LogLevel level, string message)
     {
         if (level < _minLevel) return;
-        var line = $"{DateTime.Now:HH:mm:ss} {Tag(level)} {message}";
+        var line = string.Create(Loc.Culture, $"{DateTime.Now:HH:mm:ss} {Tag(level)} {message}");
         _dispatcher.TryEnqueue(() =>
         {
             Lines.Add(line);

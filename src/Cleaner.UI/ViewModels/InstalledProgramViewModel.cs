@@ -14,7 +14,7 @@ public sealed partial class InstalledProgramViewModel : ObservableObject
     public string Version => Program.Version ?? "";
     public string Publisher => Program.Publisher ?? "";
     public string SizeText => Program.EstimatedSizeBytes > 0 ? ByteFormatter.Format(Program.EstimatedSizeBytes) : "";
-    public string InstallDateText => Program.InstallDate?.ToString(Loc.T("yyyy-MM-dd", "d.M.yyyy")) ?? "";
+    public string InstallDateText => Program.InstallDate?.ToString(Loc.T("yyyy-MM-dd", "d.M.yyyy"), Loc.Culture) ?? "";
 
     /// <summary>Asennuspäivän työkaluvihje. Tulee tästä, koska DataTemplate ei näe MainViewModelin tekstejä.</summary>
     public string InstallDateToolTip => Loc.T("Install date", "Asennuspäivä");

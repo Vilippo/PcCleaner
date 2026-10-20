@@ -56,8 +56,7 @@ public static class UninstallCommand
             Console.WriteLine(Loc.T($"Starting uninstaller: {program.Name}", $"Käynnistetään poisto-ohjelma: {program.Name}"));
             var run = await module.RunUninstallerAsync(program, options.Quiet, context, CancellationToken.None);
             Console.WriteLine(run.ExitCode is { } code
-                ? Loc.T($"  Uninstaller exited with code {code} ({run.Elapsed.TotalSeconds:0} s)",
-                        $"  Poisto-ohjelma päättyi koodilla {code} ({run.Elapsed.TotalSeconds:0} s)")
+                ? string.Create(Loc.Culture, $"{Loc.T("  Uninstaller exited with code", "  Poisto-ohjelma päättyi koodilla")} {code} ({run.Elapsed.TotalSeconds:0} s)")
                 : Loc.T("  Uninstaller did not start", "  Poisto-ohjelma ei käynnistynyt"));
             Console.WriteLine($"  {Loc.T("Uninstall key removed:", "Uninstall-avain poistui:")} {(run.KeyRemoved ? Loc.T("yes", "kyllä") : Loc.T("no", "ei"))}");
             if (run.Error is not null)
@@ -164,7 +163,7 @@ public static class UninstallCommand
         foreach (var p in programs)
         {
             var size = p.EstimatedSizeBytes > 0 ? ByteFormatter.Format(p.EstimatedSizeBytes) : "";
-            var date = p.InstallDate?.ToString("yyyy-MM-dd") ?? "";
+            var date = p.InstallDate?.ToString("yyyy-MM-dd", Loc.Culture) ?? "";
             Console.WriteLine($"{Fit(p.Name, 40),-40} {Fit(p.Version ?? "", 16),-16} {Fit(p.Publisher ?? "", 30),-30} {date,-10} {size,10}  {p.KeyPath}");
         }
         Console.WriteLine(Loc.T($"({programs.Count} programs)", $"({programs.Count} ohjelmaa)"));

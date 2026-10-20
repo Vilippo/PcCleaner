@@ -6,7 +6,7 @@ Lisenssi: MIT, ks. `LICENSE` repon juuressa.
 
 ## 1. Tavoite
 
-Oma siivousohjelma Windows 11:lle (vrt. CCleaner), jossa jokainen ominaisuus on itsenäinen
+Modulaarinen siivousohjelma Windows 11:lle (vrt. CCleaner), jossa jokainen ominaisuus on itsenäinen
 moduuli. Ydin ei tiedä moduuleista mitään etukäteen, joten uuden ominaisuuden lisääminen
 ei vaadi muutoksia olemassa olevaan koodiin.
 
@@ -106,9 +106,11 @@ vanhempia kuin Y", eikä sitä kannata koodata uudestaan.
   "rules": [
     {
       "id": "user-temp",                 // vakaa tunniste
-      "name": "Käyttäjän väliaikaistiedostot",
+      "name": "User temporary files",    // englanniksi
+      "nameFi": "Käyttäjän väliaikaistiedostot", // valinnainen suomenkielinen nimi
       "category": "Windows",             // ryhmä käyttöliittymässä
-      "description": "Miksi tämä on turvallista poistaa",
+      "description": "Why this is safe to remove", // englanniksi
+      "descriptionFi": "Miksi tämä on turvallista poistaa", // valinnainen suomenkielinen kuvaus
       "paths": [ "%TEMP%" ],             // ympäristömuuttujat + yksi * kansiotasolla
       "patterns": [ "*.tmp" ],           // tyhjä = kaikki tiedostot
       "recursive": true,
@@ -122,6 +124,9 @@ vanhempia kuin Y", eikä sitä kannata koodata uudestaan.
   ]
 }
 ```
+
+`name` ja `description` ovat englanniksi. Kentät `nameFi` ja `descriptionFi` ovat valinnaisia; jos ne puuttuvat,
+englanninkielinen teksti näytetään myös suomeksi.
 
 `RuleLoader` validoi: Id pakollinen ja yksilöllinen, vähintään yksi polku, `minAgeHours ≥ 0`.
 Kommentit ja loppupilkut sallitaan. Testi `Shipped_rule_files_are_valid` varmistaa, että
@@ -348,7 +353,7 @@ ja kategorian sisällä muistin mukaan suurin ensin.
 
 Sääntötiedosto `rules/processes/known.json` (`ProcessRuleLoader`): kentät `id` (pakollinen, yksilöllinen), `name` (pakollinen),
 `match` (vähintään yksi prosessin nimen jokerikuvio, `*` ja `?`, kirjainkoko ei merkitse, `.exe` saa puuttua), `description`
-ja `risk` (oletus Medium). Toimitetut säännöt: `google-crash-handler`, `adobe-ipc-broker`, `adobe-ccx-process`,
+(englanniksi), `descriptionFi` (valinnainen, puuttuessa käytetään `description`-arvoa) ja `risk` (oletus Medium). Toimitetut säännöt: `google-crash-handler`, `adobe-ipc-broker`, `adobe-ccx-process`,
 `adobe-collab-sync`, `steam-webhelper` (Low) ja `discord-helper` (Low). Tiedosto on alikansiossa, koska testi
 `Shipped_rule_files_are_valid` lukee `rules\*.json`-juuren tiedostot tiedostosääntöinä.
 
@@ -369,7 +374,8 @@ Lopetus (`CleanAsync`, `ProcessTerminator`) kohde kerrallaan:
    eikä muuta juuren tulosta.
 
 Turvamekanismit:
-- Kuiva ajo ei lopeta mitään. Loki kirjaa "[KUIVA] Lopetettaisiin <nimi> (PID n) <polku>" ja kohde menee `Removed`-listalle.
+- Kuiva ajo ei lopeta mitään. Loki kirjaa "[DRY RUN] Would end <nimi> (PID n) <polku>" (englanti) tai
+  "[KUIVA] Lopetettaisiin <nimi> (PID n) <polku>" (suomi), ja kohde menee `Removed`-listalle.
 - Jokainen lopetus kirjataan lokiin muodossa "Lopetettiin <nimi> (PID n): <polku>", aliprosessit omalla rivillään.
 - PID yksin ei koskaan riitä. Tunnisteen käynnistysaika estää kierrätetyn PID:n lopettamisen sekä skannauksen ja lopetuksen
   välissä että lopettajassa.
@@ -383,10 +389,11 @@ Turvamekanismit:
   Moduulit `UiModuleFactory`-luokan kautta; se lataa kaikki säännöt, myös `enabledByDefault: false`.
 - `app.manifest`: `requireAdministrator` (käyttäjän päätös 19.10.2026), UI käynnistyy aina korotettuna. InfoBar ja
   "Käynnistä uudelleen järjestelmänvalvojana" ovat yhä koodissa tavallisen käyttäjän varalle.
-- `MainWindow.xaml`: InfoBar (tavallinen käyttäjä + nappi "Käynnistä uudelleen järjestelmänvalvojana",
-  ShellExecute `runas`), NavigationView moduuleille, oikealla moduulin otsikko, huomautukset, kategoriat
-  Expandereina (valintaruutu kategorialle ja riveille), erillinen oletuksena suljettu "Korkean riskin kohteet"
-  -lohko, alapalkissa ProgressBar + Peruuta, valinnan yhteenveto, **Skannaa** ja **Puhdista**, lokinäkymä.
+- `MainWindow.xaml`: InfoBar (tavallinen käyttäjä + nappi "Restart as administrator" / "Käynnistä uudelleen
+  järjestelmänvalvojana", ShellExecute `runas`), NavigationView moduuleille ja sen PaneFooter-alueella kielivalitsin
+  (English/Suomi), oikealla moduulin otsikko, huomautukset, kategoriat Expandereina (valintaruutu kategorialle ja
+  riveille), erillinen oletuksena suljettu "High-risk items" / "Korkean riskin kohteet" -lohko, alapalkissa
+  ProgressBar + Cancel/Peruuta, valinnan yhteenveto, **Scan**/**Skannaa** ja **Clean**/**Puhdista**, lokinäkymä.
 - ViewModelit: `MainViewModel` (engine, komennot, `Progress<T>` → ProgressBar, `CancellationTokenSource` → Peruuta),
   `ModuleViewModel` (viimeisin `ScanResult` kategorioina, valinnan summa), `CategoryViewModel`
   (enintään 500 näkyvää riviä, kolmitilainen valintaruutu), `ItemViewModel`.
@@ -425,7 +432,8 @@ Turvamekanismit:
   (idempotentti skannaus, kuiva ajo, karanteeni + rekisteri + palautus, väärennetyt tunnisteet). Rekisteritestit
   käyttävät `HKCU\Software\PcCleanerTests\<guid>`-avainta, tiedostotestit `%TEMP%\pccleaner-tests\<guid>`-kansiota.
 - UI:lla ei ole yksikkötestejä. Savutesti tehdään UI Automationilla (PowerShell `System.Windows.Automation`:
-  Invoke "Skannaa", Toggle valintaruutu, Invoke "Puhdista", lue dialogin tekstit, Invoke "Peruuta").
+  Invoke "Scan", Toggle valintaruutu, Invoke "Clean", lue dialogin tekstit, Invoke "Cancel"). Nimet ovat
+  oletuskielellä englanniksi; suomeksi ne ovat "Skannaa", "Puhdista" ja "Peruuta".
 - Manuaalinen testi ennen julkaisua: `scan` tavallisena käyttäjänä ja adminina, `clean` kuivana,
   `clean --apply` vasta kun kuivan ajon lista on luettu läpi.
 
