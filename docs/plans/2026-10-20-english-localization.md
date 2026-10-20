@@ -375,7 +375,7 @@ public readonly record struct LocalizedText(string En, string Fi) // ToString() 
 ```
 
 ### T3: Coren palveluiden tekstit
-- Status: pending
+- Status: done e47f4ad
 - Model: opus
 - Requirements: REQ-6
 - Constraints/edge: CON-2
@@ -423,7 +423,7 @@ public readonly record struct LocalizedText(string En, string Fi) // ToString() 
   polku, kauttaviiva lopussa). Älä aja `dotnet test` tai koko ratkaisun buildia.
 
 ### T4: Tiedostomoduulit ja sääntötiedostot
-- Status: pending
+- Status: done 2501cd4
 - Model: opus
 - Requirements: REQ-7, REQ-8
 - Constraints/edge: EDGE-2
@@ -473,7 +473,7 @@ public readonly record struct LocalizedText(string En, string Fi) // ToString() 
     tehtävät rakentavat muita projekteja. Älä aja `dotnet test` tai koko ratkaisun buildia.
 
 ### T5: Käynnistysohjelmat-moduuli
-- Status: pending
+- Status: done f20c7de
 - Model: opus
 - Requirements: REQ-9
 - Files: src/Cleaner.Modules.Startup/StartupModule.cs, src/Cleaner.Modules.Startup/StartupSource.cs, src/Cleaner.Modules.Startup/StoreStartupTaskSource.cs, src/Cleaner.Modules.Startup/TaskSchedulerSource.cs
@@ -511,7 +511,7 @@ public readonly record struct LocalizedText(string En, string Fi) // ToString() 
     koko ratkaisun buildia.
 
 ### T6: Levytilan analyysi -moduuli
-- Status: pending
+- Status: done 42e999e
 - Model: opus
 - Requirements: REQ-10, REQ-14
 - Files: src/Cleaner.Modules.DiskUsage/DiskUsageModule.cs
@@ -545,7 +545,7 @@ public readonly record struct LocalizedText(string En, string Fi) // ToString() 
     koko ratkaisun buildia.
 
 ### T7: Rekisterin puhdistus -moduuli
-- Status: pending
+- Status: done a4d8b60
 - Model: opus
 - Requirements: REQ-11
 - Files: src/Cleaner.Modules.Registry/RegistryModule.cs
@@ -579,7 +579,7 @@ public readonly record struct LocalizedText(string En, string Fi) // ToString() 
     koko ratkaisun buildia.
 
 ### T8: Ohjelman poisto -moduuli
-- Status: pending
+- Status: done 3b0f030
 - Model: opus
 - Requirements: REQ-12
 - Files: src/Cleaner.Modules.Uninstall/UninstallModule.cs, src/Cleaner.Modules.Uninstall/LeftoverScanner.cs, src/Cleaner.Modules.Uninstall/LeftoverGuard.cs, src/Cleaner.Modules.Uninstall/UninstallRunner.cs
@@ -616,7 +616,7 @@ public readonly record struct LocalizedText(string En, string Fi) // ToString() 
     koko ratkaisun buildia.
 
 ### T9: Prosessit-moduuli ja prosessisäännöt
-- Status: pending
+- Status: done 5d0a757
 - Model: opus
 - Requirements: REQ-13
 - Files: src/Cleaner.Modules.Processes/ProcessesModule.cs, src/Cleaner.Modules.Processes/ProcessDescription.cs, src/Cleaner.Modules.Processes/ProcessGuard.cs, src/Cleaner.Modules.Processes/ProcessTerminator.cs, src/Cleaner.Modules.Processes/ProcessInventory.cs, src/Cleaner.Modules.Processes/ProcessRuleLoader.cs, src/Cleaner.Modules.Processes/ProcessRule.cs, src/Cleaner.Modules.Processes/rules/processes/known.json
